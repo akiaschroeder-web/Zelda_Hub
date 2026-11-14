@@ -25,6 +25,7 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
     hp: p.hp ?? PIECE_STATS[p.type].maxHp,
     maxHp: PIECE_STATS[p.type].maxHp,
     shields: p.shields ?? 0,
+    used: [],
   }));
   // Every square of every footprint must be open terrain and unshared.
   const taken = new Set<string>();
@@ -54,8 +55,11 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
 
 /**
  * Parse a piece layout drawn as text, one row per string (top row first).
- * Uppercase = player, lowercase = enemy: K Q R B N P, J = Juggernaut (top-left
- * square of its 2x2 footprint; leave the other three squares as '.').
+ * Uppercase = player, lowercase = enemy.
+ *   K Q R B N P  traditional pieces
+ *   J  Juggernaut (top-left square of its 2x2 footprint; leave the rest '.')
+ *   A Archer   G Guardian   L Lancer   S Siege Engine
+ *   M Mage     W Switcher   C Chancellor   H Medic (healer)
  */
 export function parsePlacements(rows: string[]): Placement[] {
   const types: Record<string, PieceType> = {
@@ -66,6 +70,14 @@ export function parsePlacements(rows: string[]): Placement[] {
     n: 'knight',
     p: 'pawn',
     j: 'juggernaut',
+    a: 'archer',
+    g: 'guardian',
+    l: 'lancer',
+    s: 'siege',
+    m: 'mage',
+    w: 'switcher',
+    c: 'chancellor',
+    h: 'medic',
   };
   const out: Placement[] = [];
   rows.forEach((row, y) => {

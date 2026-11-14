@@ -1,6 +1,7 @@
-import { inBounds, isStandable, isWall, occupancy } from './board';
+import { inBounds, isStandable, isWall, occupancy, terrainAt } from './board';
 import { PIECE_STATS, footprint, sizeOf } from './pieces';
 import {
+  AbilityId,
   Coord,
   GameResult,
   GameState,
@@ -8,6 +9,7 @@ import {
   Piece,
   PromotionType,
   Side,
+  Terrain,
   coordKey,
   forward,
   opponent,
@@ -27,6 +29,10 @@ const DIAG: Coord[] = [
   { x: -1, y: -1 },
 ];
 const ALL_DIRS = [...ORTHO, ...DIAG];
+const SIDEWAYS: Coord[] = [
+  { x: 1, y: 0 },
+  { x: -1, y: 0 },
+];
 const KNIGHT_JUMPS: Coord[] = [
   { x: 1, y: 2 },
   { x: 2, y: 1 },
@@ -40,10 +46,25 @@ const KNIGHT_JUMPS: Coord[] = [
 
 export const PROMOTION_TYPES: PromotionType[] = ['queen', 'rook', 'bishop', 'knight'];
 
+/** Mage teleport range and Switcher swap range (King-style distance). */
+const TELEPORT_RANGE = 3;
+const SWAP_RANGE = 2;
+
 type Occ = Map<string, Piece>;
 
 const add = (a: Coord, b: Coord): Coord => ({ x: a.x + b.x, y: a.y + b.y });
+const scale = (a: Coord, k: number): Coord => ({ x: a.x * k, y: a.y * k });
 const at = (occ: Occ, c: Coord) => occ.get(coordKey(c));
+/** King-style distance between two squares. */
+export const distance = (a: Coord, b: Coord) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+export const hasUsed = (p: Piece, a: AbilityId) => p.used.includes(a);
+
+/** Whether two pieces' footprints touch (including diagonally). */
+export function adjacent(a: Piece, b: Piece): boolean {
+  for (const ca of footprint(a)) for (const cb of footprint(b)) if (distance(ca, cb) === 1) return true;
+  return false;
+}
 
 /**
  * A Knight jump is blocked when any wall (solid or cracked) lies inside the
@@ -73,6 +94,92 @@ export function bounceSquare(from: Coord, to: Coord, leaper: boolean): Coord {
   return { x: to.x - Math.sign(dx) * back, y: to.y - Math.sign(dy) * back };
 }
 
+// ---------------------------------------------------------------------------
+// Movement patterns
+// ---------------------------------------------------------------------------
+
+/** A square a piece's ordinary movement can reach. */
+interface Step {
+  to: Coord;
+  /** false = may only move onto an empty square (e.g. the Archer's step). */
+  canCapture: boolean;
+  /** Leapers return to their start square when bounced. */
+  leap: boolean;
+}
+
+function slideSteps(state: GameState, occ: Occ, p: Piece, dirs: Coord[], max = Infinity): Step[] {
+  const out: Step[] = [];
+  for (const d of dirs) {
+    let c = add(p.pos, d);
+    for (let n = 1; n <= max && inBounds(state.board, c) && isStandable(state.board, c); n++) {
+      out.push({ to: c, canCapture: true, leap: false });
+      if (at(occ, c)) break;
+      c = add(c, d);
+    }
+  }
+  return out;
+}
+
+function adjacentSteps(state: GameState, p: Piece, dirs: Coord[], canCapture = true): Step[] {
+  return dirs
+    .map((d) => add(p.pos, d))
+    .filter((c) => isStandable(state.board, c))
+    .map((to) => ({ to, canCapture, leap: false }));
+}
+
+function knightSteps(state: GameState, p: Piece): Step[] {
+  return KNIGHT_JUMPS.map((j) => add(p.pos, j))
+    .filter((c) => isStandable(state.board, c) && knightPathClear(state, p.pos, c))
+    .map((to) => ({ to, canCapture: true, leap: true }));
+}
+
+/** Lancer: exactly 2 or 3 squares orthogonally, over pieces and gaps but not walls. */
+function lancerSteps(state: GameState, p: Piece): Step[] {
+  const out: Step[] = [];
+  for (const d of ORTHO) {
+    for (const n of [2, 3]) {
+      const to = add(p.pos, scale(d, n));
+      if (!isStandable(state.board, to)) continue;
+      let blocked = false;
+      for (let i = 1; i < n; i++) if (isWall(state.board, add(p.pos, scale(d, i)))) blocked = true;
+      if (!blocked) out.push({ to, canCapture: true, leap: true });
+    }
+  }
+  return out;
+}
+
+/** Ordinary movement for every 1x1 piece except the Pawn (which has its own rules). */
+function stepsFor(state: GameState, occ: Occ, p: Piece): Step[] {
+  switch (p.type) {
+    case 'knight':
+      return knightSteps(state, p);
+    case 'bishop':
+      return slideSteps(state, occ, p, DIAG);
+    case 'rook':
+      return slideSteps(state, occ, p, ORTHO);
+    case 'queen':
+      return slideSteps(state, occ, p, ALL_DIRS);
+    case 'king':
+    case 'guardian':
+    case 'switcher':
+      return adjacentSteps(state, p, ALL_DIRS);
+    case 'archer':
+      return adjacentSteps(state, p, DIAG, false);
+    case 'lancer':
+      return lancerSteps(state, p);
+    case 'siege':
+      return adjacentSteps(state, p, ORTHO);
+    case 'mage':
+      return slideSteps(state, occ, p, DIAG, 2);
+    case 'chancellor':
+      return [...slideSteps(state, occ, p, ORTHO), ...knightSteps(state, p)];
+    case 'medic':
+      return adjacentSteps(state, p, [...DIAG, ...SIDEWAYS]);
+    default:
+      return [];
+  }
+}
+
 /** Destinations a multi-square piece can step to (orthogonal, one square). */
 function heavySteps(state: GameState, occ: Occ, p: Piece): { to: Coord; targets: string[] }[] {
   const out: { to: Coord; targets: string[] }[] = [];
@@ -98,58 +205,38 @@ function heavySteps(state: GameState, occ: Occ, p: Piece): { to: Coord; targets:
   return out;
 }
 
-/** Squares a piece attacks (could hit on its next move), ignoring check legality. */
-function attackSquares(state: GameState, occ: Occ, p: Piece): Coord[] {
+/** Archer: enemies exactly 2 squares away orthogonally; walls between block the shot. */
+function shotSquares(state: GameState, p: Piece): Coord[] {
+  if (p.type !== 'archer') return [];
   const out: Coord[] = [];
-  const slide = (dirs: Coord[]) => {
-    for (const d of dirs) {
-      let c = add(p.pos, d);
-      while (inBounds(state.board, c) && isStandable(state.board, c)) {
-        out.push(c);
-        if (at(occ, c)) break;
-        c = add(c, d);
-      }
-    }
-  };
-  switch (p.type) {
-    case 'pawn': {
-      const f = forward(p.side);
-      for (const dx of [-1, 1]) {
-        const c = { x: p.pos.x + dx, y: p.pos.y + f };
-        if (isStandable(state.board, c)) out.push(c);
-      }
-      break;
-    }
-    case 'knight':
-      for (const j of KNIGHT_JUMPS) {
-        const c = add(p.pos, j);
-        if (isStandable(state.board, c) && knightPathClear(state, p.pos, c)) out.push(c);
-      }
-      break;
-    case 'bishop':
-      slide(DIAG);
-      break;
-    case 'rook':
-      slide(ORTHO);
-      break;
-    case 'queen':
-      slide(ALL_DIRS);
-      break;
-    case 'king':
-      for (const d of ALL_DIRS) {
-        const c = add(p.pos, d);
-        if (isStandable(state.board, c)) out.push(c);
-      }
-      break;
-    case 'juggernaut': {
-      const own = footprint(p);
-      for (const step of heavySteps(state, occ, p)) {
-        for (const c of footprint(p, step.to)) if (!own.some((o) => sameCoord(o, c))) out.push(c);
-      }
-      break;
-    }
+  for (const d of ORTHO) {
+    const mid = add(p.pos, d);
+    const to = add(p.pos, scale(d, 2));
+    if (!inBounds(state.board, to) || isWall(state.board, mid) || !isStandable(state.board, to)) continue;
+    out.push(to);
   }
   return out;
+}
+
+/** Squares a piece threatens (could hit on its next action), ignoring check legality. */
+function attackSquares(state: GameState, occ: Occ, p: Piece): Coord[] {
+  if (p.type === 'pawn') {
+    const f = forward(p.side);
+    return [-1, 1].map((dx) => ({ x: p.pos.x + dx, y: p.pos.y + f })).filter((c) => isStandable(state.board, c));
+  }
+  if (sizeOf(p) > 1) {
+    const own = footprint(p);
+    const out: Coord[] = [];
+    for (const step of heavySteps(state, occ, p))
+      for (const c of footprint(p, step.to)) if (!own.some((o) => sameCoord(o, c))) out.push(c);
+    return out;
+  }
+  return [
+    ...stepsFor(state, occ, p)
+      .filter((s) => s.canCapture)
+      .map((s) => s.to),
+    ...shotSquares(state, p),
+  ];
 }
 
 export function isSquareAttacked(state: GameState, sq: Coord, by: Side, occ?: Occ): boolean {
@@ -169,6 +256,10 @@ export function inCheck(state: GameState, side: Side): boolean {
   return !!king && isSquareAttacked(state, king.pos, opponent(side));
 }
 
+// ---------------------------------------------------------------------------
+// Move generation
+// ---------------------------------------------------------------------------
+
 function isPromotionSquare(state: GameState, side: Side, c: Coord): boolean {
   const backRow = side === 'player' ? 0 : state.board.height - 1;
   if (c.y === backRow) return true;
@@ -181,62 +272,95 @@ function pushPawnMove(state: GameState, out: Move[], base: Move, side: Side) {
   } else out.push(base);
 }
 
+function pawnMoves(state: GameState, occ: Occ, p: Piece): Move[] {
+  const moves: Move[] = [];
+  const f = forward(p.side);
+  const one = { x: p.pos.x, y: p.pos.y + f };
+  if (isStandable(state.board, one) && !at(occ, one)) {
+    pushPawnMove(state, moves, { pieceId: p.id, from: p.pos, to: one }, p.side);
+    const two = { x: p.pos.x, y: p.pos.y + 2 * f };
+    if (!p.hasMoved && isStandable(state.board, two) && !at(occ, two)) {
+      moves.push({ pieceId: p.id, from: p.pos, to: two, doubleStep: one });
+    }
+  }
+  for (const dx of [-1, 1]) {
+    const c = { x: p.pos.x + dx, y: p.pos.y + f };
+    if (!isStandable(state.board, c)) continue;
+    const target = at(occ, c);
+    if (target && target.side !== p.side) {
+      pushPawnMove(state, moves, { pieceId: p.id, from: p.pos, to: c, targets: [target.id], bounceTo: p.pos }, p.side);
+    } else if (!target && state.enPassant && sameCoord(state.enPassant.target, c)) {
+      moves.push({ pieceId: p.id, from: p.pos, to: c, targets: [state.enPassant.pawnId], bounceTo: p.pos, enPassant: true });
+    }
+  }
+  return moves;
+}
+
+/** Special actions: shots, demolition, teleport, swap, heal. */
+function abilityMoves(state: GameState, occ: Occ, p: Piece, ordinary: Move[]): Move[] {
+  const moves: Move[] = [];
+  const base = { pieceId: p.id, from: p.pos };
+  switch (p.type) {
+    case 'archer':
+      for (const c of shotSquares(state, p)) {
+        const target = at(occ, c);
+        if (target && target.side !== p.side) moves.push({ ...base, to: c, action: 'shoot', targets: [target.id] });
+      }
+      break;
+    case 'siege':
+      for (const d of ALL_DIRS) {
+        const c = add(p.pos, d);
+        if (terrainAt(state.board, c) === 'cracked') moves.push({ ...base, to: c, action: 'demolish' });
+      }
+      break;
+    case 'mage':
+      if (hasUsed(p, 'teleport')) break;
+      for (let dy = -TELEPORT_RANGE; dy <= TELEPORT_RANGE; dy++)
+        for (let dx = -TELEPORT_RANGE; dx <= TELEPORT_RANGE; dx++) {
+          const c = { x: p.pos.x + dx, y: p.pos.y + dy };
+          if ((dx === 0 && dy === 0) || !isStandable(state.board, c) || at(occ, c)) continue;
+          // Squares its ordinary move already reaches don't need the teleport.
+          if (ordinary.some((m) => sameCoord(m.to, c))) continue;
+          moves.push({ ...base, to: c, action: 'teleport' });
+        }
+      break;
+    case 'switcher':
+      if (hasUsed(p, 'swap')) break;
+      for (const ally of state.pieces) {
+        if (ally.side !== p.side || ally.id === p.id || ally.type === 'king' || sizeOf(ally) > 1) continue;
+        if (distance(ally.pos, p.pos) <= SWAP_RANGE) moves.push({ ...base, to: ally.pos, action: 'swap', allyId: ally.id });
+      }
+      break;
+    case 'medic':
+      for (const ally of state.pieces) {
+        if (ally.side !== p.side || ally.id === p.id || ally.type === 'king' || ally.hp >= ally.maxHp) continue;
+        if (adjacent(p, ally)) moves.push({ ...base, to: ally.pos, action: 'heal', allyId: ally.id });
+      }
+      break;
+  }
+  return moves;
+}
+
 /** All moves for one piece, before filtering out moves that leave the King in check. */
 function pseudoMovesFor(state: GameState, occ: Occ, p: Piece): Move[] {
-  const moves: Move[] = [];
-  const leaper = p.type === 'knight';
-  const toward = (to: Coord): Move => {
-    const target = at(occ, to);
-    if (!target) return { pieceId: p.id, from: p.pos, to };
-    return { pieceId: p.id, from: p.pos, to, targets: [target.id], bounceTo: bounceSquare(p.pos, to, leaper) };
-  };
-
   if (sizeOf(p) > 1) {
-    for (const step of heavySteps(state, occ, p)) {
-      const m: Move = { pieceId: p.id, from: p.pos, to: step.to };
-      if (step.targets.length) {
-        m.targets = step.targets;
-        m.bounceTo = p.pos;
-      }
-      moves.push(m);
-    }
-    return moves;
+    return heavySteps(state, occ, p).map((step) =>
+      step.targets.length
+        ? { pieceId: p.id, from: p.pos, to: step.to, targets: step.targets, bounceTo: p.pos }
+        : { pieceId: p.id, from: p.pos, to: step.to },
+    );
   }
+  if (p.type === 'pawn') return pawnMoves(state, occ, p);
 
-  if (p.type === 'pawn') {
-    const f = forward(p.side);
-    const one = { x: p.pos.x, y: p.pos.y + f };
-    if (isStandable(state.board, one) && !at(occ, one)) {
-      pushPawnMove(state, moves, toward(one), p.side);
-      const two = { x: p.pos.x, y: p.pos.y + 2 * f };
-      if (!p.hasMoved && isStandable(state.board, two) && !at(occ, two)) {
-        moves.push({ ...toward(two), doubleStep: one });
-      }
+  const moves: Move[] = [];
+  for (const s of stepsFor(state, occ, p)) {
+    const target = at(occ, s.to);
+    if (!target) moves.push({ pieceId: p.id, from: p.pos, to: s.to });
+    else if (target.side !== p.side && s.canCapture) {
+      moves.push({ pieceId: p.id, from: p.pos, to: s.to, targets: [target.id], bounceTo: bounceSquare(p.pos, s.to, s.leap) });
     }
-    for (const dx of [-1, 1]) {
-      const c = { x: p.pos.x + dx, y: p.pos.y + f };
-      if (!isStandable(state.board, c)) continue;
-      const target = at(occ, c);
-      if (target && target.side !== p.side) pushPawnMove(state, moves, toward(c), p.side);
-      else if (!target && state.enPassant && sameCoord(state.enPassant.target, c)) {
-        moves.push({
-          pieceId: p.id,
-          from: p.pos,
-          to: c,
-          targets: [state.enPassant.pawnId],
-          bounceTo: p.pos,
-          enPassant: true,
-        });
-      }
-    }
-    return moves;
   }
-
-  for (const c of attackSquares(state, occ, p)) {
-    const target = at(occ, c);
-    if (!target || target.side !== p.side) moves.push(toward(c));
-  }
-
+  moves.push(...abilityMoves(state, occ, p, moves));
   if (p.type === 'king' && !p.hasMoved) moves.push(...castleMoves(state, occ, p));
   return moves;
 }
@@ -301,31 +425,110 @@ export function legalMovesForPiece(state: GameState, pieceId: string): Move[] {
   return legalMoves(state).filter((m) => m.pieceId === pieceId);
 }
 
+// ---------------------------------------------------------------------------
+// Resolving moves
+// ---------------------------------------------------------------------------
+
 /** Shields absorb damage first, then HP is lost. */
 export function takeDamage(p: Piece, amount: number): Piece {
   const absorbed = Math.min(p.shields, amount);
   return { ...p, shields: p.shields - absorbed, hp: p.hp - (amount - absorbed) };
 }
 
+/**
+ * A Guardian adjacent to the target can take a single-target hit instead,
+ * once per battle. It never protects the King (check stays readable) or
+ * another Guardian's own hit.
+ */
+export function findInterceptor(state: GameState, target: Piece, attacker: Piece): Piece | undefined {
+  if (target.type === 'king') return undefined;
+  return state.pieces.find(
+    (g) =>
+      g.type === 'guardian' &&
+      g.side === target.side &&
+      g.id !== target.id &&
+      g.id !== attacker.id &&
+      !hasUsed(g, 'intercept') &&
+      adjacent(g, target),
+  );
+}
+
+export interface AttackOutcome {
+  /** Pieces that took damage and survived, with their new HP/shields. */
+  damaged: Piece[];
+  captured: Piece[];
+  /** Where the attacker ends up (unchanged for ranged attacks). */
+  finalPos: Coord;
+  /** The Guardian that stepped in, if any. */
+  interceptor?: Piece;
+}
+
 /** What happens to each target of a move, and where the attacker ends up. */
-export function resolveAttack(state: GameState, m: Move): { damaged: Piece[]; captured: Piece[]; finalPos: Coord } {
+export function resolveAttack(state: GameState, m: Move): AttackOutcome {
+  const attacker = state.pieces.find((p) => p.id === m.pieceId)!;
+  const ranged = m.action === 'shoot';
+  const dmg = PIECE_STATS[attacker.type].damage;
+  const targets = (m.targets ?? []).map((id) => state.pieces.find((p) => p.id === id)).filter(Boolean) as Piece[];
+
+  // Single-target attacks can be intercepted by an adjacent Guardian.
+  const interceptor = targets.length === 1 ? findInterceptor(state, targets[0], attacker) : undefined;
+  if (interceptor) {
+    const after = { ...takeDamage(interceptor, dmg), used: [...interceptor.used, 'intercept' as const] };
+    const dead = after.hp <= 0;
+    // If the Guardian falls, the attacker takes the Guardian's square; if it holds, the attacker bounces.
+    const finalPos = ranged ? attacker.pos : dead ? interceptor.pos : (m.bounceTo ?? m.to);
+    return { damaged: dead ? [] : [after], captured: dead ? [interceptor] : [], finalPos, interceptor };
+  }
+
   const damaged: Piece[] = [];
   const captured: Piece[] = [];
-  const attacker = state.pieces.find((p) => p.id === m.pieceId)!;
-  const dmg = PIECE_STATS[attacker.type].damage;
-  for (const id of m.targets ?? []) {
-    const target = state.pieces.find((p) => p.id === id);
-    if (!target) continue;
+  for (const target of targets) {
     const after = takeDamage(target, dmg);
     if (after.hp <= 0) captured.push(target);
     else damaged.push(after);
   }
-  const finalPos = damaged.length > 0 && m.bounceTo ? m.bounceTo : m.to;
+  const finalPos = ranged ? attacker.pos : damaged.length > 0 && m.bounceTo ? m.bounceTo : m.to;
   return { damaged, captured, finalPos };
 }
 
-/** Apply a move without recomputing the result (used for look-ahead). */
-function applyMoveRaw(state: GameState, m: Move): GameState {
+function withTerrain(state: GameState, c: Coord, t: Terrain) {
+  const terrain = state.board.terrain.map((row, y) => (y === c.y ? row.map((v, x) => (x === c.x ? t : v)) : row));
+  return { ...state.board, terrain };
+}
+
+/**
+ * Apply a move without recomputing the result or history. Used for legality
+ * checks and AI look-ahead, where the full result check would be wasted work.
+ */
+export function applyMoveRaw(state: GameState, m: Move): GameState {
+  const mover = state.pieces.find((p) => p.id === m.pieceId)!;
+  const base = {
+    ...state,
+    turn: opponent(state.turn),
+    enPassant: m.doubleStep ? { target: m.doubleStep, pawnId: m.pieceId } : null,
+  };
+
+  // Non-attacking special actions.
+  if (m.action === 'demolish') {
+    return { ...base, board: withTerrain(state, m.to, 'normal'), halfmoveClock: 0 };
+  }
+  if (m.action === 'teleport' || m.action === 'swap' || m.action === 'heal') {
+    const ally = m.allyId ? state.pieces.find((p) => p.id === m.allyId) : undefined;
+    const pieces = state.pieces.map((p) => {
+      if (p.id === mover.id) {
+        if (m.action === 'teleport') return { ...p, pos: m.to, hasMoved: true, used: [...p.used, 'teleport' as const] };
+        if (m.action === 'swap') return { ...p, pos: ally!.pos, hasMoved: true, used: [...p.used, 'swap' as const] };
+        return p;
+      }
+      if (ally && p.id === ally.id) {
+        if (m.action === 'swap') return { ...p, pos: mover.pos, hasMoved: true };
+        return { ...p, hp: Math.min(p.maxHp, p.hp + 1) };
+      }
+      return p;
+    });
+    return { ...base, pieces, halfmoveClock: state.halfmoveClock + 1 };
+  }
+
   const { damaged, captured, finalPos } = resolveAttack(state, m);
   const bounced = !sameCoord(finalPos, m.to);
   const pieces: Piece[] = [];
@@ -334,19 +537,21 @@ function applyMoveRaw(state: GameState, m: Move): GameState {
     const hit = damaged.find((d) => d.id === p.id);
     if (hit) pieces.push(hit);
     else if (p.id === m.pieceId) {
-      const type = !bounced && m.promotion ? m.promotion : p.type;
-      pieces.push({ ...p, pos: finalPos, hasMoved: true, type });
+      if (m.action === 'shoot') pieces.push(p);
+      else {
+        const type = !bounced && m.promotion ? m.promotion : p.type;
+        const stats = PIECE_STATS[type];
+        const promoted = type !== p.type ? { hp: stats.maxHp, maxHp: stats.maxHp } : {};
+        pieces.push({ ...p, ...promoted, pos: finalPos, hasMoved: true, type });
+      }
     } else if (m.castle && p.id === m.castle.rookId) {
       pieces.push({ ...p, pos: m.castle.rookTo, hasMoved: true });
     } else pieces.push(p);
   }
-  const mover = state.pieces.find((p) => p.id === m.pieceId)!;
   const resetClock = mover.type === 'pawn' || (m.targets?.length ?? 0) > 0;
   return {
-    ...state,
+    ...base,
     pieces,
-    turn: opponent(state.turn),
-    enPassant: m.doubleStep ? { target: m.doubleStep, pawnId: m.pieceId } : null,
     halfmoveClock: resetClock ? 0 : state.halfmoveClock + 1,
     captured: captured.length ? [...state.captured, ...captured] : state.captured,
   };
@@ -357,11 +562,14 @@ export function positionKey(state: GameState): string {
     .map((p) => {
       const rights = (p.type === 'king' || p.type === 'rook') && !p.hasMoved ? '!' : '';
       const hp = p.maxHp > 1 || p.shields ? `:${p.hp}/${p.shields}` : '';
-      return `${p.side[0]}${p.type}${p.pos.x},${p.pos.y}${rights}${hp}`;
+      const used = p.used.length ? `[${[...p.used].sort().join(',')}]` : '';
+      return `${p.side[0]}${p.type}${p.pos.x},${p.pos.y}${rights}${hp}${used}`;
     })
     .sort();
   const ep = state.enPassant ? coordKey(state.enPassant.target) : '-';
-  return `${state.turn}|${ep}|${parts.join(';')}`;
+  let cracked = '';
+  state.board.terrain.forEach((row, y) => row.forEach((t, x) => t === 'cracked' && (cracked += `${x},${y};`)));
+  return `${state.turn}|${ep}|${cracked}|${parts.join(';')}`;
 }
 
 function insufficientMaterial(pieces: Piece[]): boolean {

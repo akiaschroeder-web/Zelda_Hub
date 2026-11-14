@@ -10,7 +10,28 @@ export type Side = 'player' | 'enemy';
 
 export type Terrain = 'normal' | 'gap' | 'wall' | 'cracked';
 
-export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'juggernaut';
+export type PieceType =
+  | 'pawn'
+  | 'knight'
+  | 'bishop'
+  | 'rook'
+  | 'queen'
+  | 'king'
+  | 'juggernaut'
+  | 'archer'
+  | 'guardian'
+  | 'lancer'
+  | 'siege'
+  | 'mage'
+  | 'switcher'
+  | 'chancellor'
+  | 'medic';
+
+/** Once-per-battle abilities, recorded on the piece when spent. */
+export type AbilityId = 'intercept' | 'teleport' | 'swap';
+
+/** Actions other than an ordinary move. Ordinary moves leave this unset. */
+export type ActionKind = 'shoot' | 'demolish' | 'teleport' | 'swap' | 'heal';
 
 export type PromotionType = 'queen' | 'rook' | 'bishop' | 'knight';
 
@@ -30,6 +51,8 @@ export interface Piece {
   maxHp: number;
   /** Each shield absorbs one point of damage before HP is lost. */
   shields: number;
+  /** Once-per-battle abilities already spent. */
+  used: AbilityId[];
 }
 
 export interface Board {
@@ -50,7 +73,14 @@ export interface CastleInfo {
 export interface Move {
   pieceId: string;
   from: Coord;
+  /**
+   * Destination for ordinary moves and teleports. For other actions, the
+   * square the action targets (the shot enemy, the wall, the ally).
+   */
   to: Coord;
+  action?: ActionKind;
+  /** Ally involved in a swap or heal. */
+  allyId?: string;
   /**
    * Enemy pieces this move attacks. Each takes the attacker's damage; pieces
    * reduced to 0 HP are captured. Usually one, but a large piece's footprint

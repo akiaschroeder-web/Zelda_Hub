@@ -5,13 +5,53 @@ import { ENCOUNTERS } from '../engine/encounters';
 import { occupancy } from '../engine/board';
 import { describeMove } from '../engine/describe';
 import { applyMove, findKing, inCheck, legalMoves } from '../engine/moves';
-import { footprint, sizeOf } from '../engine/pieces';
+import { PIECE_STATS, footprint, sizeOf } from '../engine/pieces';
 import { createEncounter } from '../engine/setup';
-import { Coord, GameResult, GameState, Move, PromotionType, Terrain, coordKey, sameCoord } from '../engine/types';
+import {
+  AbilityId,
+  ActionKind,
+  Coord,
+  GameResult,
+  GameState,
+  Move,
+  Piece,
+  PieceType,
+  PromotionType,
+  Terrain,
+  coordKey,
+  sameCoord,
+} from '../engine/types';
 import { PIECE_IMAGES } from './pieceImages';
 import { COLORS } from './theme';
 
 const AI_DELAY_MS = 350;
+
+const ACTION_COLORS: Record<ActionKind, string> = {
+  shoot: 'rgba(214, 60, 60, 0.95)',
+  demolish: 'rgba(230, 140, 40, 0.95)',
+  teleport: 'rgba(150, 90, 220, 0.95)',
+  swap: 'rgba(70, 140, 230, 0.95)',
+  heal: 'rgba(80, 190, 100, 0.95)',
+};
+
+const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string }>> = {
+  archer: { label: 'Shoot (red)' },
+  guardian: { id: 'intercept', label: 'Intercept' },
+  siege: { label: 'Demolish (orange)' },
+  mage: { id: 'teleport', label: 'Teleport (purple)' },
+  switcher: { id: 'swap', label: 'Swap (blue)' },
+  medic: { label: 'Heal (green)' },
+};
+
+function describePiece(p: Piece): { title: string; text: string } {
+  const stats = PIECE_STATS[p.type];
+  const shields = p.shields ? ` · ${p.shields} shield${p.shields > 1 ? 's' : ''}` : '';
+  const ability = ABILITY_LABELS[p.type];
+  const abilityText = ability
+    ? ` ${ability.label}${ability.id ? (p.used.includes(ability.id) ? ': used' : ': ready') : ''}.`
+    : '';
+  return { title: `${stats.name} · ${p.hp}/${p.maxHp} HP${shields}`, text: stats.blurb + abilityText };
+}
 
 function resultText(r: GameResult): string {
   switch (r.kind) {
@@ -111,7 +151,7 @@ export default function BattleScreen() {
     const options = markers.get(coordKey(c)) ?? [];
     if (options.length > 0) {
       if (options.length > 1 && options.every((m) => m.promotion)) setPendingPromotion(options);
-      else commit(options[0]);
+      else commit(options.find((m) => !m.action) ?? options[0]);
       return;
     }
     const piece = occ.get(coordKey(c));
@@ -154,7 +194,6 @@ export default function BattleScreen() {
       const k = coordKey(c);
       const terrain = state.board.terrain[y][x];
       const occupant = occ.get(k);
-      const options = markers.get(k);
       const isPromo = state.board.promotionSquares?.some((s) => sameCoord(s.pos, c));
       squares.push(
         <Pressable key={x} onPress={() => onSquare(c)} style={{ width: cell, height: cell }}>
@@ -210,23 +249,35 @@ export default function BattleScreen() {
 
   const markerLayer = [...markers.entries()].map(([k, ms]) => {
     const [x, y] = k.split(',').map(Number);
-    const attack = ms.some((m) => (m.targets?.length ?? 0) > 0);
+    const m = ms.find((o) => !o.action) ?? ms[0];
+    const ringColor = m.action ? ACTION_COLORS[m.action] : (m.targets?.length ?? 0) > 0 ? COLORS.moveDot : undefined;
     return (
       <View
         key={k}
         pointerEvents="none"
         style={{ position: 'absolute', left: x * cell, top: y * cell, width: cell, height: cell }}
       >
-        {attack ? (
-          <View style={[StyleSheet.absoluteFill, styles.captureRing, { borderRadius: cell / 2 }]} />
+        {ringColor ? (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              styles.captureRing,
+              { borderRadius: m.action === 'demolish' ? 4 : cell / 2, borderColor: ringColor },
+              m.action && { backgroundColor: ringColor.replace(/[\d.]+\)$/, '0.18)') },
+            ]}
+          />
         ) : (
           <View style={styles.dotWrap}>
             <View style={[styles.dot, { width: cell * 0.3, height: cell * 0.3, borderRadius: cell * 0.15 }]} />
           </View>
         )}
+        {m.action === 'shoot' && <View style={[styles.crossH, { width: cell * 0.5 }]} />}
+        {m.action === 'shoot' && <View style={[styles.crossV, { height: cell * 0.5 }]} />}
       </View>
     );
   });
+
+  const info = selectedPiece ? describePiece(selectedPiece) : null;
 
   return (
     <View style={styles.screen}>
@@ -244,9 +295,16 @@ export default function BattleScreen() {
         {markerLayer}
       </View>
 
-      <Text style={styles.log} numberOfLines={2}>
-        {log || ' '}
-      </Text>
+      {info ? (
+        <View style={styles.infoBox}>
+          <Text style={styles.infoTitle}>{info.title}</Text>
+          <Text style={styles.infoText}>{info.text}</Text>
+        </View>
+      ) : (
+        <Text style={styles.log} numberOfLines={2}>
+          {log || ' '}
+        </Text>
+      )}
 
       <Text style={styles.captured}>
         Lost: {state.captured.filter((p) => p.side === 'player').length} · Taken:{' '}
@@ -366,6 +424,21 @@ const styles = StyleSheet.create({
     borderColor: '#d8e8ff',
   },
   shieldText: { color: 'white', fontSize: 10, fontWeight: '700' },
+  crossH: { position: 'absolute', left: '25%', top: '50%', height: 2, marginTop: -1, backgroundColor: 'rgba(214, 60, 60, 0.95)' },
+  crossV: { position: 'absolute', top: '25%', left: '50%', width: 2, marginLeft: -1, backgroundColor: 'rgba(214, 60, 60, 0.95)' },
+  infoBox: {
+    marginTop: 8,
+    maxWidth: 440,
+    minHeight: 34,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: COLORS.panel,
+    borderWidth: 1,
+    borderColor: COLORS.panelBorder,
+  },
+  infoTitle: { color: COLORS.gold, fontSize: 13, fontWeight: '700' },
+  infoText: { color: COLORS.text, fontSize: 12, marginTop: 2 },
   controls: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 12 },
   btn: {
     paddingVertical: 8,

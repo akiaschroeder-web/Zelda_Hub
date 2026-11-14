@@ -19,7 +19,7 @@ A turn-based chess roguelike for mobile (Expo / React Native, TypeScript).
 | Path | What it is |
 |---|---|
 | `src/engine/` | Pure TypeScript rules engine (no React). Boards of any size, terrain, all chess rules, AI. |
-| `src/engine/__tests__/` | Engine tests (`npx vitest run`). Includes perft checks against known chess positions. |
+| `src/engine/__tests__/` | Engine tests (`npm test`). Perft checks against known chess positions, combat, every new piece, and AI self-play on every encounter. |
 | `src/ui/` | Screens and components. |
 | `assets/pieces/` | Processed piece sprites (`<type>_player.png`, `<type>_enemy.png`) for all 39 pieces in the art so far. |
 | `art/source/` | Original artwork as delivered. |
@@ -54,3 +54,16 @@ A turn-based chess roguelike for mobile (Expo / React Native, TypeScript).
 - It can check and capture Kings; it never castles or promotes.
 
 Encounter layouts use `J`/`j` for a Juggernaut (top-left square of its footprint).
+
+### First collection of new pieces
+
+| Piece | HP | Pts | Movement | Special |
+|---|---|---|---|---|
+| Archer `A` | 1 | 4 | 1 diagonal, never captures by moving | Shoots an enemy exactly 2 squares away orthogonally; doesn't move or bounce. Walls between block the shot. |
+| Guardian `G` | 2 | 5 | 1 any direction | Once per battle, automatically takes a single-target hit meant for an adjacent ally (never the King). If it falls, the attacker takes its square. |
+| Lancer `L` | 1 | 4 | Leaps exactly 2 or 3 orthogonally over pieces and gaps, not walls | — |
+| Siege Engine `S` | 2 | 6 | 1 orthogonal | Instead of moving, demolishes an adjacent cracked wall (it becomes a normal square). |
+| Mage `M` | 1 | 6 | Up to 2 diagonal | Once per battle, teleports to an empty square within 3 (King-distance), ignoring pieces, gaps and walls. |
+| Switcher `W` | 1 | 5 | 1 any direction | Once per battle, swaps places with a 1×1 ally within 2 squares (not the King). |
+| Chancellor `C` | 1 | 10 | Rook + Knight | — |
+| Medic `H` | 1 | 5 | 1 diagonal or sideways | Instead of moving, heals an adjacent wounded ally 1 HP (not the King). |
