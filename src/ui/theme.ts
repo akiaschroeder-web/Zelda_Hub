@@ -16,4 +16,5 @@ export const COLORS = {
   lastMove: 'rgba(160, 190, 90, 0.40)',
   moveDot: 'rgba(30, 20, 10, 0.45)',
   check: 'rgba(209, 73, 91, 0.75)',
+  hit: 'rgba(209, 73, 91, 0.35)',
 };

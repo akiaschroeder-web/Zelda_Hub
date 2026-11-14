@@ -1,3 +1,4 @@
+import { footprint } from './pieces';
 import { Board, Coord, Piece, Side, Terrain } from './types';
 
 export const inBounds = (board: Board, c: Coord): boolean =>
@@ -14,10 +15,10 @@ export const isWall = (board: Board, c: Coord): boolean => {
   return t === 'wall' || t === 'cracked';
 };
 
-/** Index pieces by square for fast lookups. */
+/** Index pieces by every square they occupy, for fast lookups. */
 export function occupancy(pieces: Piece[]): Map<string, Piece> {
   const map = new Map<string, Piece>();
-  for (const p of pieces) map.set(`${p.pos.x},${p.pos.y}`, p);
+  for (const p of pieces) for (const c of footprint(p)) map.set(`${c.x},${c.y}`, p);
   return map;
 }
 

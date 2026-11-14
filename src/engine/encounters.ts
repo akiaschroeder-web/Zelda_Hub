@@ -87,4 +87,31 @@ export const ENCOUNTERS: EncounterDef[] = [
       'RNKBR',
     ],
   },
+  {
+    id: 'juggernaut',
+    name: 'Juggernaut Trial',
+    description:
+      'Both sides field a 2×2, 3 HP Juggernaut. Hits that fail to destroy a piece bounce the attacker back.',
+    rules: { checkRules: true },
+    terrain: [
+      '........',
+      '........',
+      '........',
+      '........',
+      '.#....#.',
+      '........',
+      '........',
+      '........',
+    ],
+    pieces: [
+      'r..kq..r',
+      '...j....',
+      'pp....pp',
+      '..pppp..',
+      '........',
+      '...J....',
+      'PP....PP',
+      'R..KQ..R',
+    ],
+  },
 ];

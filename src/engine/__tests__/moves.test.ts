@@ -175,13 +175,13 @@ describe('extermination rules', () => {
     const suicide = legalMoves(s).find((m) => m.to.x === 4 && m.to.y === 6);
     expect(suicide).toBeDefined();
     const afterPlayer = applyMove(s, suicide!);
-    const kill = legalMoves(afterPlayer).find((m) => m.captureId?.startsWith('pking'))!;
+    const kill = legalMoves(afterPlayer).find((m) => m.targets?.[0]?.startsWith('pking'))!;
     expect(applyMove(afterPlayer, kill).result).toEqual({ kind: 'kingCaptured', winner: 'enemy' });
   });
 
   it('wins by eliminating every enemy piece', () => {
     const s = game(['........', '........', '........', '....p...', '...Q....', '........', '........', 'K.......'], EMPTY8, false);
-    const take = legalMoves(s).find((m) => m.captureId)!;
+    const take = legalMoves(s).find((m) => m.targets?.length)!;
     expect(applyMove(s, take).result).toEqual({ kind: 'eliminated', winner: 'player' });
   });
 });
@@ -190,7 +190,7 @@ describe('ai', () => {
   it('takes a free queen', () => {
     const s = game(['....k...', '........', '........', '...q....', '........', '........', '...R....', '....K...']);
     const m = chooseMove(s, 2, () => 0)!;
-    expect(m.captureId).toMatch(/^equeen/);
+    expect(m.targets?.[0]).toMatch(/^equeen/);
   });
 
   it('finds mate in one', () => {

@@ -2,9 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { chooseMove } from '../engine/ai';
 import { ENCOUNTERS } from '../engine/encounters';
+import { occupancy } from '../engine/board';
+import { describeMove } from '../engine/describe';
 import { applyMove, findKing, inCheck, legalMoves } from '../engine/moves';
+import { footprint, sizeOf } from '../engine/pieces';
 import { createEncounter } from '../engine/setup';
-import { Coord, GameResult, GameState, Move, PromotionType, Terrain, sameCoord } from '../engine/types';
+import { Coord, GameResult, GameState, Move, PromotionType, Terrain, coordKey, sameCoord } from '../engine/types';
 import { PIECE_IMAGES } from './pieceImages';
 import { COLORS } from './theme';
 
@@ -36,6 +39,7 @@ export default function BattleScreen() {
   const [state, setState] = useState<GameState>(() => createEncounter(ENCOUNTERS[0]));
   const [selected, setSelected] = useState<string | null>(null);
   const [lastMove, setLastMove] = useState<Move | null>(null);
+  const [log, setLog] = useState('');
   const [pendingPromotion, setPendingPromotion] = useState<Move[] | null>(null);
 
   const encounter = ENCOUNTERS[encounterIdx];
@@ -46,7 +50,15 @@ export default function BattleScreen() {
     setState(createEncounter(ENCOUNTERS[idx]));
     setSelected(null);
     setLastMove(null);
+    setLog('');
     setPendingPromotion(null);
+  }, []);
+
+  const play = useCallback((before: GameState, m: Move) => {
+    const after = applyMove(before, m);
+    setState(after);
+    setLastMove(m);
+    setLog(describeMove(before, m, after));
   }, []);
 
   // Enemy turn
@@ -54,46 +66,62 @@ export default function BattleScreen() {
     if (state.turn !== 'enemy' || over) return;
     const t = setTimeout(() => {
       const m = chooseMove(state, 2);
-      if (m) {
-        setState(applyMove(state, m));
-        setLastMove(m);
-      }
+      if (m) play(state, m);
     }, AI_DELAY_MS);
     return () => clearTimeout(t);
-  }, [state, over]);
+  }, [state, over, play]);
 
+  const occ = useMemo(() => occupancy(state.pieces), [state]);
   const playerMoves = useMemo(
     () => (state.turn === 'player' && !over ? legalMoves(state) : []),
     [state, over],
   );
+  const selectedPiece = selected ? state.pieces.find((p) => p.id === selected) : undefined;
   const selectedMoves = useMemo(
     () => (selected ? playerMoves.filter((m) => m.pieceId === selected) : []),
     [selected, playerMoves],
   );
+  // The square(s) you tap to make each move. For a large piece these are the
+  // leading-edge squares its footprint would newly cover.
+  const markers = useMemo(() => {
+    const map = new Map<string, Move[]>();
+    if (!selectedPiece) return map;
+    const own = footprint(selectedPiece);
+    for (const m of selectedMoves) {
+      const cells =
+        sizeOf(selectedPiece) > 1
+          ? footprint(selectedPiece, m.to).filter((c) => !own.some((o) => sameCoord(o, c)))
+          : [m.to];
+      for (const c of cells) {
+        const k = coordKey(c);
+        map.set(k, [...(map.get(k) ?? []), m]);
+      }
+    }
+    return map;
+  }, [selectedPiece, selectedMoves]);
 
   const commit = (m: Move) => {
-    setState(applyMove(state, m));
-    setLastMove(m);
+    play(state, m);
     setSelected(null);
     setPendingPromotion(null);
   };
 
   const onSquare = (c: Coord) => {
     if (state.turn !== 'player' || over || pendingPromotion) return;
-    const targets = selectedMoves.filter((m) => sameCoord(m.to, c));
-    if (targets.length > 0) {
-      if (targets.length > 1 && targets.every((m) => m.promotion)) setPendingPromotion(targets);
-      else commit(targets[0]);
+    const options = markers.get(coordKey(c)) ?? [];
+    if (options.length > 0) {
+      if (options.length > 1 && options.every((m) => m.promotion)) setPendingPromotion(options);
+      else commit(options[0]);
       return;
     }
-    const piece = state.pieces.find((p) => sameCoord(p.pos, c));
+    const piece = occ.get(coordKey(c));
     setSelected(piece && piece.side === 'player' && piece.id !== selected ? piece.id : null);
   };
 
   // Layout
   const { width: bw, height: bh } = state.board;
   const maxBoardW = Math.min(width - 24, 560);
-  const maxBoardH = height - 280;
+  const maxBoardH = height - 300;
   const cell = Math.floor(Math.min(maxBoardW / bw, maxBoardH / bh));
 
   const checkedKing =
@@ -107,37 +135,37 @@ export default function BattleScreen() {
         : 'Your move'
       : 'Enemy is thinking…';
 
+  const selectedCells = selectedPiece ? footprint(selectedPiece).map(coordKey) : [];
+  const lastCells = new Set<string>();
+  if (lastMove) {
+    const mover = state.pieces.find((p) => p.id === lastMove.pieceId);
+    const size = mover ? sizeOf(mover) : 1;
+    for (const at of [lastMove.from, lastMove.to]) {
+      for (let dy = 0; dy < size; dy++) for (let dx = 0; dx < size; dx++) lastCells.add(`${at.x + dx},${at.y + dy}`);
+    }
+  }
+  const hitIds = new Set(lastMove?.targets ?? []);
+
   const rows = [];
   for (let y = 0; y < bh; y++) {
     const squares = [];
     for (let x = 0; x < bw; x++) {
       const c = { x, y };
+      const k = coordKey(c);
       const terrain = state.board.terrain[y][x];
-      const piece = state.pieces.find((p) => p.pos.x === x && p.pos.y === y);
-      const move = selectedMoves.find((m) => sameCoord(m.to, c));
-      const isSel = !!piece && piece.id === selected;
-      const isLast = !!lastMove && (sameCoord(lastMove.from, c) || sameCoord(lastMove.to, c));
+      const occupant = occ.get(k);
+      const options = markers.get(k);
       const isPromo = state.board.promotionSquares?.some((s) => sameCoord(s.pos, c));
       squares.push(
         <Pressable key={x} onPress={() => onSquare(c)} style={{ width: cell, height: cell }}>
           <Square terrain={terrain} light={(x + y) % 2 === 0} size={cell} />
           {isPromo && <View style={[StyleSheet.absoluteFill, styles.promoSquare]} />}
-          {isLast && <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.lastMove }]} />}
-          {isSel && <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.selected }]} />}
-          {checkedKing && piece?.id === checkedKing.id && (
-            <View style={[StyleSheet.absoluteFill, styles.checkGlow]} />
+          {lastCells.has(k) && <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.lastMove }]} />}
+          {occupant && hitIds.has(occupant.id) && (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.hit }]} />
           )}
-          {piece && (
-            <Image source={PIECE_IMAGES[piece.side][piece.type]} style={styles.pieceImg} resizeMode="contain" />
-          )}
-          {move &&
-            (move.captureId ? (
-              <View style={[StyleSheet.absoluteFill, styles.captureRing, { borderRadius: cell / 2 }]} />
-            ) : (
-              <View style={styles.dotWrap} pointerEvents="none">
-                <View style={[styles.dot, { width: cell * 0.3, height: cell * 0.3, borderRadius: cell * 0.15 }]} />
-              </View>
-            ))}
+          {selectedCells.includes(k) && <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.selected }]} />}
+          {checkedKing && occupant?.id === checkedKing.id && <View style={[StyleSheet.absoluteFill, styles.checkGlow]} />}
         </Pressable>,
       );
     }
@@ -147,6 +175,58 @@ export default function BattleScreen() {
       </View>,
     );
   }
+
+  const pieceLayer = state.pieces.map((p) => {
+    const size = sizeOf(p) * cell;
+    return (
+      <View
+        key={p.id}
+        pointerEvents="none"
+        style={{ position: 'absolute', left: p.pos.x * cell, top: p.pos.y * cell, width: size, height: size }}
+      >
+        <Image source={PIECE_IMAGES[p.side][p.type]} style={styles.pieceImg} resizeMode="contain" />
+        {p.maxHp > 1 && (
+          <View style={styles.hpRow}>
+            {Array.from({ length: p.maxHp }, (_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.hpPip,
+                  { width: Math.max(6, cell * 0.16), height: Math.max(6, cell * 0.16) },
+                  i < p.hp ? (p.side === 'player' ? styles.hpFullPlayer : styles.hpFullEnemy) : styles.hpEmpty,
+                ]}
+              />
+            ))}
+          </View>
+        )}
+        {p.shields > 0 && (
+          <View style={styles.shieldBadge}>
+            <Text style={styles.shieldText}>{p.shields}</Text>
+          </View>
+        )}
+      </View>
+    );
+  });
+
+  const markerLayer = [...markers.entries()].map(([k, ms]) => {
+    const [x, y] = k.split(',').map(Number);
+    const attack = ms.some((m) => (m.targets?.length ?? 0) > 0);
+    return (
+      <View
+        key={k}
+        pointerEvents="none"
+        style={{ position: 'absolute', left: x * cell, top: y * cell, width: cell, height: cell }}
+      >
+        {attack ? (
+          <View style={[StyleSheet.absoluteFill, styles.captureRing, { borderRadius: cell / 2 }]} />
+        ) : (
+          <View style={styles.dotWrap}>
+            <View style={[styles.dot, { width: cell * 0.3, height: cell * 0.3, borderRadius: cell * 0.15 }]} />
+          </View>
+        )}
+      </View>
+    );
+  });
 
   return (
     <View style={styles.screen}>
@@ -158,7 +238,15 @@ export default function BattleScreen() {
 
       <Text style={[styles.status, (checkedKing || over) && { color: over ? COLORS.gold : COLORS.danger }]}>{status}</Text>
 
-      <View style={styles.boardFrame}>{rows}</View>
+      <View style={styles.boardFrame}>
+        {rows}
+        {pieceLayer}
+        {markerLayer}
+      </View>
+
+      <Text style={styles.log} numberOfLines={2}>
+        {log || ' '}
+      </Text>
 
       <Text style={styles.captured}>
         Lost: {state.captured.filter((p) => p.side === 'player').length} · Taken:{' '}
@@ -257,7 +345,27 @@ const styles = StyleSheet.create({
   promoSquare: { borderWidth: 2, borderColor: COLORS.gold, borderStyle: 'dashed' },
   wall: { borderColor: COLORS.wallEdge, alignItems: 'center', justifyContent: 'center' },
   crack: { position: 'absolute', height: 2, backgroundColor: COLORS.wallEdge },
-  captured: { color: COLORS.textDim, fontSize: 13, marginTop: 8 },
+  captured: { color: COLORS.textDim, fontSize: 13, marginTop: 2 },
+  log: { color: COLORS.text, fontSize: 13, marginTop: 8, textAlign: 'center', maxWidth: 420, minHeight: 34 },
+  hpRow: { position: 'absolute', bottom: 1, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 3 },
+  hpPip: { borderRadius: 2, borderWidth: 1, borderColor: '#1a1410' },
+  hpFullPlayer: { backgroundColor: '#7cc46a' },
+  hpFullEnemy: { backgroundColor: '#e0584f' },
+  hpEmpty: { backgroundColor: '#3a2f27' },
+  shieldBadge: {
+    position: 'absolute',
+    top: 1,
+    right: 1,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#4f8fd6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#d8e8ff',
+  },
+  shieldText: { color: 'white', fontSize: 10, fontWeight: '700' },
   controls: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 12 },
   btn: {
     paddingVertical: 8,

@@ -1,14 +1,7 @@
 import { applyMove, inCheck, legalMoves } from './moves';
-import { GameState, Move, PieceType, Side } from './types';
+import { PIECE_STATS } from './pieces';
+import { GameState, Move, Side } from './types';
 
-export const PIECE_VALUE: Record<PieceType, number> = {
-  pawn: 100,
-  knight: 300,
-  bishop: 310,
-  rook: 500,
-  queen: 900,
-  king: 20000,
-};
 
 const MATE = 1_000_000;
 
@@ -19,7 +12,9 @@ function evaluate(state: GameState, side: Side): number {
   const cy = (height - 1) / 2;
   let score = 0;
   for (const p of state.pieces) {
-    let v = PIECE_VALUE[p.type];
+    const base = PIECE_STATS[p.type].value;
+    // Wounded multi-HP pieces are worth proportionally less; shields add a little.
+    let v = p.maxHp > 1 ? base * (0.4 + (0.6 * p.hp) / p.maxHp) + p.shields * 40 : base + p.shields * 40;
     if (p.type !== 'king') {
       // mild pull toward the centre
       v += 6 - (Math.abs(p.pos.x - cx) + Math.abs(p.pos.y - cy));
@@ -34,7 +29,8 @@ function evaluate(state: GameState, side: Side): number {
 }
 
 function orderMoves(moves: Move[]): Move[] {
-  return [...moves].sort((a, b) => Number(!!b.captureId) - Number(!!a.captureId) || Number(!!b.promotion) - Number(!!a.promotion));
+  const hits = (m: Move) => m.targets?.length ?? 0;
+  return [...moves].sort((a, b) => hits(b) - hits(a) || Number(!!b.promotion) - Number(!!a.promotion));
 }
 
 function negamax(state: GameState, depth: number, alpha: number, beta: number, ply: number): number {

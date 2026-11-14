@@ -10,7 +10,7 @@ export type Side = 'player' | 'enemy';
 
 export type Terrain = 'normal' | 'gap' | 'wall' | 'cracked';
 
-export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'juggernaut';
 
 export type PromotionType = 'queen' | 'rook' | 'bishop' | 'knight';
 
@@ -23,8 +23,13 @@ export interface Piece {
   id: string;
   type: PieceType;
   side: Side;
+  /** Top-left square of the piece's footprint. */
   pos: Coord;
   hasMoved: boolean;
+  hp: number;
+  maxHp: number;
+  /** Each shield absorbs one point of damage before HP is lost. */
+  shields: number;
 }
 
 export interface Board {
@@ -46,8 +51,17 @@ export interface Move {
   pieceId: string;
   from: Coord;
   to: Coord;
-  /** id of the piece removed by this move, if any */
-  captureId?: string;
+  /**
+   * Enemy pieces this move attacks. Each takes the attacker's damage; pieces
+   * reduced to 0 HP are captured. Usually one, but a large piece's footprint
+   * can hit several at once.
+   */
+  targets?: string[];
+  /**
+   * Where the attacker ends up if any target survives the hit (bounceback).
+   * Absent for moves that attack nothing.
+   */
+  bounceTo?: Coord;
   promotion?: PromotionType;
   castle?: CastleInfo;
   enPassant?: boolean;
