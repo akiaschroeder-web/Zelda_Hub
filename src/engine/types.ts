@@ -62,6 +62,8 @@ export interface Board {
   terrain: Terrain[][];
   /** Extra promotion squares beyond each side's far back row. */
   promotionSquares?: { side: Side; pos: Coord }[];
+  /** Squares where the player may place pieces before a battle. */
+  deployZone?: Coord[];
 }
 
 export interface CastleInfo {

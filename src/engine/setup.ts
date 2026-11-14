@@ -4,6 +4,8 @@ import { PIECE_STATS, footprint } from './pieces';
 import { Board, EncounterRules, GameState, Piece, PieceType, Side } from './types';
 
 export interface Placement {
+  /** Fixed id (roster pieces keep theirs so casualties can be tracked). */
+  id?: string;
   type: PieceType;
   side: Side;
   x: number;
@@ -17,7 +19,7 @@ let nextId = 0;
 
 export function createGame(board: Board, placements: Placement[], rules: EncounterRules): GameState {
   const pieces: Piece[] = placements.map((p) => ({
-    id: `${p.side[0]}${p.type}${nextId++}`,
+    id: p.id ?? `${p.side[0]}${p.type}${nextId++}`,
     type: p.type,
     side: p.side,
     pos: { x: p.x, y: p.y },

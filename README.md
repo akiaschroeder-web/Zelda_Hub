@@ -14,13 +14,30 @@ A turn-based chess roguelike for mobile (Expo / React Native, TypeScript).
 
 `npx expo start --web` runs it in a browser instead.
 
+## How a run works (so far)
+
+1. **Menu → New run.** You start with the roster in `src/run/config.ts` (placeholder: a standard chess army).
+2. **Army screen** shows your roster, the fallen, and the next battle's enemy army.
+3. **Deploy.** Place pieces on the blue deployment squares. Both limits apply: Army Points
+   (placeholder 24) and the number of squares. The King must deploy. Undeployed pieces sit in reserve
+   and can't be captured.
+4. **Battle.** Every move is saved; closing the app and reopening resumes the same battle.
+5. **Afterwards** captured pieces are gone for the rest of the run, survivors earn a ★ per battle,
+   promoted Pawns stay promoted, and multi-HP pieces heal to full. Losing the King ends the run; a
+   draw counts as surviving. Win all four battles in `src/run/battles.ts` to win the run.
+
+The four battles and all the numbers are placeholders until the run map (next step) and the real
+starting setup replace them.
+
 ## Project layout
 
 | Path | What it is |
 |---|---|
 | `src/engine/` | Pure TypeScript rules engine (no React). Boards of any size, terrain, all chess rules, AI. |
 | `src/engine/__tests__/` | Engine tests (`npm test`). Perft checks against known chess positions, combat, every new piece, and AI self-play on every encounter. |
-| `src/ui/` | Screens and components. |
+| `src/app/` | Screens (Expo Router): menu, army, deploy, battle, sandbox. |
+| `src/run/` | Run logic: roster, deployment rules, casualties, save/load. `config.ts` holds all placeholder numbers. |
+| `src/ui/` | Shared components: board renderer, battle view, piece tiles, buttons. |
 | `assets/pieces/` | Processed piece sprites (`<type>_player.png`, `<type>_enemy.png`) for all 39 pieces in the art so far. |
 | `art/source/` | Original artwork as delivered. |
 | `art/process_pieces.py` | Cuts sprites out of the source art (including the labelled sheets) and makes the enemy colour variant. |
