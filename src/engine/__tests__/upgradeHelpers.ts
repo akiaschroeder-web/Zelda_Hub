@@ -2,7 +2,32 @@ import { expect } from 'vitest';
 import { parseBoard } from '../board';
 import { applyMove, legalMoves } from '../moves';
 import { createGame, parsePlacements } from '../setup';
-import { GameState, Move, Piece, shieldTotal } from '../types';
+import { GameState, Move, Piece, PieceType, Side, shieldTotal } from '../types';
+
+/**
+ * Layout characters for the special pieces (they have no letters left):
+ * digits/symbols for the player, the shifted symbol for the enemy.
+ */
+export const SPECIAL_LEGEND: Record<string, [PieceType, Side]> = {
+  '1': ['engineer', 'player'],
+  '2': ['assassin', 'player'],
+  '3': ['illusionist', 'player'],
+  '4': ['summoner', 'player'],
+  '5': ['converter', 'player'],
+  '6': ['displacer', 'player'],
+  '7': ['oracle', 'player'],
+  '8': ['clone', 'player'],
+  '9': ['bomber', 'player'],
+  '0': ['slayer', 'player'],
+  '%': ['warden', 'player'],
+  '$': ['harvester', 'player'],
+  '!': ['engineer', 'enemy'],
+  '(': ['bomber', 'enemy'],
+  ')': ['slayer', 'enemy'],
+  '^': ['warden', 'enemy'],
+  '~': ['displacer', 'enemy'],
+  '#': ['converter', 'enemy'],
+};
 
 /** Upgrades exercised by at least one test (checked for full coverage). */
 export const COVERED = new Set<string>();
@@ -15,11 +40,11 @@ export const covers = (...ids: string[]) => ids.forEach((id) => COVERED.add(id))
 export function make(
   rows: string[],
   ups: Record<string, string[]> = {},
-  opts: { terrain?: string[]; checkRules?: boolean; runFlags?: string[] } = {},
+  opts: { terrain?: string[]; checkRules?: boolean; runFlags?: string[]; legend?: Record<string, [PieceType, Side]> } = {},
 ): GameState {
   const w = rows[0].length;
   const terrain = opts.terrain ?? rows.map(() => '.'.repeat(w));
-  const placements = parsePlacements(rows).map((p) => ({ ...p, upgrades: ups[`${p.x},${p.y}`] ?? [] }));
+  const placements = parsePlacements(rows, { ...SPECIAL_LEGEND, ...opts.legend }).map((p) => ({ ...p, upgrades: ups[`${p.x},${p.y}`] ?? [] }));
   const s = createGame(parseBoard(terrain), placements, { checkRules: opts.checkRules ?? false }, opts.runFlags ?? []);
   // Pawns away from their start rows have already moved.
   return {

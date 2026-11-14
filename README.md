@@ -134,6 +134,23 @@ Encounter layouts use `J`/`j` for a Juggernaut (top-left square of its footprint
 | Jailer `E` | 1 | 7 | Up to 2 orthogonal | Instead of moving, binds an adjacent enemy 1×1 (not the King) so it can't move next turn. |
 | Phoenix `@`/`&` | 1 | 8 | Up to 3 orthogonal | The first time it would be captured, it's reborn on a free friendly deployment square at the start of your next turn. |
 
-The Jailer uses the Trapper artwork and the Phoenix the Revenant artwork. Twelve more pieces have
-art but no rules yet (Engineer, Assassin, Illusionist, Summoner, Converter, Displacer, Oracle, Clone,
-Bomber, Slayer, Warden, Harvester).
+The Jailer uses the Trapper artwork and the Phoenix the Revenant artwork.
+
+### Special pieces
+
+| Piece | HP | Pts | Movement | Abilities |
+|---|---|---|---|---|
+| Engineer | 2 | 4 | 1 any direction | Construct a cracked wall (every 3 turns), Demolish an adjacent cracked wall, Repair 1 HP of an adjacent multi-HP ally (once). |
+| Assassin | 1 | 5 | Up to 3 diagonal | Backstab: 2 damage to an enemy still on the square it started its last turn on. Shadow Step behind an enemy within 3 (every 4 turns). Execution: after a capture, a free non-capturing move of up to 2. |
+| Illusionist | 1 | 5 | Up to 2 in any straight line | Mirage: a 1 HP illusion that moves 1 and can't capture (every 4 turns). Enemy illusions look like Illusionists unless your Oracle is within 3. Misdirection: swap with an illusion (once). |
+| Summoner | 2 | 6 | 1 diagonal | Summon a temporary Pawn (every 3 turns) or Knight (once); at most 3 summons at a time. |
+| Converter | 1 | 7 | Up to 2 orthogonal | Once per battle, converts an adjacent 1 HP enemy (not King/boss/large) for the battle. A roster piece converted by the enemy is lost. |
+| Displacer | 2 | 5 | Leaps exactly 2 orthogonally | Swap with an enemy within 2 (every 3 turns); Repulsion pushes all adjacent enemies (once); can't be swapped by enemies. |
+| Oracle | 1 | 6 | Up to 3 diagonal | Foresight shows the enemy's intended move; Revelation exposes illusions within 3; Prophecy negates the next attack on an ally (every 4 turns). |
+| Clone | 1 | 6 | 1 any direction | Once per battle, copies an adjacent ally's movement and abilities (not upgrades or HP); reverts after battle. |
+| Bomber | 1 | 4 | 1 orthogonal | Detonate: 2 damage to all 8 neighbours (allies too, never Kings), destroying itself. If captured, 1 damage to neighbours. |
+| Slayer | 2 | 7 | Up to 3 orthogonal or 1 diagonal | 2 damage to multi-HP enemies (3 to bosses), bounces only 1 square, heals after felling a multi-HP enemy. |
+| Warden | 3 | 6 | 1 orthogonal | Adjacent allies take 1 less from hits of 2+; immovable; intercepts one hit for an adjacent ally (not the King). |
+| Harvester | 2 | 5 | Up to 2 any direction | A Soul per capture (max 5, kept between battles). Spend 2 to heal 1 or 3 for +1 damage. Reaching 5 Souls: +1 max HP once per run. |
+
+"Every N turns" abilities are cooldowns counted in the owner's turns and are ready at the start of a battle.

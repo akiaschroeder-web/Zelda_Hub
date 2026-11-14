@@ -287,6 +287,7 @@ function findInterceptor(s: GameState, target: Piece, amount: number, source?: P
   }
   return (
     friends.find((a) => a.type === 'guardian' && !hasUsed(a, 'intercept') && adjacent(a, target)) ??
+    friends.find((a) => a.type === 'warden' && !hasUsed(a, 'warden_intercept') && adjacent(a, target)) ??
     (lethal ? friends.find((a) => ready(a, 'sacrificial_guard') && adjacent(a, target)) : undefined) ??
     friends.find(
       (a) =>
@@ -303,6 +304,7 @@ function interceptId(a: Piece, target: Piece): string {
     return 'royal_protection';
   }
   if (a.type === 'guardian' && !hasUsed(a, 'intercept')) return 'intercept';
+  if (a.type === 'warden' && !hasUsed(a, 'warden_intercept')) return 'warden_intercept';
   if (ready(a, 'sacrificial_guard')) return 'sacrificial_guard';
   return 'intercept';
 }
@@ -335,6 +337,13 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
     }
   }
 
+  // Oracle's Prophecy negates the next direct attack.
+  if (direct(ctx.kind) && hasStatus(target, 'prophecy')) {
+    removeStatus(target, 'prophecy');
+    log(s, `The prophecy holds: ${nameOf(target)} is untouched.`);
+    return { kind: 'survived', dealt: 0 };
+  }
+
   const hpBefore = target.hp;
   const shieldBefore = shieldTotal(target);
 
@@ -345,6 +354,8 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   }
 
   let dmg = amount;
+  // Warden's Defensive Aura: adjacent allies take one less from hits of 2 or more.
+  if (dmg >= 2 && direct(ctx.kind) && allies(s, target).some((a) => a.type === 'warden' && adjacent(a, target))) dmg -= 1;
   // Reductions.
   if (dmg > 0 && ready(target, 'iron_shell')) {
     markUsed(target, 'iron_shell');
@@ -479,6 +490,11 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
   }
   s.captured.push(p);
   if (has(p, 'second_life') && !p.temp) s.saved.push(p.id);
+  // Bomber Volatile: when captured (not detonated), 1 damage to every adjacent piece.
+  if (p.type === 'bomber' && ctx.kind !== 'ability') {
+    log(s, 'The Bomber explodes as it falls!');
+    for (const o of s.pieces.filter((o) => pieceDistance(o, p) === 1)) dealDamage(s, o.id, 1, { kind: 'splash' });
+  }
   log(s, `${nameOf(p)} is ${ctx.kind === 'fall' ? 'lost to the void' : 'captured'}.`);
 
   if (p.type === 'decoy' && has(getPiece(s, p.temp?.summonerId), 'explosive_decoy')) {
@@ -522,7 +538,7 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
 
 /** `peek` checks without spending a once-per-battle Brace (used when listing moves). */
 export function immuneToForcedMove(s: GameState, p: Piece, source?: Piece, peek = false): boolean {
-  if (p.type === 'king' || isBoss(p)) return true;
+  if (p.type === 'king' || isBoss(p) || p.type === 'warden') return true;
   if (hasStatus(p, 'rooted') || has(p, 'steadfast')) return true;
   if (has(p, 'heavy_stabilizer') && source && sizeOf(source) < sizeOf(p)) return true;
   if (

@@ -38,8 +38,22 @@ export type PieceType =
   | 'splitter'
   | 'jailer'
   | 'phoenix'
+  | 'engineer'
+  | 'assassin'
+  | 'illusionist'
+  | 'summoner'
+  | 'converter'
+  | 'displacer'
+  | 'oracle'
+  | 'clone'
+  | 'bomber'
+  | 'slayer'
+  | 'warden'
+  | 'harvester'
   /** Temporary 1 HP summon that cannot attack. */
-  | 'decoy';
+  | 'decoy'
+  /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
+  | 'illusion';
 
 /** Once-per-battle abilities, recorded on the piece when spent. Upgrade ids are also recorded here. */
 export type AbilityId = 'intercept' | 'teleport' | 'swap' | (string & {});
@@ -61,6 +75,21 @@ export type ActionKind =
   | 'bridge' // Pathfinder: Bridge
   | 'divide' // Splitter: Division
   | 'bind' // Jailer: Bind
+  | 'construct' // Engineer: place a cracked wall
+  | 'repair' // Engineer: heal a multi-HP ally
+  | 'shadowStep' // Assassin
+  | 'mirage' // Illusionist: create an illusion
+  | 'misdirection' // Illusionist: swap with an illusion
+  | 'summonPawn' // Summoner
+  | 'summonKnight' // Summoner
+  | 'convert' // Converter
+  | 'displace' // Displacer: swap with an enemy
+  | 'repulse' // Displacer: push all adjacent enemies
+  | 'prophecy' // Oracle
+  | 'replicate' // Clone
+  | 'detonate' // Bomber
+  | 'soulHeal' // Harvester: 2 souls -> heal 1
+  | 'soulPower' // Harvester: 3 souls -> +1 damage
   | 'upgrade'
   | 'pass';
 
@@ -91,7 +120,8 @@ export type StatusKind =
   | 'damageBuff' // +amount damage on next attack
   | 'immune' // takes no damage
   | 'springLoaded' // bonus non-capturing move at the start of next turn
-  | 'fortified'; // Fortified Position bonus HP applied
+  | 'fortified' // Fortified Position bonus HP applied
+  | 'prophecy'; // the next direct attack against this piece is negated
 
 export interface Status {
   kind: StatusKind;
@@ -153,8 +183,10 @@ export interface Piece {
   lastAttackerId?: string;
   /** Ply on which this piece last acted. */
   actedPly?: number;
-  /** Turn counters for periodic or cooldown effects. */
+  /** Turn counters for periodic or cooldown effects. Keys ending in `Cd` count down each owner turn. */
   counters: Record<string, number>;
+  /** A Clone that has copied another piece keeps its own identity here. */
+  clonedFrom?: PieceType;
 }
 
 export interface Board {
@@ -195,6 +227,8 @@ export interface Bonus {
   /** Optional bonuses can be skipped with a `pass` move. */
   optional: boolean;
   source: string;
+  /** Limit on how far the bonus move may go (King-style distance). */
+  maxDistance?: number;
 }
 
 export interface CastleInfo {

@@ -130,6 +130,31 @@ function basePatterns(type: PieceType): Pattern[] {
       return [{ kind: 'slide', dirs: DIAG, max: 2 }];
     case 'phoenix':
       return [{ kind: 'slide', dirs: ORTHO, max: 3 }];
+    case 'engineer':
+    case 'clone':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 1 }];
+    case 'assassin':
+    case 'oracle':
+      return [{ kind: 'slide', dirs: DIAG, max: 3 }];
+    case 'illusionist':
+    case 'harvester':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
+    case 'summoner':
+      return [{ kind: 'slide', dirs: DIAG, max: 1 }];
+    case 'converter':
+      return [{ kind: 'slide', dirs: ORTHO, max: 2 }];
+    case 'displacer':
+      return [{ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'line' }];
+    case 'bomber':
+    case 'warden':
+      return [{ kind: 'slide', dirs: ORTHO, max: 1 }];
+    case 'slayer':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
+    case 'illusion':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 1, capture: false }];
     default:
       return []; // pawn and large pieces have their own rules
   }
@@ -535,13 +560,26 @@ function lineClear(s: GameState, a: Coord, b: Coord): boolean {
   return true;
 }
 
+/** Upgrades that change which squares a piece can attack. */
+const GEOMETRY_UPGRADES = new Set([
+  'extended_stride', 'diagonal_step', 'orthogonal_step', 'long_leap', 'quick_march', 'corner_turn', 'diagonal_pivot',
+  'knights_training', 'short_hop', 'momentum', 'long_retreat', 'flanking_step', 'zigzag', 'royal_pace', 'crossing_step',
+  'gap_jumper', 'long_gap_jump', 'master_of_the_void', 'cliff_runner', 'edge_walker', 'phasing', 'extended_phasing',
+  'wall_climber', 'colossal_endurance', 'retreat', 'side_step',
+]);
+/** Statuses that change which squares a piece can attack. */
+const GEOMETRY_STATUSES = new Set(['bound', 'stunned', 'disarmed', 'pacified', 'blinded', 'crippled', 'confused', 'slowed', 'rangeBuff']);
+
 /**
- * Does `p` directly threaten square `sq`? Exact fast path for pieces without
- * upgrades or statuses; everything else falls back to the full move list.
+ * Does `p` directly threaten square `sq`? Exact fast path for pieces whose
+ * upgrades and statuses don't change their attack geometry; everything else
+ * falls back to the full move list.
  */
 export function attacksSquare(s: GameState, p: Piece, sq: Coord): boolean {
   const rangeAuras = anyHas(s, 'royal_rally') || anyHas(s, 'siege_presence');
-  if (p.upgrades.length || p.statuses.length || sizeOf(p) > 1 || p.temp || rangeAuras)
+  const special =
+    p.upgrades.some((u) => GEOMETRY_UPGRADES.has(u)) || p.statuses.some((st) => GEOMETRY_STATUSES.has(st.kind));
+  if (special || sizeOf(p) > 1 || p.temp || rangeAuras || p.type === 'mimic' || p.type === 'decoy' || p.type === 'illusion')
     return attackSquares(s, p).some((c) => sameCoord(c, sq));
   if (!isStandable(s.board, sq)) return false;
   const dx = sq.x - p.pos.x;

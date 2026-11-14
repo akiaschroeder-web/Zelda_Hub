@@ -21,6 +21,48 @@ export function actionLabel(state: GameState, m: Move): string {
       return `Swap with ${target ? pieceName(target) : 'ally'}`;
     case 'heal':
       return `Heal ${target ? pieceName(target) : 'ally'}`;
+    case 'pull':
+      return 'Attraction (pull)';
+    case 'shove':
+      return 'Shove';
+    case 'overwatch':
+      return 'Overwatch this line';
+    case 'bridge':
+      return 'Build bridge';
+    case 'divide':
+      return 'Division (copy)';
+    case 'bind':
+      return 'Bind';
+    case 'construct':
+      return 'Construct cracked wall';
+    case 'repair':
+      return `Repair ${target ? pieceName(target) : 'ally'}`;
+    case 'shadowStep':
+      return 'Shadow Step';
+    case 'mirage':
+      return 'Mirage (create illusion)';
+    case 'misdirection':
+      return 'Misdirection (swap with illusion)';
+    case 'summonPawn':
+      return 'Summon Pawn';
+    case 'summonKnight':
+      return 'Summon Knight';
+    case 'convert':
+      return `Convert ${target ? pieceName(target) : 'enemy'}`;
+    case 'displace':
+      return `Displace ${target ? pieceName(target) : 'enemy'}`;
+    case 'repulse':
+      return 'Repulsion';
+    case 'prophecy':
+      return `Prophecy on ${target ? pieceName(target) : 'ally'}`;
+    case 'replicate':
+      return `Copy ${target ? pieceName(target) : 'ally'}`;
+    case 'detonate':
+      return 'Detonate!';
+    case 'soulHeal':
+      return 'Spend 2 Souls: heal 1';
+    case 'soulPower':
+      return 'Spend 3 Souls: +1 damage';
     case 'upgrade': {
       const u = UPGRADE_BY_ID[m.upgrade!]?.name ?? m.upgrade!;
       if (m.param) return `${u}: ${m.param}`;
@@ -54,6 +96,8 @@ export function describeMove(before: GameState, m: Move, after: GameState): stri
   else if (m.action === 'heal' && ally) {
     const healed = after.pieces.find((p) => p.id === ally.id);
     parts.push(`${name(mover)} healed the ${pieceName(ally)}${healed ? ` (${healed.hp}/${healed.maxHp} HP)` : ''}.`);
+  } else if (m.action && m.action !== 'shoot' && m.action !== 'upgrade' && !m.targets?.length) {
+    parts.push(`${name(mover)}: ${actionLabel(before, m)}.`);
   } else if (m.action === 'upgrade' && m.upgrade !== 'temporal_echo') {
     // The engine log already says "X uses Y."
   } else if (m.targets?.length) {

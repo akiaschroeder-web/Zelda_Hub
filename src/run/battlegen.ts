@@ -128,22 +128,22 @@ const ARCHETYPES: Record<Archetype, { name: string; blurb: string; weights: Part
   swarm: {
     name: 'Swarm Raiders',
     blurb: 'Overwhelming numbers of weak pieces.',
-    weights: { pawn: 10, knight: 2, archer: 2, guardian: 1, hopper: 3 },
+    weights: { pawn: 10, knight: 2, archer: 2, guardian: 1, hopper: 3, bomber: 3, summoner: 1 },
   },
   cavalry: {
     name: 'Cavalry Patrol',
     blurb: 'Knights and leapers that strike from odd angles.',
-    weights: { knight: 6, lancer: 5, pawn: 3, chancellor: 1, bishop: 1, hopper: 4, phoenix: 1 },
+    weights: { knight: 6, lancer: 5, pawn: 3, chancellor: 1, bishop: 1, hopper: 4, phoenix: 1, assassin: 2, displacer: 2 },
   },
   fortress: {
     name: 'Border Garrison',
     blurb: 'Defenders, archers and siege engines dug in behind walls.',
-    weights: { guardian: 4, archer: 4, siege: 2, rook: 2, pawn: 3, medic: 1, bastion: 2, anchor: 2, sentinel: 3 },
+    weights: { guardian: 4, archer: 4, siege: 2, rook: 2, pawn: 3, medic: 1, bastion: 2, anchor: 2, sentinel: 3, engineer: 2, warden: 2 },
   },
   royal: {
     name: 'Royal Guard',
     blurb: 'Powerful traditional chess pieces.',
-    weights: { queen: 2, rook: 3, bishop: 4, knight: 3, pawn: 4 },
+    weights: { queen: 2, rook: 3, bishop: 4, knight: 3, pawn: 4, slayer: 1, harvester: 1 },
   },
   unorthodox: {
     name: 'Strange Company',
@@ -163,6 +163,11 @@ const ARCHETYPES: Record<Archetype, { name: string; blurb: string; weights: Part
       jailer: 2,
       reaper: 2,
       pathfinder: 2,
+      illusionist: 2,
+      oracle: 1,
+      clone: 1,
+      converter: 1,
+      summoner: 1,
     },
   },
 };
@@ -220,7 +225,7 @@ function buyArmy(rng: Rng, archetype: Archetype, budget: number, act: number, el
     const t = rng.weighted(affordable);
     army.push(t);
     left -= PIECE_STATS[t].cost;
-    if (t === 'juggernaut' || t === 'queen' || t === 'phoenix') weights[t] = 0; // at most one
+    if (t === 'juggernaut' || t === 'queen' || t === 'phoenix' || t === 'converter') weights[t] = 0; // at most one
   }
   return army;
 }

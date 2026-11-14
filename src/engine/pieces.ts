@@ -107,6 +107,58 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 1, damage: 1, cost: 8, value: 650, name: 'Phoenix',
     blurb: 'Up to three squares orthogonally. The first time it would be captured, it is reborn on a friendly deployment square next turn.',
   },
+  engineer: {
+    size: 1, maxHp: 2, damage: 1, cost: 4, value: 360, name: 'Engineer',
+    blurb: 'One square any direction. Builds a cracked wall nearby (every 3 turns), demolishes adjacent cracked walls, and once per battle repairs 1 HP of an adjacent multi-HP ally.',
+  },
+  assassin: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 420, name: 'Assassin',
+    blurb: 'Up to three squares diagonally. Deals 2 to enemies that did not move last turn. Shadow Step behind an enemy (every 4 turns). After a capture, may move up to 2 squares again.',
+  },
+  illusionist: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 400, name: 'Illusionist',
+    blurb: 'Up to two squares in any straight line. Creates look-alike illusions (every 4 turns) and once per battle swaps places with one.',
+  },
+  summoner: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 460, name: 'Summoner',
+    blurb: 'One square diagonally. Summons a temporary Pawn (every 3 turns) and once per battle a Knight. Up to three summons at once.',
+  },
+  converter: {
+    size: 1, maxHp: 1, damage: 1, cost: 7, value: 520, name: 'Converter',
+    blurb: 'Up to two squares orthogonally. Once per battle, converts an adjacent 1 HP enemy (not a King, boss or large piece) to your side for the battle.',
+  },
+  displacer: {
+    size: 1, maxHp: 2, damage: 1, cost: 5, value: 420, name: 'Displacer',
+    blurb: 'Leaps exactly two squares orthogonally. Swaps places with an enemy within 2 (every 3 turns); once per battle pushes all adjacent enemies away. Immune to enemy swaps.',
+  },
+  oracle: {
+    size: 1, maxHp: 1, damage: 1, cost: 6, value: 440, name: 'Oracle',
+    blurb: "Up to three squares diagonally. Shows the enemy's intended move, reveals illusions within 3, and every 4 turns protects an ally from the next attack.",
+  },
+  clone: {
+    size: 1, maxHp: 1, damage: 1, cost: 6, value: 400, name: 'Clone',
+    blurb: 'One square any direction. Once per battle, copies an adjacent ally: its movement and abilities (not upgrades or HP) for the rest of the battle.',
+  },
+  bomber: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 320, name: 'Bomber',
+    blurb: 'One square orthogonally. Can detonate, dealing 2 damage to every piece around it (allies too) and destroying itself. Deals 1 around it if captured.',
+  },
+  slayer: {
+    size: 1, maxHp: 2, damage: 1, cost: 7, value: 600, name: 'Slayer',
+    blurb: 'Up to three squares orthogonally or one diagonally. Deals 2 to multi-HP enemies (3 to bosses), bounces only one square, and heals after felling a multi-HP enemy.',
+  },
+  warden: {
+    size: 1, maxHp: 3, damage: 1, cost: 6, value: 560, name: 'Warden',
+    blurb: 'One square orthogonally. Adjacent allies take 1 less from hits of 2+. Cannot be moved by enemies. Once per battle, takes a hit meant for an adjacent ally.',
+  },
+  harvester: {
+    size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Harvester',
+    blurb: 'Up to two squares in any direction. Gains a Soul per capture (max 5, kept between battles). Spend 2 to heal or 3 for +1 damage. Reaching 5 Souls grants +1 max HP once per run.',
+  },
+  illusion: {
+    size: 1, maxHp: 1, damage: 0, cost: 0, value: 80, name: 'Illusion',
+    blurb: 'A 1 HP illusion. Moves one square; cannot capture.',
+  },
   decoy: {
     size: 1, maxHp: 1, damage: 0, cost: 0, value: 60, name: 'Decoy',
     blurb: 'A temporary 1 HP decoy. Moves one square; cannot attack.',

@@ -46,6 +46,7 @@ import {
   suppressed,
 } from './core';
 import { attacksSquare, heavySteps, shotSquares, sideStepVariants, stepsFor } from './movement';
+import { harvestSoul, resolveSpecial, specialMoves } from './specials';
 import { PIECE_STATS, footprint, sizeOf } from './pieces';
 import {
   Bonus,
@@ -338,7 +339,13 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     else ordinary = ordinaryMoves(state, p);
     if (p.type === 'pawn' && cannotAttack(p)) ordinary = ordinary.filter((m) => !m.targets);
   }
-  const moves = [...ordinary, ...abilityMoves(state, p, ordinary), ...upgradeActions(state, p), ...temporalEchoMoves(state, p, ordinary)];
+  const moves = [
+    ...ordinary,
+    ...abilityMoves(state, p, ordinary),
+    ...specialMoves(state, p),
+    ...upgradeActions(state, p),
+    ...temporalEchoMoves(state, p, ordinary),
+  ];
   if (p.type === 'king' && !p.hasMoved && !bound) moves.push(...castleMoves(state, p));
   return moves;
 }
@@ -385,6 +392,7 @@ function castleMoves(state: GameState, king: Piece): Move[] {
 
 function fitsBonus(m: Move, b: Bonus): boolean {
   if (b.pieceId && m.pieceId !== b.pieceId) return false;
+  if (b.maxDistance !== undefined && (m.action || distance(m.from, m.to) > b.maxDistance)) return false;
   if (b.filter === 'nonCapturing') return !m.targets?.length && (!m.action || m.action === 'teleport');
   if (b.filter === 'captureOnly') return !!m.targets?.length;
   return true;
@@ -510,6 +518,10 @@ function gapBetween(s: GameState, a: Coord, b: Coord): boolean {
 function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: number): number {
   let dmg = PIECE_STATS[p.type].damage;
   if (dmg === 0) return 0;
+  // Assassin Backstab: 2 damage to an enemy that hasn't moved since its last turn began.
+  if (p.type === 'assassin' && t.turnPos && sameCoord(t.turnPos, t.pos)) dmg = Math.max(dmg, 2);
+  // Slayer Giant Killer: 2 against multi-HP enemies, 3 against Boss Pieces.
+  if (p.type === 'slayer') dmg = Math.max(dmg, isBoss(t) ? 3 : t.maxHp > 1 ? 2 : dmg);
   if (ready(p, 'heavy_strike')) {
     markUsed(p, 'heavy_strike');
     dmg += 1;
@@ -562,6 +574,7 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
   const dir = sign(sub(m.to, m.from));
   const leap = !!m.leap;
   let captured = 0;
+  let bigKills = 0;
   let guardFellAt: Coord | undefined;
   let guardSurvived = false;
   const damages = targets.map((t) => outgoingDamage(s, p, t, m, targets.length));
@@ -610,6 +623,9 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
       markUsed(p, 'finishing_blow');
       out = dealDamage(s, t.id, 1, { sourceId: p.id, kind: ranged ? 'ranged' : 'attack' });
     }
+    if (!alive(s, t.id) && !s.reborn.some((r) => r.id === t.id) && t.side !== p.side) {
+      if (t.maxHp > 1) bigKills++;
+    }
     if (!alive(s, t.id)) {
       captured++;
       dmg = dmg - hpBefore;
@@ -632,7 +648,9 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
     } else if (blocked) {
       let land = m.bounceTo ?? m.from;
       const adjacentLand = leap ? m.from : sub(m.to, dir);
-      if (ready(p, 'unyielding_assault')) {
+      if (p.type === 'slayer') {
+        land = adjacentLand; // Relentless: only one square of bounceback
+      } else if (ready(p, 'unyielding_assault')) {
         markUsed(p, 'unyielding_assault');
         land = adjacentLand;
       } else if (ready(p, 'counterweight')) {
@@ -671,7 +689,14 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
     }
   }
 
-  if (captured > 0) afterCapture(s, p, m, dir, entry);
+  if (captured > 0) {
+    for (let i = 0; i < captured; i++) harvestSoul(s, p);
+    if (p.type === 'slayer' && bigKills > 0) heal(s, p, 1); // Bloodlust
+    // Assassin Execution: an extra non-capturing move of up to two squares.
+    if (p.type === 'assassin' && m.action !== 'shoot' && alive(s, p.id) && entry?.source !== 'execution')
+      s.bonus.unshift({ pieceId: p.id, filter: 'nonCapturing', optional: true, source: 'execution', maxDistance: 2 });
+    afterCapture(s, p, m, dir, entry);
+  }
 }
 
 function afterBounce(s: GameState, p: Piece, dist: number) {
@@ -782,6 +807,7 @@ function resolveOrdinary(s: GameState, m: Move, entry?: Bonus) {
 function resolve(s: GameState, m: Move, entry?: Bonus) {
   const p = getPiece(s, m.pieceId);
   if (!p) return;
+  if (resolveSpecial(s, m)) return;
   switch (m.action) {
     case 'pass':
       return;
@@ -972,7 +998,7 @@ function endTurn(s: GameState) {
     p.stillTurns = moved ? 0 : p.stillTurns + 1;
     p.counters.turns = (p.counters.turns ?? 0) + 1;
     p.counters.momentumChain = 0;
-    if (p.counters.royalCommandCd) p.counters.royalCommandCd -= 1;
+    for (const k of Object.keys(p.counters)) if (k.endsWith('Cd') && p.counters[k] > 0) p.counters[k] -= 1;
     const king = kingOf(s, side);
     const nextToKing = !!king && king.id !== p.id && adjacent(king, p);
 

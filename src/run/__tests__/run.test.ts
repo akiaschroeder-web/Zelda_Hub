@@ -305,6 +305,51 @@ describe('upgrades in a run', () => {
   });
 });
 
+describe('special pieces in a run', () => {
+  const fight = (types: string[]) => {
+    let run = newRun(61);
+    run = { ...run, roster: [...run.roster, ...types.map((t, i) => ({ uid: `x${i}`, type: t as never, battles: 0, upgrades: [] }))] };
+    run = enterNode(run, availableNodes(run)[0].id);
+    const king = run.roster.find((r) => r.type === 'king')!;
+    const zone = run.battle!.terrain.flatMap((row, y) => [...row].map((ch, x) => ({ ch, x, y }))).filter((c) => c.ch === 'd');
+    const deployed = [{ uid: king.uid, x: zone[0].x, y: zone[0].y }, ...types.map((_, i) => ({ uid: `x${i}`, x: zone[i + 1].x, y: zone[i + 1].y }))];
+    return startBattle({ ...run, armyPoints: 99 }, deployed);
+  };
+  const win = (s: GameState): GameState => ({ ...s, result: { kind: 'checkmate', winner: 'player' } });
+
+  it('a piece converted by the enemy is lost', () => {
+    const run = fight(['rook']);
+    const final = win({
+      ...run.activeBattle!,
+      pieces: run.activeBattle!.pieces.map((p) => (p.id === 'x0' ? { ...p, side: 'enemy' as const } : p)),
+    });
+    const after = finishBattle(run, final);
+    expect(after.roster.some((r) => r.uid === 'x0')).toBe(false);
+    expect(after.fallen.map((f) => f.uid)).toContain('x0');
+  });
+
+  it('Harvester Souls and Death’s Reward carry between battles', () => {
+    const run = fight(['harvester']);
+    const final = win({
+      ...run.activeBattle!,
+      pieces: run.activeBattle!.pieces.map((p) => (p.id === 'x0' ? { ...p, counters: { souls: 5, deathReward: 1 } } : p)),
+    });
+    const after = finishBattle(run, final);
+    const h = after.roster.find((r) => r.uid === 'x0')!;
+    expect(h.souls).toBe(5);
+    expect(h.deathReward).toBe(true);
+  });
+
+  it('a Clone returns to being a Clone after battle', () => {
+    const run = fight(['clone']);
+    const final = win({
+      ...run.activeBattle!,
+      pieces: run.activeBattle!.pieces.map((p) => (p.id === 'x0' ? { ...p, type: 'archer' as const, clonedFrom: 'clone' as const } : p)),
+    });
+    expect(finishBattle(run, final).roster.find((r) => r.uid === 'x0')!.type).toBe('clone');
+  });
+});
+
 describe('full runs', () => {
   it('simulated runs always finish without breaking', () => {
     const outcomes: Record<string, number> = {};

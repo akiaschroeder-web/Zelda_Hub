@@ -8,10 +8,13 @@ export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
 
 /** Which pieces can be recruited, by rarity. Kings are never offered. */
 export const RECRUIT_POOLS: Record<Rarity, PieceType[]> = {
-  common: ['pawn', 'knight', 'bishop', 'lancer', 'archer', 'hopper'],
-  uncommon: ['rook', 'guardian', 'medic', 'switcher', 'siege', 'magnet', 'anchor', 'pathfinder', 'sentinel', 'pusher'],
-  rare: ['queen', 'mage', 'chancellor', 'mimic', 'reaper', 'splitter', 'jailer', 'bastion'],
-  epic: ['juggernaut', 'phoenix'],
+  common: ['pawn', 'knight', 'bishop', 'lancer', 'archer', 'hopper', 'engineer', 'bomber'],
+  uncommon: [
+    'rook', 'guardian', 'medic', 'switcher', 'siege', 'magnet', 'anchor', 'pathfinder', 'sentinel', 'pusher',
+    'illusionist', 'displacer', 'harvester', 'assassin',
+  ],
+  rare: ['queen', 'mage', 'chancellor', 'mimic', 'reaper', 'splitter', 'jailer', 'bastion', 'summoner', 'oracle', 'clone', 'warden', 'slayer'],
+  epic: ['juggernaut', 'phoenix', 'converter'],
 };
 
 export const rarityOf = (t: PieceType): Rarity =>

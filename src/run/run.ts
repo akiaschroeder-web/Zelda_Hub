@@ -19,6 +19,10 @@ export interface RosterPiece {
   battles: number;
   /** Upgrade ids attached to this piece. */
   upgrades: string[];
+  /** Harvester: Souls carried between battles (max 5). */
+  souls?: number;
+  /** Harvester: Death's Reward (+1 max HP) already earned this run. */
+  deathReward?: boolean;
 }
 
 export interface FallenPiece extends RosterPiece {
@@ -269,7 +273,11 @@ function buildBattle(run: RunState, battle: RunBattle, deployed: DeployedPiece[]
         x: d.x,
         y: d.y,
         upgrades: piece.upgrades,
-        bonusMaxHp: livingFortressBonus(piece),
+        bonusMaxHp: livingFortressBonus(piece) + (piece.deathReward ? 1 : 0),
+        counters: {
+          ...(piece.souls !== undefined ? { souls: piece.souls } : {}),
+          ...(piece.deathReward ? { deathReward: 1 } : {}),
+        },
       };
     }),
     ...battle.enemies.map((e) => ({ ...e, side: 'enemy' as const })),
@@ -336,11 +344,15 @@ export const isDefeat = (r: GameResult) => r.kind !== 'ongoing' && r.kind !== 'd
  */
 export function finishBattle(run: RunState, final: GameState): RunState {
   const battle = run.battle!;
-  const capturedIds = new Set(final.captured.filter((p) => p.side === 'player').map((p) => p.id));
-  // Second Life: the first time a piece would be lost, it comes back (and the upgrade is spent).
-  const savedIds = new Set(final.saved.filter((id) => capturedIds.has(id)));
-  const lostIds = new Set([...capturedIds].filter((id) => !savedIds.has(id)));
+  // A deployed roster piece is lost if it isn't standing on our side at the end: captured,
+  // fallen into a gap, or converted by an enemy Converter. A Phoenix awaiting rebirth survives.
   const onField = new Map(final.pieces.filter((p) => p.side === 'player').map((p) => [p.id, p]));
+  for (const p of final.reborn.filter((p) => p.side === 'player')) onField.set(p.id, p);
+  const deployedIds = new Set([...final.pieces, ...final.captured, ...final.reborn].map((p) => p.id));
+  const missing = run.roster.filter((r) => deployedIds.has(r.uid) && !onField.has(r.uid)).map((r) => r.uid);
+  // Second Life: the first time a piece would be lost, it comes back (and the upgrade is spent).
+  const savedIds = new Set(final.saved.filter((id) => missing.includes(id)));
+  const lostIds = new Set(missing.filter((id) => !savedIds.has(id)));
   const lost = run.roster.filter((r) => lostIds.has(r.uid));
   const saved = run.roster.filter((r) => savedIds.has(r.uid));
   const roster = run.roster
@@ -349,8 +361,16 @@ export function finishBattle(run: RunState, final: GameState): RunState {
       if (savedIds.has(r.uid)) return { ...r, upgrades: r.upgrades.filter((u) => u !== 'second_life') };
       const fielded = onField.get(r.uid);
       if (!fielded) return r;
-      const type = RUN_CONFIG.promotionsArePermanent ? fielded.type : r.type;
-      return { ...r, type, battles: r.battles + 1 };
+      // Only promoted Pawns keep a new type (a Clone's copy ends with the battle).
+      const type = RUN_CONFIG.promotionsArePermanent && r.type === 'pawn' ? fielded.type : r.type;
+      const souls = fielded.counters.souls;
+      return {
+        ...r,
+        type,
+        battles: r.battles + 1,
+        ...(souls !== undefined ? { souls } : {}),
+        ...(fielded.counters.deathReward ? { deathReward: true } : {}),
+      };
     });
   const after: RunState = {
     ...run,

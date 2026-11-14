@@ -4,7 +4,7 @@ import { chooseMove } from '../engine/ai';
 import { occupancy } from '../engine/board';
 import { actionLabel, describeMove } from '../engine/describe';
 import { UPGRADE_BY_ID } from '../engine/upgrades/catalog';
-import { applyMove, findKing, inCheck, legalMoves } from '../engine/moves';
+import { applyMove, distance, findKing, inCheck, legalMoves } from '../engine/moves';
 import { PIECE_STATS, footprint, sizeOf } from '../engine/pieces';
 import {
   AbilityId,
@@ -40,6 +40,21 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   bridge: 'rgba(170, 130, 80, 0.95)',
   divide: 'rgba(150, 90, 220, 0.95)',
   bind: 'rgba(120, 120, 220, 0.95)',
+  construct: 'rgba(170, 130, 80, 0.95)',
+  repair: 'rgba(80, 190, 100, 0.95)',
+  shadowStep: 'rgba(110, 60, 160, 0.95)',
+  mirage: 'rgba(150, 90, 220, 0.95)',
+  misdirection: 'rgba(70, 140, 230, 0.95)',
+  summonPawn: 'rgba(90, 200, 220, 0.95)',
+  summonKnight: 'rgba(90, 200, 220, 0.95)',
+  convert: 'rgba(200, 80, 160, 0.95)',
+  displace: 'rgba(70, 140, 230, 0.95)',
+  repulse: 'rgba(230, 110, 60, 0.95)',
+  prophecy: 'rgba(240, 220, 120, 0.95)',
+  replicate: 'rgba(150, 90, 220, 0.95)',
+  detonate: 'rgba(214, 60, 60, 0.95)',
+  soulHeal: 'rgba(80, 190, 100, 0.95)',
+  soulPower: 'rgba(214, 60, 60, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -61,6 +76,18 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   bastion: { label: 'Fortify (passive)' },
   anchor: { label: 'Stabilize (passive)' },
   reaper: { label: 'Cleave (passive)' },
+  engineer: { id: 'repair', label: 'Construct (brown, every 3 turns), Demolish (orange), Repair (green)' },
+  assassin: { label: 'Backstab (passive), Shadow Step (every 4 turns), Execution (bonus move)' },
+  illusionist: { id: 'misdirection', label: 'Mirage (every 4 turns), Misdirection' },
+  summoner: { id: 'summonKnight', label: 'Summon Pawn (every 3 turns), Summon Knight' },
+  converter: { id: 'convert', label: 'Conversion' },
+  displacer: { id: 'repulse', label: 'Displacement (every 3 turns), Repulsion' },
+  oracle: { label: 'Foresight, Revelation (passive), Prophecy (every 4 turns)' },
+  clone: { id: 'replicate', label: 'Replication' },
+  bomber: { label: 'Detonate (red)' },
+  slayer: { label: 'Giant Killer, Relentless, Bloodlust (passive)' },
+  warden: { id: 'warden_intercept', label: 'Defensive Aura, Immovable, Intercept' },
+  harvester: { label: 'Soul Harvest — spend Souls to heal (2) or empower (3)' },
 };
 
 const STATUS_NAMES: Partial<Record<string, string>> = {
@@ -85,6 +112,7 @@ const STATUS_NAMES: Partial<Record<string, string>> = {
   immune: 'Immune',
   springLoaded: 'Spring Loaded',
   fortified: 'Fortified',
+  prophecy: 'Protected by prophecy',
 };
 
 export function describePiece(p: Piece): { title: string; text: string; upgrades: string } {
@@ -98,7 +126,7 @@ export function describePiece(p: Piece): { title: string; text: string; upgrades
   const statuses = p.statuses.map((st) => STATUS_NAMES[st.kind] ?? st.kind);
   const ups = p.upgrades.map((u) => `${UPGRADE_BY_ID[u]?.name ?? u}${p.used.includes(u) ? ' (used)' : ''}`);
   return {
-    title: `${stats.name}${p.temp ? ' (summoned)' : ''} · ${p.hp}/${p.maxHp} HP${shields}${statuses.length ? ` · ${statuses.join(', ')}` : ''}`,
+    title: `${p.clonedFrom ? `Clone as ${stats.name}` : stats.name}${p.temp ? (p.temp.kind === 'converted' ? ' (converted)' : ' (summoned)') : ''} · ${p.hp}/${p.maxHp} HP${shields}${statuses.length ? ` · ${statuses.join(', ')}` : ''}${p.counters.souls ? ` · ${p.counters.souls} Souls` : ''}`,
     text: stats.blurb + abilityText,
     upgrades: ups.length ? `Upgrades: ${ups.join(', ')}. Gold rings mark upgrade actions; tap the piece again for actions on itself.` : '',
   };
@@ -169,6 +197,23 @@ export default function BattleView({ state, onMove, title, description, finishLa
   }, [state, over]);
 
   const occ = useMemo(() => occupancy(state.pieces), [state]);
+
+  // Revelation: enemy illusions look like Illusionists unless one of your Oracles is within 3 squares.
+  const displayPieces = useMemo(() => {
+    const oracles = state.pieces.filter((p) => p.side === 'player' && p.type === 'oracle');
+    return state.pieces.map((p) =>
+      p.side === 'enemy' && p.type === 'illusion' && !oracles.some((o) => distance(o.pos, p.pos) <= 3)
+        ? { ...p, type: 'illusionist' as const, temp: undefined }
+        : p,
+    );
+  }, [state]);
+
+  // Foresight: with an Oracle on the field, show the move the enemy currently rates best.
+  const foresight = useMemo(() => {
+    if (over || state.turn !== 'player' || state.bonus.length) return null;
+    if (!state.pieces.some((p) => p.side === 'player' && p.type === 'oracle')) return null;
+    return chooseMove({ ...state, turn: 'enemy', bonus: [] }, 1, () => 0);
+  }, [state, over]);
   const playerMoves = useMemo(() => (state.turn === 'player' && !over ? legalMoves(state) : []), [state, over]);
   const passMove = playerMoves.find((m) => m.action === 'pass');
   // A bonus move for one specific piece selects it automatically.
@@ -278,6 +323,10 @@ export default function BattleView({ state, onMove, title, description, finishLa
     }
   }
   if (selectedPiece) footprint(selectedPiece).forEach((c) => tint(c, COLORS.selected));
+  if (foresight) {
+    tint(foresight.from, 'rgba(160, 80, 220, 0.35)');
+    tint(foresight.to, 'rgba(160, 80, 220, 0.5)');
+  }
   if (checkedKing) tint(checkedKing.pos, COLORS.check);
 
   const info = selectedPiece ? describePiece(selectedPiece) : null;
@@ -294,7 +343,15 @@ export default function BattleView({ state, onMove, title, description, finishLa
 
       <Text style={[styles.status, (checkedKing || over) && { color: over ? COLORS.gold : COLORS.danger }]}>{status}</Text>
 
-      <BoardView board={state.board} pieces={state.pieces} cell={cell} tints={tints} markers={markers} onSquare={onSquare} />
+      {foresight && (
+        <Text style={styles.foresight}>
+          🔮 The Oracle foresees: enemy {PIECE_STATS[displayPieces.find((p) => p.id === foresight.pieceId)?.type ?? 'pawn'].name}
+          {' — '}
+          {actionLabel(state, foresight)} (purple squares)
+        </Text>
+      )}
+
+      <BoardView board={state.board} pieces={displayPieces} cell={cell} tints={tints} markers={markers} onSquare={onSquare} />
 
       {info ? (
         <View style={styles.infoBox}>
@@ -395,6 +452,7 @@ const styles = StyleSheet.create({
   infoTitle: { color: COLORS.gold, fontSize: 13, fontWeight: '700' },
   infoText: { color: COLORS.text, fontSize: 12, marginTop: 2 },
   infoUpgrades: { color: COLORS.gold, fontSize: 12, marginTop: 3 },
+  foresight: { color: '#c39bf0', fontSize: 12, marginBottom: 6, textAlign: 'center' },
   promoChoice: { padding: 6, marginHorizontal: 4, borderRadius: 8, backgroundColor: COLORS.squareDark },
   cancel: { color: COLORS.textDim, fontSize: 14, textAlign: 'center' },
 });

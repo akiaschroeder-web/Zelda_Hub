@@ -18,6 +18,8 @@ export interface Placement {
   upgrades?: string[];
   /** Extra maximum HP from the run (e.g. Living Fortress). */
   bonusMaxHp?: number;
+  /** Counters carried in from the run (e.g. Harvester Souls). */
+  counters?: Record<string, number>;
 }
 
 /** Maximum HP including upgrades that raise it. */
@@ -67,6 +69,7 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
     piece.maxHp = maxHpFor(p.type, piece.upgrades, p.bonusMaxHp ?? 0);
     piece.hp = Math.min(p.hp ?? piece.maxHp, piece.maxHp);
     for (let i = 0; i < (p.shields ?? 0); i++) piece.shields.push({ strength: 1, expires: null });
+    if (p.counters) piece.counters = { ...p.counters };
     return piece;
   });
   // Every square of every footprint must be open terrain and unshared.
@@ -121,7 +124,7 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
  *   F Bastion  Z Pathfinder Y Sentinel     D Splitter E Jailer
  *   @ / &  Phoenix (player / enemy) — there are more piece types than letters
  */
-export function parsePlacements(rows: string[]): Placement[] {
+export function parsePlacements(rows: string[], legend: Record<string, [PieceType, Side]> = {}): Placement[] {
   const types: Record<string, PieceType> = {
     k: 'king',
     q: 'queen',
@@ -153,6 +156,10 @@ export function parsePlacements(rows: string[]): Placement[] {
   const out: Placement[] = [];
   rows.forEach((row, y) => {
     [...row].forEach((ch, x) => {
+      if (legend[ch]) {
+        out.push({ type: legend[ch][0], side: legend[ch][1], x, y });
+        return;
+      }
       if (ch === '@' || ch === '&') {
         out.push({ type: 'phoenix', side: ch === '@' ? 'player' : 'enemy', x, y });
         return;
@@ -174,9 +181,11 @@ export interface EncounterDef {
   pieces: string[];
   /** Upgrades by square ("x,y"). */
   upgrades?: Record<string, string[]>;
+  /** Extra layout characters for pieces without a letter. */
+  legend?: Record<string, [PieceType, Side]>;
 }
 
 export function createEncounter(def: EncounterDef): GameState {
-  const placements = parsePlacements(def.pieces).map((p) => ({ ...p, upgrades: def.upgrades?.[`${p.x},${p.y}`] ?? [] }));
+  const placements = parsePlacements(def.pieces, def.legend).map((p) => ({ ...p, upgrades: def.upgrades?.[`${p.x},${p.y}`] ?? [] }));
   return createGame(parseBoard(def.terrain), placements, def.rules);
 }
