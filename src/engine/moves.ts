@@ -1,7 +1,49 @@
-import { inBounds, isStandable, isWall, occupancy, terrainAt } from './board';
+import { inBounds, isStandable, isWall, terrainAt } from './board';
+import { FREE_ACTIONS, resolveUpgradeAction, upgradeActions } from './actions';
+import {
+  ALL_DIRS,
+  ORTHO,
+  add,
+  addShield,
+  addStatus,
+  adjacent,
+  allies,
+  cannotAttack,
+  cloneState,
+  dealDamage,
+  destroyCracked,
+  distance,
+  enemiesOf,
+  getPiece,
+  has,
+  hasStatus,
+  heal,
+  isBoss,
+  isEmpty,
+  kingOf,
+  log,
+  markUsed,
+  pieceAt,
+  pieceDistance,
+  push,
+  pushDistance,
+  ready,
+  removeStatus,
+  sign,
+  statusOf,
+  sub,
+  anyHas,
+  freeze,
+  collapseBridge,
+  DamageOutcome,
+  hasUsed,
+  silenced,
+  suppressed,
+} from './core';
+import { attacksSquare, heavySteps, shotSquares, sideStepVariants, stepsFor } from './movement';
 import { PIECE_STATS, footprint, sizeOf } from './pieces';
 import {
-  AbilityId,
+  Bonus,
   Coord,
   GameResult,
   GameState,
@@ -9,40 +51,12 @@ import {
   Piece,
   PromotionType,
   Side,
-  Terrain,
   coordKey,
   forward,
   opponent,
   sameCoord,
+  shieldTotal,
 } from './types';
-
-const ORTHO: Coord[] = [
-  { x: 1, y: 0 },
-  { x: -1, y: 0 },
-  { x: 0, y: 1 },
-  { x: 0, y: -1 },
-];
-const DIAG: Coord[] = [
-  { x: 1, y: 1 },
-  { x: 1, y: -1 },
-  { x: -1, y: 1 },
-  { x: -1, y: -1 },
-];
-const ALL_DIRS = [...ORTHO, ...DIAG];
-const SIDEWAYS: Coord[] = [
-  { x: 1, y: 0 },
-  { x: -1, y: 0 },
-];
-const KNIGHT_JUMPS: Coord[] = [
-  { x: 1, y: 2 },
-  { x: 2, y: 1 },
-  { x: -1, y: 2 },
-  { x: -2, y: 1 },
-  { x: 1, y: -2 },
-  { x: 2, y: -1 },
-  { x: -1, y: -2 },
-  { x: -2, y: -1 },
-];
 
 export const PROMOTION_TYPES: PromotionType[] = ['queen', 'rook', 'bishop', 'knight'];
 
@@ -50,21 +64,8 @@ export const PROMOTION_TYPES: PromotionType[] = ['queen', 'rook', 'bishop', 'kni
 const TELEPORT_RANGE = 3;
 const SWAP_RANGE = 2;
 
-type Occ = Map<string, Piece>;
-
-const add = (a: Coord, b: Coord): Coord => ({ x: a.x + b.x, y: a.y + b.y });
-const scale = (a: Coord, k: number): Coord => ({ x: a.x * k, y: a.y * k });
-const at = (occ: Occ, c: Coord) => occ.get(coordKey(c));
-/** King-style distance between two squares. */
-export const distance = (a: Coord, b: Coord) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-
-export const hasUsed = (p: Piece, a: AbilityId) => p.used.includes(a);
-
-/** Whether two pieces' footprints touch (including diagonally). */
-export function adjacent(a: Piece, b: Piece): boolean {
-  for (const ca of footprint(a)) for (const cb of footprint(b)) if (distance(ca, cb) === 1) return true;
-  return false;
-}
+export { distance, adjacent };
+export const hasUsedAbility = hasUsed;
 
 /**
  * A Knight jump is blocked when any wall (solid or cracked) lies inside the
@@ -75,8 +76,7 @@ export function knightPathClear(state: GameState, from: Coord, to: Coord): boole
   const x1 = Math.max(from.x, to.x);
   const y0 = Math.min(from.y, to.y);
   const y1 = Math.max(from.y, to.y);
-  for (let y = y0; y <= y1; y++)
-    for (let x = x0; x <= x1; x++) if (isWall(state.board, { x, y })) return false;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (isWall(state.board, { x, y })) return false;
   return true;
 }
 
@@ -85,165 +85,19 @@ export function knightPathClear(state: GameState, from: Coord, to: Coord): boole
  * from the attacked square along the approach line. The squares on that line
  * were just crossed, so the landing square is always free.
  */
-export function bounceSquare(from: Coord, to: Coord, leaper: boolean): Coord {
+export function bounceSquare(from: Coord, to: Coord, leaper: boolean, reduce = 0): Coord {
   if (leaper) return from;
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const dist = Math.max(Math.abs(dx), Math.abs(dy));
-  const back = Math.max(1, Math.ceil(dist / 2));
+  const back = Math.max(1, Math.ceil(dist / 2) - reduce);
   return { x: to.x - Math.sign(dx) * back, y: to.y - Math.sign(dy) * back };
 }
 
-// ---------------------------------------------------------------------------
-// Movement patterns
-// ---------------------------------------------------------------------------
-
-/** A square a piece's ordinary movement can reach. */
-interface Step {
-  to: Coord;
-  /** false = may only move onto an empty square (e.g. the Archer's step). */
-  canCapture: boolean;
-  /** Leapers return to their start square when bounced. */
-  leap: boolean;
-}
-
-function slideSteps(state: GameState, occ: Occ, p: Piece, dirs: Coord[], max = Infinity): Step[] {
-  const out: Step[] = [];
-  for (const d of dirs) {
-    let c = add(p.pos, d);
-    for (let n = 1; n <= max && inBounds(state.board, c) && isStandable(state.board, c); n++) {
-      out.push({ to: c, canCapture: true, leap: false });
-      if (at(occ, c)) break;
-      c = add(c, d);
-    }
-  }
-  return out;
-}
-
-function adjacentSteps(state: GameState, p: Piece, dirs: Coord[], canCapture = true): Step[] {
-  return dirs
-    .map((d) => add(p.pos, d))
-    .filter((c) => isStandable(state.board, c))
-    .map((to) => ({ to, canCapture, leap: false }));
-}
-
-function knightSteps(state: GameState, p: Piece): Step[] {
-  return KNIGHT_JUMPS.map((j) => add(p.pos, j))
-    .filter((c) => isStandable(state.board, c) && knightPathClear(state, p.pos, c))
-    .map((to) => ({ to, canCapture: true, leap: true }));
-}
-
-/** Lancer: exactly 2 or 3 squares orthogonally, over pieces and gaps but not walls. */
-function lancerSteps(state: GameState, p: Piece): Step[] {
-  const out: Step[] = [];
-  for (const d of ORTHO) {
-    for (const n of [2, 3]) {
-      const to = add(p.pos, scale(d, n));
-      if (!isStandable(state.board, to)) continue;
-      let blocked = false;
-      for (let i = 1; i < n; i++) if (isWall(state.board, add(p.pos, scale(d, i)))) blocked = true;
-      if (!blocked) out.push({ to, canCapture: true, leap: true });
-    }
-  }
-  return out;
-}
-
-/** Ordinary movement for every 1x1 piece except the Pawn (which has its own rules). */
-function stepsFor(state: GameState, occ: Occ, p: Piece): Step[] {
-  switch (p.type) {
-    case 'knight':
-      return knightSteps(state, p);
-    case 'bishop':
-      return slideSteps(state, occ, p, DIAG);
-    case 'rook':
-      return slideSteps(state, occ, p, ORTHO);
-    case 'queen':
-      return slideSteps(state, occ, p, ALL_DIRS);
-    case 'king':
-    case 'guardian':
-    case 'switcher':
-      return adjacentSteps(state, p, ALL_DIRS);
-    case 'archer':
-      return adjacentSteps(state, p, DIAG, false);
-    case 'lancer':
-      return lancerSteps(state, p);
-    case 'siege':
-      return adjacentSteps(state, p, ORTHO);
-    case 'mage':
-      return slideSteps(state, occ, p, DIAG, 2);
-    case 'chancellor':
-      return [...slideSteps(state, occ, p, ORTHO), ...knightSteps(state, p)];
-    case 'medic':
-      return adjacentSteps(state, p, [...DIAG, ...SIDEWAYS]);
-    default:
-      return [];
-  }
-}
-
-/** Destinations a multi-square piece can step to (orthogonal, one square). */
-function heavySteps(state: GameState, occ: Occ, p: Piece): { to: Coord; targets: string[] }[] {
-  const out: { to: Coord; targets: string[] }[] = [];
-  for (const d of ORTHO) {
-    const to = add(p.pos, d);
-    const targets = new Set<string>();
-    let ok = true;
-    for (const c of footprint(p, to)) {
-      if (!isStandable(state.board, c)) {
-        ok = false;
-        break;
-      }
-      const occupant = at(occ, c);
-      if (!occupant || occupant.id === p.id) continue;
-      if (occupant.side === p.side) {
-        ok = false;
-        break;
-      }
-      targets.add(occupant.id);
-    }
-    if (ok) out.push({ to, targets: [...targets] });
-  }
-  return out;
-}
-
-/** Archer: enemies exactly 2 squares away orthogonally; walls between block the shot. */
-function shotSquares(state: GameState, p: Piece): Coord[] {
-  if (p.type !== 'archer') return [];
-  const out: Coord[] = [];
-  for (const d of ORTHO) {
-    const mid = add(p.pos, d);
-    const to = add(p.pos, scale(d, 2));
-    if (!inBounds(state.board, to) || isWall(state.board, mid) || !isStandable(state.board, to)) continue;
-    out.push(to);
-  }
-  return out;
-}
-
-/** Squares a piece threatens (could hit on its next action), ignoring check legality. */
-function attackSquares(state: GameState, occ: Occ, p: Piece): Coord[] {
-  if (p.type === 'pawn') {
-    const f = forward(p.side);
-    return [-1, 1].map((dx) => ({ x: p.pos.x + dx, y: p.pos.y + f })).filter((c) => isStandable(state.board, c));
-  }
-  if (sizeOf(p) > 1) {
-    const own = footprint(p);
-    const out: Coord[] = [];
-    for (const step of heavySteps(state, occ, p))
-      for (const c of footprint(p, step.to)) if (!own.some((o) => sameCoord(o, c))) out.push(c);
-    return out;
-  }
-  return [
-    ...stepsFor(state, occ, p)
-      .filter((s) => s.canCapture)
-      .map((s) => s.to),
-    ...shotSquares(state, p),
-  ];
-}
-
-export function isSquareAttacked(state: GameState, sq: Coord, by: Side, occ?: Occ): boolean {
-  const o = occ ?? occupancy(state.pieces);
+export function isSquareAttacked(state: GameState, sq: Coord, by: Side): boolean {
   for (const p of state.pieces) {
     if (p.side !== by) continue;
-    if (attackSquares(state, o, p).some((c) => sameCoord(c, sq))) return true;
+    if (attacksSquare(state, p, sq)) return true;
   }
   return false;
 }
@@ -266,29 +120,29 @@ function isPromotionSquare(state: GameState, side: Side, c: Coord): boolean {
   return !!state.board.promotionSquares?.some((s) => s.side === side && sameCoord(s.pos, c));
 }
 
-function pushPawnMove(state: GameState, out: Move[], base: Move, side: Side) {
-  if (isPromotionSquare(state, side, base.to)) {
-    for (const t of PROMOTION_TYPES) out.push({ ...base, promotion: t });
-  } else out.push(base);
+function withPromotions(state: GameState, p: Piece, m: Move): Move[] {
+  if (p.type === 'pawn' && isPromotionSquare(state, p.side, m.to))
+    return PROMOTION_TYPES.map((t) => ({ ...m, promotion: t }));
+  return [m];
 }
 
-function pawnMoves(state: GameState, occ: Occ, p: Piece): Move[] {
+function pawnMoves(state: GameState, p: Piece): Move[] {
   const moves: Move[] = [];
   const f = forward(p.side);
   const one = { x: p.pos.x, y: p.pos.y + f };
-  if (isStandable(state.board, one) && !at(occ, one)) {
-    pushPawnMove(state, moves, { pieceId: p.id, from: p.pos, to: one }, p.side);
+  if (isStandable(state.board, one) && !pieceAt(state, one)) {
+    moves.push(...withPromotions(state, p, { pieceId: p.id, from: p.pos, to: one }));
     const two = { x: p.pos.x, y: p.pos.y + 2 * f };
-    if (!p.hasMoved && isStandable(state.board, two) && !at(occ, two)) {
+    if (!p.hasMoved && isStandable(state.board, two) && !pieceAt(state, two)) {
       moves.push({ pieceId: p.id, from: p.pos, to: two, doubleStep: one });
     }
   }
   for (const dx of [-1, 1]) {
     const c = { x: p.pos.x + dx, y: p.pos.y + f };
     if (!isStandable(state.board, c)) continue;
-    const target = at(occ, c);
+    const target = pieceAt(state, c);
     if (target && target.side !== p.side) {
-      pushPawnMove(state, moves, { pieceId: p.id, from: p.pos, to: c, targets: [target.id], bounceTo: p.pos }, p.side);
+      moves.push(...withPromotions(state, p, { pieceId: p.id, from: p.pos, to: c, targets: [target.id], bounceTo: p.pos }));
     } else if (!target && state.enPassant && sameCoord(state.enPassant.target, c)) {
       moves.push({ pieceId: p.id, from: p.pos, to: c, targets: [state.enPassant.pawnId], bounceTo: p.pos, enPassant: true });
     }
@@ -296,72 +150,136 @@ function pawnMoves(state: GameState, occ: Occ, p: Piece): Move[] {
   return moves;
 }
 
-/** Special actions: shots, demolition, teleport, swap, heal. */
-function abilityMoves(state: GameState, occ: Occ, p: Piece, ordinary: Move[]): Move[] {
+/** Built-in piece abilities (Archer, Siege Engine, Mage, Switcher, Medic). */
+function abilityMoves(state: GameState, p: Piece, ordinary: Move[]): Move[] {
   const moves: Move[] = [];
   const base = { pieceId: p.id, from: p.pos };
+  const blockedMove = hasStatus(p, 'bound') || suppressed(state, p);
   switch (p.type) {
     case 'archer':
-      for (const c of shotSquares(state, p)) {
-        const target = at(occ, c);
-        if (target && target.side !== p.side) moves.push({ ...base, to: c, action: 'shoot', targets: [target.id] });
-      }
+      if (!cannotAttack(p))
+        for (const c of shotSquares(state, p)) {
+          const target = pieceAt(state, c);
+          if (target && target.side !== p.side) moves.push({ ...base, to: c, action: 'shoot', targets: [target.id] });
+        }
       break;
     case 'siege':
-      for (const d of ALL_DIRS) {
-        const c = add(p.pos, d);
-        if (terrainAt(state.board, c) === 'cracked') moves.push({ ...base, to: c, action: 'demolish' });
-      }
+      if (!silenced(p))
+        for (const d of ALL_DIRS) {
+          const c = add(p.pos, d);
+          if (terrainAt(state.board, c) === 'cracked') moves.push({ ...base, to: c, action: 'demolish' });
+        }
       break;
     case 'mage':
-      if (hasUsed(p, 'teleport')) break;
+      if (hasUsed(p, 'teleport') || silenced(p) || blockedMove) break;
       for (let dy = -TELEPORT_RANGE; dy <= TELEPORT_RANGE; dy++)
         for (let dx = -TELEPORT_RANGE; dx <= TELEPORT_RANGE; dx++) {
           const c = { x: p.pos.x + dx, y: p.pos.y + dy };
-          if ((dx === 0 && dy === 0) || !isStandable(state.board, c) || at(occ, c)) continue;
-          // Squares its ordinary move already reaches don't need the teleport.
+          if ((dx === 0 && dy === 0) || !isEmpty(state, c)) continue;
           if (ordinary.some((m) => sameCoord(m.to, c))) continue;
           moves.push({ ...base, to: c, action: 'teleport' });
         }
       break;
     case 'switcher':
-      if (hasUsed(p, 'swap')) break;
+      if (hasUsed(p, 'swap') || silenced(p) || blockedMove) break;
       for (const ally of state.pieces) {
         if (ally.side !== p.side || ally.id === p.id || ally.type === 'king' || sizeOf(ally) > 1) continue;
         if (distance(ally.pos, p.pos) <= SWAP_RANGE) moves.push({ ...base, to: ally.pos, action: 'swap', allyId: ally.id });
       }
       break;
     case 'medic':
+      if (silenced(p)) break;
       for (const ally of state.pieces) {
-        if (ally.side !== p.side || ally.id === p.id || ally.type === 'king' || ally.hp >= ally.maxHp) continue;
-        if (adjacent(p, ally)) moves.push({ ...base, to: ally.pos, action: 'heal', allyId: ally.id });
+        if (ally.side !== p.side || ally.id === p.id || ally.hp >= ally.maxHp) continue;
+        if (ally.type === 'king' && !has(p, 'royal_physician')) continue;
+        if (pieceDistance(p, ally) <= 1 + (has(p, 'extended_healing') ? 1 : 0))
+          moves.push({ ...base, to: ally.pos, action: 'heal', allyId: ally.id });
       }
       break;
   }
   return moves;
 }
 
-/** All moves for one piece, before filtering out moves that leave the King in check. */
-function pseudoMovesFor(state: GameState, occ: Occ, p: Piece): Move[] {
-  if (sizeOf(p) > 1) {
-    return heavySteps(state, occ, p).map((step) =>
-      step.targets.length
-        ? { pieceId: p.id, from: p.pos, to: step.to, targets: step.targets, bounceTo: p.pos }
-        : { pieceId: p.id, from: p.pos, to: step.to },
-    );
-  }
-  if (p.type === 'pawn') return pawnMoves(state, occ, p);
-
+/** Ordinary moves for a 1x1 piece, with bounce choices and Side Step / Royal Escort variants. */
+function ordinaryMoves(state: GameState, p: Piece): Move[] {
   const moves: Move[] = [];
-  for (const s of stepsFor(state, occ, p)) {
-    const target = at(occ, s.to);
-    if (!target) moves.push({ pieceId: p.id, from: p.pos, to: s.to });
-    else if (target.side !== p.side && s.canCapture) {
-      moves.push({ pieceId: p.id, from: p.pos, to: s.to, targets: [target.id], bounceTo: bounceSquare(p.pos, s.to, s.leap) });
+  const disarmed = cannotAttack(p);
+  const king = kingOf(state, p.side);
+  const escortKing = has(p, 'royal_escort') && king && king.id !== p.id && adjacent(king, p) && !hasStatus(king, 'bound') ? king : undefined;
+  for (const st of stepsFor(state, p)) {
+    const target = pieceAt(state, st.to);
+    const base: Move = { pieceId: p.id, from: p.pos, to: st.to, uses: st.uses, via: st.via, crossedGap: st.crossedGap, leap: st.leap || undefined };
+    if (!target) {
+      if (!st.quiet) continue;
+      moves.push(...withPromotions(state, p, base));
+      for (const c of sideStepVariants(state, p, st.to)) {
+        if (sameCoord(c, p.pos)) continue;
+        moves.push({ ...base, to: c, via: st.to, uses: [...(st.uses ?? []), 'side_step'] });
+      }
+      if (escortKing && distance(p.pos, st.to) === 1 && !st.uses) {
+        const d = sub(st.to, p.pos);
+        const kTo = add(escortKing.pos, d);
+        if (isEmpty(state, kTo) || sameCoord(kTo, p.pos)) moves.push({ ...base, escort: { kingId: escortKing.id, to: kTo } });
+      }
+      continue;
+    }
+    if (target.side === p.side || !st.capture || disarmed) continue;
+    const bounce = bounceSquare(p.pos, st.to, st.leap, has(p, 'reduced_recoil') ? 1 : 0);
+    const atk: Move = { ...base, targets: [target.id], bounceTo: bounce };
+    moves.push(...withPromotions(state, p, atk));
+    // Controlled Bounce: alternatively retreat all the way back.
+    if (has(p, 'controlled_bounce') && !sameCoord(bounce, p.pos)) moves.push({ ...atk, bounceTo: p.pos });
+    // Ricochet: once per battle, bounce sideways off the target.
+    if (ready(p, 'ricochet') && !st.leap) {
+      const d = sign(sub(st.to, p.pos));
+      const perp = d.x === 0 || d.y === 0 ? [{ x: d.y, y: d.x }, { x: -d.y, y: -d.x }] : [{ x: d.x, y: 0 }, { x: 0, y: d.y }];
+      for (const q of perp.map((v) => add(st.to, { x: -v.x, y: -v.y }))) {
+        if (isEmpty(state, q) || sameCoord(q, p.pos)) moves.push({ ...atk, bounceTo: q, uses: [...(st.uses ?? []), 'ricochet'] });
+      }
     }
   }
-  moves.push(...abilityMoves(state, occ, p, moves));
-  if (p.type === 'king' && !p.hasMoved) moves.push(...castleMoves(state, occ, p));
+  return moves;
+}
+
+function heavyMoves(state: GameState, p: Piece): Move[] {
+  const moves: Move[] = [];
+  for (const st of heavySteps(state, p)) {
+    const m: Move = { pieceId: p.id, from: p.pos, to: st.to, uses: st.uses, via: st.via };
+    if (st.shove) m.allyId = st.shove;
+    if (st.walls) m.param = 'crush';
+    if (st.targets.length) {
+      if (cannotAttack(p)) continue;
+      moves.push({ ...m, targets: st.targets, bounceTo: p.pos });
+      if (has(p, 'multi_target_precision') && st.targets.length > 1)
+        for (const id of st.targets) moves.push({ ...m, targets: st.targets, bounceTo: p.pos, focusId: id });
+    } else moves.push(m);
+  }
+  return moves;
+}
+
+/** Temporal Echo: repeat this piece's last displacement as a free extra move. */
+function temporalEchoMoves(state: GameState, p: Piece, ordinary: Move[]): Move[] {
+  if (!ready(p, 'temporal_echo') || p.counters.ldx === undefined || silenced(p) || state.bonus.length) return [];
+  const delta = { x: p.counters.ldx, y: p.counters.ldy };
+  if (delta.x === 0 && delta.y === 0) return [];
+  return ordinary
+    .filter((m) => !m.action && !m.uses && !m.via && sameCoord(sub(m.to, p.pos), delta))
+    .map((m) => ({ ...m, action: 'upgrade' as const, upgrade: 'temporal_echo' }));
+}
+
+/** All moves for one piece, before filtering out moves that leave the King in check. */
+function pseudoMovesFor(state: GameState, p: Piece): Move[] {
+  if (hasStatus(p, 'stunned')) return [];
+  const bound = hasStatus(p, 'bound');
+  let ordinary: Move[] = [];
+  if (!bound) {
+    if (sizeOf(p) > 1) ordinary = heavyMoves(state, p);
+    else if (p.type === 'pawn') ordinary = [...pawnMoves(state, p), ...ordinaryMoves(state, p)];
+    else ordinary = ordinaryMoves(state, p);
+    if (p.type === 'pawn' && cannotAttack(p)) ordinary = ordinary.filter((m) => !m.targets);
+  }
+  const moves = [...ordinary, ...abilityMoves(state, p, ordinary), ...upgradeActions(state, p), ...temporalEchoMoves(state, p, ordinary)];
+  if (p.type === 'king' && !p.hasMoved && !bound) moves.push(...castleMoves(state, p));
   return moves;
 }
 
@@ -372,11 +290,11 @@ function pseudoMovesFor(state: GameState, occ: Occ, p: Piece): Move[] {
  * the King crossed. Under check rules the King may not castle out of, through,
  * or into check.
  */
-function castleMoves(state: GameState, occ: Occ, king: Piece): Move[] {
+function castleMoves(state: GameState, king: Piece): Move[] {
   const moves: Move[] = [];
   const enemy = opponent(king.side);
   for (const rook of state.pieces) {
-    if (rook.side !== king.side || rook.type !== 'rook' || rook.hasMoved) continue;
+    if (rook.side !== king.side || rook.type !== 'rook' || rook.hasMoved || rook.temp) continue;
     if (rook.pos.y !== king.pos.y) continue;
     const dist = rook.pos.x - king.pos.x;
     if (Math.abs(dist) < 3) continue;
@@ -384,7 +302,7 @@ function castleMoves(state: GameState, occ: Occ, king: Piece): Move[] {
     let clear = true;
     for (let x = king.pos.x + dir; x !== rook.pos.x; x += dir) {
       const c = { x, y: king.pos.y };
-      if (!isStandable(state.board, c) || at(occ, c)) {
+      if (!isStandable(state.board, c) || pieceAt(state, c)) {
         clear = false;
         break;
       }
@@ -393,7 +311,7 @@ function castleMoves(state: GameState, occ: Occ, king: Piece): Move[] {
     const cross = { x: king.pos.x + dir, y: king.pos.y };
     const dest = { x: king.pos.x + 2 * dir, y: king.pos.y };
     if (state.rules.checkRules) {
-      if ([king.pos, cross, dest].some((c) => isSquareAttacked(state, c, enemy, occ))) continue;
+      if ([king.pos, cross, dest].some((c) => isSquareAttacked(state, c, enemy))) continue;
     }
     moves.push({
       pieceId: king.id,
@@ -405,19 +323,89 @@ function castleMoves(state: GameState, occ: Occ, king: Piece): Move[] {
   return moves;
 }
 
+function fitsBonus(m: Move, b: Bonus): boolean {
+  if (b.pieceId && m.pieceId !== b.pieceId) return false;
+  if (b.filter === 'nonCapturing') return !m.targets?.length && (!m.action || m.action === 'teleport');
+  if (b.filter === 'captureOnly') return !!m.targets?.length;
+  return true;
+}
+
+export const INTERCEPT_UPGRADES = ['sacrificial_guard', 'summoned_guard', 'critical_survival', 'iron_shell', 'stone_skin', 'shared_armor'];
+
+/**
+ * Lightweight result of a move whose outcome is certain: a piece without
+ * upgrades or statuses making an ordinary move, shot, teleport, swap or heal
+ * that can't trigger any special effect. Only piece positions, captures and
+ * the turn change. Returns undefined when anything unusual could happen.
+ */
+export function quickApply(state: GameState, m: Move): GameState | undefined {
+  if (m.action && m.action !== 'shoot' && m.action !== 'teleport' && m.action !== 'swap' && m.action !== 'heal') return undefined;
+  if (m.castle || state.timed.length || state.bonus.length || m.uses) return undefined;
+  const mover = getPiece(state, m.pieceId);
+  if (!mover || mover.upgrades.length || mover.statuses.length) return undefined;
+  const removed = new Set<string>();
+  let pieces = state.pieces;
+  if (m.action === 'heal') {
+    pieces = pieces.map((p) => (p.id === m.allyId ? { ...p, hp: Math.min(p.maxHp, p.hp + 1) } : p));
+  } else if (m.action === 'swap') {
+    const ally = getPiece(state, m.allyId)!;
+    pieces = pieces.map((p) =>
+      p.id === mover.id ? { ...p, pos: ally.pos, used: [...p.used, 'swap'] } : p.id === ally.id ? { ...p, pos: mover.pos } : p,
+    );
+  } else {
+    if (m.targets?.length) {
+      if (m.targets.length !== 1) return undefined;
+      const t = getPiece(state, m.targets[0]);
+      if (!t || t.upgrades.length || t.shields.length || t.statuses.length || t.hp > PIECE_STATS[mover.type].damage) return undefined;
+      if (state.zones.length || INTERCEPT_UPGRADES.some((u) => anyHas(state, u))) return undefined;
+      if (state.pieces.some((g) => g.side === t.side && g.id !== t.id && (g.type === 'guardian' || g.temp) && adjacent(g, t)))
+        return undefined;
+      removed.add(t.id);
+    }
+    pieces = pieces
+      .filter((p) => !removed.has(p.id))
+      .map((p) =>
+        p.id === mover.id && m.action !== 'shoot'
+          ? { ...p, pos: m.to, hasMoved: true, type: m.promotion ?? p.type, used: m.action === 'teleport' ? [...p.used, 'teleport'] : p.used }
+          : p,
+      );
+  }
+  const captured = removed.size ? [...state.captured, ...state.pieces.filter((p) => removed.has(p.id))] : state.captured;
+  const next: GameState = {
+    ...state,
+    pieces,
+    captured,
+    turn: opponent(state.turn),
+    ply: state.ply + 1,
+    enPassant: m.doubleStep ? { target: m.doubleStep, pawnId: m.pieceId } : null,
+    log: [],
+  };
+  freeze(next);
+  return next;
+}
+
+/** Would this move leave `side`'s King in check? Uses the fast path when it is exact. */
+function leavesKingInCheck(state: GameState, m: Move, side: Side): boolean {
+  const quick = quickApply(state, m);
+  return inCheck(quick ?? applyMoveRaw(state, m), side);
+}
+
 export function legalMoves(state: GameState, side: Side = state.turn): Move[] {
-  const occ = occupancy(state.pieces);
   const out: Move[] = [];
+  const bonus = side === state.turn ? state.bonus[0] : undefined;
   for (const p of state.pieces) {
     if (p.side !== side) continue;
-    for (const m of pseudoMovesFor(state, occ, p)) {
-      if (state.rules.checkRules) {
-        const next = applyMoveRaw(state, m);
-        if (inCheck(next, side)) continue;
+    if (bonus?.pieceId && bonus.pieceId !== p.id) continue;
+    for (const m of pseudoMovesFor(state, p)) {
+      if (bonus && !fitsBonus(m, bonus)) continue;
+      if (bonus && m.upgrade && FREE_ACTIONS.has(m.upgrade)) continue; // no chaining free actions
+      if (state.rules.checkRules && m.upgrade !== 'time_reversal') {
+        if (leavesKingInCheck(state, m, side)) continue;
       }
       out.push(m);
     }
   }
+  if (bonus?.optional) out.push({ pieceId: bonus.pieceId ?? '', from: { x: -1, y: -1 }, to: { x: -1, y: -1 }, action: 'pass' });
   return out;
 }
 
@@ -426,74 +414,364 @@ export function legalMovesForPiece(state: GameState, pieceId: string): Move[] {
 }
 
 // ---------------------------------------------------------------------------
+// Resolving attacks
+// ---------------------------------------------------------------------------
+
+/** Is the attacker on the far side of the target from the target's own lines? */
+function behind(attackerFrom: Coord, target: Piece) {
+  return (attackerFrom.y - target.pos.y) * forward(target.side) < 0;
+}
+
+/** Strictly between the King and the target on one straight line. */
+function betweenKingAndTarget(s: GameState, p: Piece, from: Coord, target: Piece) {
+  const king = kingOf(s, p.side);
+  if (!king || king.id === p.id) return false;
+  const kt = sub(target.pos, king.pos);
+  const kp = sub(from, king.pos);
+  const straight = kt.x === 0 || kt.y === 0 || Math.abs(kt.x) === Math.abs(kt.y);
+  if (!straight) return false;
+  const d = sign(kt);
+  const n = Math.max(Math.abs(kp.x), Math.abs(kp.y));
+  return n > 0 && sameCoord(kp, { x: d.x * n, y: d.y * n }) && n < Math.max(Math.abs(kt.x), Math.abs(kt.y));
+}
+
+/** Gap squares between two squares on a line (or under a jump). */
+function gapBetween(s: GameState, a: Coord, b: Coord): boolean {
+  const d = sign(sub(b, a));
+  const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+  const straight = a.x === b.x || a.y === b.y || Math.abs(b.x - a.x) === Math.abs(b.y - a.y);
+  if (!straight) return false;
+  for (let i = 1; i < n; i++) if (terrainAt(s.board, { x: a.x + d.x * i, y: a.y + d.y * i }) === 'gap') return true;
+  return false;
+}
+
+/** Damage `p` deals to `t` with this move, consuming one-shot buffs. */
+function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: number): number {
+  let dmg = PIECE_STATS[p.type].damage;
+  if (dmg === 0) return 0;
+  if (ready(p, 'heavy_strike')) {
+    markUsed(p, 'heavy_strike');
+    dmg += 1;
+  }
+  if (has(p, 'executioner') && t.hp === 1) dmg += 1;
+  if (has(p, 'ambush') && p.attacks === 0) dmg += 1;
+  if (has(p, 'opening_assault') && p.attacks < 3) dmg += 1;
+  if (has(p, 'backstab') && behind(m.from, t)) dmg += 1;
+  if (has(p, 'royal_hunter') && t.type === 'queen') dmg += 1;
+  if (has(p, 'siege_damage') && sizeOf(t) > 1) dmg += 1;
+  if (t.statuses.some((st) => st.kind === 'prey' && st.source === p.side)) dmg += 1;
+  if (has(p, 'revenge_strike') && t.id === p.lastAttackerId) dmg += 1;
+  if (has(p, 'kingbreaker') && t.type === 'king') dmg += 1;
+  if (sizeOf(p) > 1 && !m.action) {
+    if (has(p, 'wide_sweep') && nTargets >= 2) dmg += 1;
+    if (has(p, 'crushing_weight')) dmg += 1;
+    const dir = sign(sub(m.to, m.from));
+    if (has(p, 'siege_momentum') && p.streak >= 2 && p.lastDir && sameCoord(p.lastDir, dir)) dmg += 1;
+  }
+  if (has(p, 'royal_formation') && betweenKingAndTarget(s, p, m.from, t)) dmg += 1;
+  const crossed = m.crossedGap || gapBetween(s, m.from, m.to);
+  if (has(p, 'gap_assault') && crossed) dmg += 1;
+  if (has(p, 'leap_assault') && m.leap && m.crossedGap) dmg += 1;
+  if (m.focusId === t.id) dmg += 1;
+  const buff = statusOf(p, 'damageBuff');
+  if (buff) dmg += buff.amount ?? 0;
+  // Target statuses.
+  if (statusOf(t, 'marked')) {
+    dmg += 1;
+    removeStatus(t, 'marked');
+  }
+  if (statusOf(t, 'permMarked')) dmg += 1;
+  const vul = statusOf(t, 'vulnerable');
+  if (vul) {
+    dmg += 1;
+    vul.count = (vul.count ?? 1) - 1;
+    if (vul.count <= 0) removeStatus(t, 'vulnerable');
+  }
+  if (statusOf(p, 'weakened')) dmg -= 1;
+  return Math.max(0, dmg);
+}
+
+const alive = (s: GameState, id: string) => s.pieces.some((p) => p.id === id);
+
+/** Apply an attack (movement or ranged) and move/bounce the attacker. */
+function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
+  const p = getPiece(s, m.pieceId)!;
+  const ranged = m.action === 'shoot';
+  const targets = (m.targets ?? []).map((id) => getPiece(s, id)).filter(Boolean) as Piece[];
+  const dir = sign(sub(m.to, m.from));
+  const leap = !!m.leap;
+  let captured = 0;
+  let guardFellAt: Coord | undefined;
+  let guardSurvived = false;
+  const damages = targets.map((t) => outgoingDamage(s, p, t, m, targets.length));
+  // One-shot buffs are spent once the attack is made.
+  const buff = statusOf(p, 'damageBuff');
+  if (buff && buff.source !== 'last_royal_stand') removeStatus(p, 'damageBuff');
+  removeStatus(p, 'weakened');
+
+  targets.forEach((t, i) => {
+    if (!alive(s, t.id)) return;
+    let dmg = damages[i];
+    let lethal = false;
+    const wouldSurvive = dmg < t.hp + shieldTotal(t);
+    if (wouldSurvive && !isBoss(t)) {
+      if (ready(p, 'perfect_strike')) {
+        markUsed(p, 'perfect_strike');
+        lethal = true;
+      } else if (ready(p, 'absolute_capture')) {
+        markUsed(p, 'absolute_capture');
+        lethal = true;
+      }
+    }
+    const pos = { ...t.pos };
+    const hpBefore = t.hp + shieldTotal(t);
+    let out: DamageOutcome = dealDamage(s, t.id, dmg, {
+      sourceId: p.id,
+      kind: ranged ? 'ranged' : 'attack',
+      allowIntercept: targets.length === 1,
+      pierce: has(p, 'precision') ? 1 : 0,
+      lethal,
+    });
+    if (out.kind === 'intercepted') {
+      const guard = out.by;
+      const gpos = s.captured.find((c) => c.id === guard)?.pos;
+      if (out.outcome.kind === 'captured') guardFellAt = gpos;
+      else guardSurvived = true;
+      return;
+    }
+    if (out.kind === 'survived' && alive(s, t.id) && ready(p, 'double_impact')) {
+      markUsed(p, 'double_impact');
+      log(s, 'Double Impact!');
+      out = dealDamage(s, t.id, dmg, { sourceId: p.id, kind: ranged ? 'ranged' : 'attack' });
+    }
+    const now = getPiece(s, t.id);
+    if (now && now.hp === 1 && ready(p, 'finishing_blow') && alive(s, p.id)) {
+      markUsed(p, 'finishing_blow');
+      out = dealDamage(s, t.id, 1, { sourceId: p.id, kind: ranged ? 'ranged' : 'attack' });
+    }
+    if (!alive(s, t.id)) {
+      captured++;
+      dmg = dmg - hpBefore;
+      if (has(p, 'overkill') && dmg > 0) {
+        const extra = s.pieces.find((e) => e.side === t.side && footprint(e).some((c) => distance(c, pos) === 1));
+        if (extra) dealDamage(s, extra.id, dmg, { sourceId: p.id, kind: 'splash' });
+      }
+    }
+  });
+
+  if (!alive(s, p.id)) return;
+  p.attacks += 1;
+
+  const survivors = targets.filter((t) => alive(s, t.id));
+  const blocked = survivors.length > 0 || guardSurvived;
+
+  if (!ranged) {
+    if (guardFellAt && sizeOf(p) === 1) {
+      p.pos = guardFellAt;
+    } else if (blocked) {
+      let land = m.bounceTo ?? m.from;
+      const adjacentLand = leap ? m.from : sub(m.to, dir);
+      if (ready(p, 'unyielding_assault')) {
+        markUsed(p, 'unyielding_assault');
+        land = adjacentLand;
+      } else if (ready(p, 'counterweight')) {
+        markUsed(p, 'counterweight');
+        land = adjacentLand;
+      } else if (has(p, 'full_retreat') && !m.uses?.includes('ricochet')) land = m.from;
+      if (!sameCoord(land, m.from) && !isEmpty(s, land)) land = m.from;
+      if (sizeOf(p) > 1) land = m.from;
+      p.pos = { ...land };
+      afterBounce(s, p, distance(land, m.to));
+      if (sizeOf(p) > 1 && ready(p, 'unbroken_advance')) {
+        markUsed(p, 'unbroken_advance');
+        s.bonus.unshift({ pieceId: p.id, filter: 'nonCapturing', optional: true, source: 'unbroken_advance' });
+      }
+    } else {
+      p.pos = { ...m.to };
+      if (m.promotion) promote(p, m.promotion);
+    }
+  }
+
+  // Weakening Strike: survivors deal one less damage with their next attack.
+  if (has(p, 'weakening_strike')) for (const t of survivors) {
+    const tp = getPiece(s, t.id);
+    if (tp) addStatus(tp, { kind: 'weakened', until: null });
+  }
+
+  // Pushes on surviving defenders.
+  for (const t of survivors) {
+    const tp = getPiece(s, t.id)!;
+    const away = sign(sub(tp.pos, m.from));
+    const d = sizeOf(p) > 1 ? dir : away;
+    if (has(p, 'heavy_impact') || has(p, 'forceful_charge')) push(s, tp.id, d, pushDistance(p), p.id);
+    else if (ready(p, 'knockback')) {
+      markUsed(p, 'knockback');
+      push(s, tp.id, d, pushDistance(p), p.id);
+    }
+  }
+
+  if (captured > 0) afterCapture(s, p, m, dir, entry);
+}
+
+function afterBounce(s: GameState, p: Piece, dist: number) {
+  if (has(p, 'rebound_shield')) addShield(s, p);
+  const neighbour = () => enemiesOf(s, p).find((e) => adjacent(e, p));
+  if (ready(p, 'rebound_strike') && neighbour()) {
+    markUsed(p, 'rebound_strike');
+    dealDamage(s, neighbour()!.id, 1, { sourceId: p.id, kind: 'splash' });
+  }
+  if (ready(p, 'rebound_capture') && neighbour()) {
+    markUsed(p, 'rebound_capture');
+    dealDamage(s, neighbour()!.id, PIECE_STATS[p.type].damage, { sourceId: p.id, kind: 'attack', allowIntercept: true });
+  }
+  if (has(p, 'spring_loaded')) addStatus(p, { kind: 'springLoaded', until: null });
+  if (has(p, 'recoil_conversion') && dist > 0) {
+    addStatus(p, { kind: 'rangeBuff', amount: dist, until: nextTurnEnd(s, p.side) });
+  }
+}
+
+const nextTurnEnd = (s: GameState, side: Side) => {
+  let q = s.ply + 1;
+  while ((q % 2 === 0 ? 'player' : 'enemy') !== side) q++;
+  return q;
+};
+
+function afterCapture(s: GameState, p: Piece, m: Move, dir: Coord, entry?: Bonus) {
+  if (has(p, 'healing_on_capture')) heal(s, p, 1);
+  const at = m.action === 'shoot' ? m.to : p.pos;
+  if (has(p, 'piercing_capture')) {
+    const next = pieceAt(s, add(m.to, dir));
+    if (next && next.side !== p.side) dealDamage(s, next.id, 1, { sourceId: p.id, kind: 'attack' });
+  }
+  const cleave = (dirs: Coord[]) => {
+    for (const d of dirs) {
+      const e = pieceAt(s, add(m.to, d));
+      if (e && e.side !== p.side) dealDamage(s, e.id, 1, { sourceId: p.id, kind: 'splash' });
+    }
+  };
+  if (has(p, 'diagonal_cleave')) cleave(ALL_DIRS.slice(4));
+  if (has(p, 'orthogonal_cleave')) cleave(ORTHO);
+  if (has(p, 'shockwave') && alive(s, p.id)) {
+    for (const e of enemiesOf(s, p).filter((e) => footprint(e).some((c) => distance(c, at) === 1))) {
+      push(s, e.id, sign(sub(e.pos, at)), pushDistance(p), p.id);
+    }
+  }
+  if (p.temp) {
+    const summoner = getPiece(s, p.temp.summonerId);
+    if (summoner && has(summoner, 'summoners_reward')) addShield(s, summoner);
+  }
+  if (!alive(s, p.id) || m.action === 'shoot') return;
+  const chainSource = entry?.source;
+  if (has(p, 'infinite_momentum') && (p.counters.momentumChain ?? 0) < 3) {
+    p.counters.momentumChain = (p.counters.momentumChain ?? 0) + 1;
+    s.bonus.unshift({ pieceId: p.id, filter: 'captureOnly', optional: true, source: 'infinite_momentum' });
+  } else if (has(p, 'chain_capture') && chainSource !== 'chain_capture' && chainSource !== 'infinite_momentum') {
+    s.bonus.unshift({ pieceId: p.id, filter: 'captureOnly', optional: true, source: 'chain_capture' });
+  }
+}
+
+function promote(p: Piece, t: PromotionType) {
+  p.type = t;
+  const max = PIECE_STATS[t].maxHp;
+  p.maxHp = Math.max(p.maxHp, max);
+}
+
+// ---------------------------------------------------------------------------
 // Resolving moves
 // ---------------------------------------------------------------------------
 
-/** Shields absorb damage first, then HP is lost. */
-export function takeDamage(p: Piece, amount: number): Piece {
-  const absorbed = Math.min(p.shields, amount);
-  return { ...p, shields: p.shields - absorbed, hp: p.hp - (amount - absorbed) };
-}
+function resolveOrdinary(s: GameState, m: Move, entry?: Bonus) {
+  const p = getPiece(s, m.pieceId)!;
+  for (const u of m.uses ?? []) markUsed(p, u);
+  if (entry?.source === 'unstoppable_march') markUsed(p, 'unstoppable_march');
 
-/**
- * A Guardian adjacent to the target can take a single-target hit instead,
- * once per battle. It never protects the King (check stays readable) or
- * another Guardian's own hit.
- */
-export function findInterceptor(state: GameState, target: Piece, attacker: Piece): Piece | undefined {
-  if (target.type === 'king') return undefined;
-  return state.pieces.find(
-    (g) =>
-      g.type === 'guardian' &&
-      g.side === target.side &&
-      g.id !== target.id &&
-      g.id !== attacker.id &&
-      !hasUsed(g, 'intercept') &&
-      adjacent(g, target),
-  );
-}
-
-export interface AttackOutcome {
-  /** Pieces that took damage and survived, with their new HP/shields. */
-  damaged: Piece[];
-  captured: Piece[];
-  /** Where the attacker ends up (unchanged for ranged attacks). */
-  finalPos: Coord;
-  /** The Guardian that stepped in, if any. */
-  interceptor?: Piece;
-}
-
-/** What happens to each target of a move, and where the attacker ends up. */
-export function resolveAttack(state: GameState, m: Move): AttackOutcome {
-  const attacker = state.pieces.find((p) => p.id === m.pieceId)!;
-  const ranged = m.action === 'shoot';
-  const dmg = PIECE_STATS[attacker.type].damage;
-  const targets = (m.targets ?? []).map((id) => state.pieces.find((p) => p.id === id)).filter(Boolean) as Piece[];
-
-  // Single-target attacks can be intercepted by an adjacent Guardian.
-  const interceptor = targets.length === 1 ? findInterceptor(state, targets[0], attacker) : undefined;
-  if (interceptor) {
-    const after = { ...takeDamage(interceptor, dmg), used: [...interceptor.used, 'intercept' as const] };
-    const dead = after.hp <= 0;
-    // If the Guardian falls, the attacker takes the Guardian's square; if it holds, the attacker bounces.
-    const finalPos = ranged ? attacker.pos : dead ? interceptor.pos : (m.bounceTo ?? m.to);
-    return { damaged: dead ? [] : [after], captured: dead ? [interceptor] : [], finalPos, interceptor };
+  if (sizeOf(p) > 1) {
+    const dir = sign(sub(m.to, m.from));
+    if (m.allyId) {
+      const shoved = getPiece(s, m.allyId);
+      if (shoved && !push(s, shoved.id, dir, 1, p.id)) return; // couldn't clear the way
+    }
+    if (m.param === 'crush') for (const c of footprint(p, m.to)) destroyCracked(s, c, p);
   }
 
-  const damaged: Piece[] = [];
-  const captured: Piece[] = [];
-  for (const target of targets) {
-    const after = takeDamage(target, dmg);
-    if (after.hp <= 0) captured.push(target);
-    else damaged.push(after);
+  if (m.targets?.length) {
+    resolveAttack(s, m, entry);
+  } else {
+    p.pos = { ...m.to };
+    if (m.promotion) promote(p, m.promotion);
+    if (m.escort) {
+      const king = getPiece(s, m.escort.kingId);
+      if (king) king.pos = { ...m.escort.to };
+    }
+    if (ready(p, 'unstoppable_march') && entry?.source !== 'unstoppable_march' && !s.bonus.some((b) => b.source === 'unstoppable_march')) {
+      s.bonus.unshift({ pieceId: p.id, filter: 'any', optional: true, source: 'unstoppable_march' });
+    }
   }
-  const finalPos = ranged ? attacker.pos : damaged.length > 0 && m.bounceTo ? m.bounceTo : m.to;
-  return { damaged, captured, finalPos };
+
+  // Massive Push: shove enemies directly ahead of a large piece after it advances.
+  if (sizeOf(p) > 1 && has(p, 'massive_push') && getPiece(s, p.id)) {
+    const dir = sign(sub(m.to, m.from));
+    const ahead = footprint(p).map((c) => add(c, dir));
+    for (const e of enemiesOf(s, p).filter((e) => footprint(e).some((c) => ahead.some((a) => sameCoord(a, c)))))
+      push(s, e.id, dir, pushDistance(p), p.id);
+  }
 }
 
-function withTerrain(state: GameState, c: Coord, t: Terrain) {
-  const terrain = state.board.terrain.map((row, y) => (y === c.y ? row.map((v, x) => (x === c.x ? t : v)) : row));
-  return { ...state.board, terrain };
+function resolve(s: GameState, m: Move, entry?: Bonus) {
+  const p = getPiece(s, m.pieceId);
+  if (!p) return;
+  switch (m.action) {
+    case 'pass':
+      return;
+    case 'shoot':
+      resolveAttack(s, m, entry);
+      return;
+    case 'demolish':
+      destroyCracked(s, m.to, p);
+      if (has(p, 'chain_demolition')) {
+        const next = ALL_DIRS.map((d) => add(m.to, d)).find((q) => terrainAt(s.board, q) === 'cracked');
+        if (next) destroyCracked(s, next, p);
+      }
+      return;
+    case 'teleport':
+      p.pos = { ...m.to };
+      markUsed(p, 'teleport');
+      return;
+    case 'swap': {
+      const ally = getPiece(s, m.allyId)!;
+      [p.pos, ally.pos] = [ally.pos, p.pos];
+      markUsed(p, 'swap');
+      return;
+    }
+    case 'heal': {
+      const ally = getPiece(s, m.allyId)!;
+      heal(s, ally, 1);
+      if (has(p, 'medics_reward')) addShield(s, p);
+      return;
+    }
+    case 'upgrade':
+      if (m.upgrade === 'temporal_echo') {
+        markUsed(p, 'temporal_echo');
+        resolveOrdinary(s, { ...m, action: undefined, upgrade: undefined }, entry);
+        s.bonus.unshift({ filter: 'any', optional: false, source: 'turn' });
+        return;
+      }
+      resolveUpgradeAction(s, m);
+      return;
+  }
+  if (m.castle) {
+    p.pos = { ...m.to };
+    const rook = getPiece(s, m.castle.rookId)!;
+    rook.pos = { ...m.castle.rookTo };
+    rook.hasMoved = true;
+    return;
+  }
+  resolveOrdinary(s, m, entry);
+}
+
+/** Copy of a state without its own snapshots (so they never nest). */
+function snapshotOf(state: GameState): GameState {
+  return { ...state, snapshot: {} };
 }
 
 /**
@@ -501,75 +779,185 @@ function withTerrain(state: GameState, c: Coord, t: Terrain) {
  * checks and AI look-ahead, where the full result check would be wasted work.
  */
 export function applyMoveRaw(state: GameState, m: Move): GameState {
-  const mover = state.pieces.find((p) => p.id === m.pieceId)!;
-  const base = {
-    ...state,
-    turn: opponent(state.turn),
-    enPassant: m.doubleStep ? { target: m.doubleStep, pawnId: m.pieceId } : null,
-  };
+  const side = state.turn;
+  if (m.action === 'upgrade' && m.upgrade === 'time_reversal') {
+    const snap = state.snapshot[side];
+    if (snap) {
+      const restored = cloneState(snap);
+      restored.snapshot = { ...state.snapshot, [side]: undefined };
+      restored.positionHistory = state.positionHistory;
+      restored.runFlags = [...state.runFlags];
+      const user = getPiece(restored, m.pieceId);
+      if (user) markUsed(user, 'time_reversal');
+      restored.log = ['Time Reversal! The last turn is undone.'];
+      freeze(restored);
+      return restored;
+    }
+  }
+  const s = cloneState(state);
+  const mainMove = s.bonus.length === 0;
+  if (mainMove && state.pieces.some((p) => p.side === side && ready(p, 'time_reversal'))) {
+    s.snapshot = { ...s.snapshot, [side]: snapshotOf(state) };
+  }
+  const entry = s.bonus.shift();
+  const mover = getPiece(s, m.pieceId);
+  const from = mover ? { ...mover.pos } : undefined;
+  resolve(s, m, entry);
 
-  // Non-attacking special actions.
-  if (m.action === 'demolish') {
-    return { ...base, board: withTerrain(state, m.to, 'normal'), halfmoveClock: 0 };
-  }
-  if (m.action === 'teleport' || m.action === 'swap' || m.action === 'heal') {
-    const ally = m.allyId ? state.pieces.find((p) => p.id === m.allyId) : undefined;
-    const pieces = state.pieces.map((p) => {
-      if (p.id === mover.id) {
-        if (m.action === 'teleport') return { ...p, pos: m.to, hasMoved: true, used: [...p.used, 'teleport' as const] };
-        if (m.action === 'swap') return { ...p, pos: ally!.pos, hasMoved: true, used: [...p.used, 'swap' as const] };
-        return p;
+  // Bookkeeping on the mover.
+  const after = getPiece(s, m.pieceId);
+  if (after && m.action !== 'pass') {
+    after.actedPly = s.ply;
+    if (after.type !== 'pawn' || !m.action) after.hasMoved = true;
+    if (from && !sameCoord(from, after.pos) && (!m.action || m.upgrade === 'temporal_echo')) {
+      const d = sign(sub(after.pos, from));
+      after.streak = after.lastDir && sameCoord(after.lastDir, d) ? after.streak + 1 : 1;
+      after.lastDir = d;
+      after.counters.ldx = m.to.x - m.from.x;
+      after.counters.ldy = m.to.y - m.from.y;
+      // Royal Inspiration: when the King moves, inspired allies gain range for their next turn.
+      if (after.type === 'king') {
+        for (const a of s.pieces.filter((a) => a.side === after.side && has(a, 'royal_inspiration'))) {
+          addStatus(a, { kind: 'rangeBuff', amount: 1, until: nextTurnEnd(s, a.side) });
+        }
       }
-      if (ally && p.id === ally.id) {
-        if (m.action === 'swap') return { ...p, pos: mover.pos, hasMoved: true };
-        return { ...p, hp: Math.min(p.maxHp, p.hp + 1) };
-      }
-      return p;
-    });
-    return { ...base, pieces, halfmoveClock: state.halfmoveClock + 1 };
+    }
   }
+  const mover0 = state.pieces.find((p) => p.id === m.pieceId);
+  const resetClock = mover0?.type === 'pawn' || (m.targets?.length ?? 0) > 0 || s.captured.length !== state.captured.length;
+  s.halfmoveClock = resetClock ? 0 : state.halfmoveClock + 1;
+  s.enPassant = m.doubleStep ? { target: m.doubleStep, pawnId: m.pieceId } : null;
 
-  const { damaged, captured, finalPos } = resolveAttack(state, m);
-  const bounced = !sameCoord(finalPos, m.to);
-  const pieces: Piece[] = [];
-  for (const p of state.pieces) {
-    if (captured.some((c) => c.id === p.id)) continue;
-    const hit = damaged.find((d) => d.id === p.id);
-    if (hit) pieces.push(hit);
-    else if (p.id === m.pieceId) {
-      if (m.action === 'shoot') pieces.push(p);
-      else {
-        const type = !bounced && m.promotion ? m.promotion : p.type;
-        const stats = PIECE_STATS[type];
-        const promoted = type !== p.type ? { hp: stats.maxHp, maxHp: stats.maxHp } : {};
-        pieces.push({ ...p, ...promoted, pos: finalPos, hasMoved: true, type });
-      }
-    } else if (m.castle && p.id === m.castle.rookId) {
-      pieces.push({ ...p, pos: m.castle.rookTo, hasMoved: true });
-    } else pieces.push(p);
-  }
-  const resetClock = mover.type === 'pawn' || (m.targets?.length ?? 0) > 0;
-  return {
-    ...base,
-    pieces,
-    halfmoveClock: resetClock ? 0 : state.halfmoveClock + 1,
-    captured: captured.length ? [...state.captured, ...captured] : state.captured,
-  };
+  if (s.bonus.length === 0) endTurn(s);
+  freeze(s);
+  return s;
 }
+
+// ---------------------------------------------------------------------------
+// Turn processing
+// ---------------------------------------------------------------------------
+
+const orthoGaps = (s: GameState, c: Coord) =>
+  ORTHO.filter((d) => {
+    const q = add(c, d);
+    return !inBounds(s.board, q) || terrainAt(s.board, q) === 'gap';
+  }).length;
+
+const wallsAround = (s: GameState, p: Piece) => {
+  const cells = new Set<string>();
+  for (const c of footprint(p)) for (const d of ALL_DIRS) {
+    const q = add(c, d);
+    if (isWall(s.board, q)) cells.add(coordKey(q));
+  }
+  return cells.size;
+};
+
+function endTurn(s: GameState) {
+  const side = s.turn;
+  for (const p of s.pieces.filter((p) => p.side === side)) {
+    const moved = p.turnPos ? !sameCoord(p.turnPos, p.pos) : false;
+    p.stillTurns = moved ? 0 : p.stillTurns + 1;
+    p.counters.turns = (p.counters.turns ?? 0) + 1;
+    p.counters.momentumChain = 0;
+    if (p.counters.royalCommandCd) p.counters.royalCommandCd -= 1;
+    const king = kingOf(s, side);
+    const nextToKing = !!king && king.id !== p.id && adjacent(king, p);
+
+    if (has(p, 'fortress_stance') && p.actedPly !== s.ply && shieldTotal(p) === 0) addShield(s, p);
+    if (has(p, 'island_defender') && footprint(p).some((c) => orthoGaps(s, c) >= 2)) addShield(s, p);
+    if (has(p, 'wall_shield') && wallsAround(s, p) > 0 && shieldTotal(p) === 0) addShield(s, p);
+    if (has(p, 'crown_defender') && nextToKing && shieldTotal(p) === 0) addShield(s, p);
+    if (has(p, 'kings_blessing') && nextToKing) heal(s, p, 1);
+    if (has(p, 'healing_aura') && p.counters.turns % 3 === 0) {
+      const target = allies(s, p)
+        .filter((a) => adjacent(a, p) && a.hp < a.maxHp && a.type !== 'king')
+        .sort((a, b) => a.hp - b.hp)[0];
+      if (target) heal(s, target, 1);
+    }
+    if (has(p, 'regeneration') && p.counters.turns % 4 === 0) heal(s, p, 1);
+    if (has(p, 'heavy_recovery') && p.stillTurns >= 2) {
+      heal(s, p, 1);
+      p.stillTurns = 0;
+    }
+    if (has(p, 'fortified_position')) {
+      const fortified = statusOf(p, 'fortified');
+      const walls = wallsAround(s, p) >= 2;
+      if (walls && !fortified) {
+        p.maxHp += 1;
+        addStatus(p, { kind: 'fortified', until: null });
+      } else if (!walls && fortified) {
+        p.maxHp -= 1;
+        p.hp = Math.max(1, Math.min(p.hp, p.maxHp));
+        removeStatus(p, 'fortified');
+      }
+    }
+  }
+
+  // Expiry at the end of this ply.
+  const ply = s.ply;
+  for (const p of s.pieces) {
+    p.statuses = p.statuses.filter((st) => st.until === null || st.until > ply);
+    p.shields = p.shields.filter((sh) => sh.expires === null || sh.expires > ply);
+  }
+  const expiredSummons = s.pieces.filter((p) => p.temp?.expires !== null && p.temp?.expires !== undefined && p.temp.expires <= ply);
+  if (expiredSummons.length) {
+    s.pieces = s.pieces.filter((p) => !expiredSummons.includes(p));
+    log(s, 'Summoned pieces fade away.');
+  }
+  s.zones = s.zones.filter((z) => z.until > ply);
+  for (const t of s.timed.filter((t) => t.expires <= ply)) {
+    if (t.kind === 'bridge') collapseBridge(s, t.pos);
+    else {
+      s.timed = s.timed.filter((o) => o !== t);
+      s.board = {
+        ...s.board,
+        terrain: s.board.terrain.map((row, y) => (y === t.pos.y ? row.map((v, x) => (x === t.pos.x ? t.revertTo : v)) : row)),
+      };
+    }
+  }
+
+  s.ply += 1;
+  s.turn = opponent(side);
+  startTurn(s);
+}
+
+function startTurn(s: GameState) {
+  const side = s.turn;
+  const king = kingOf(s, side);
+  const guardians = s.pieces.some((p) => p.side === side && has(p, 'throne_guardian'));
+  const threatened = guardians && !!king && isSquareAttacked(s, king.pos, opponent(side));
+  for (const p of s.pieces.filter((p) => p.side === side)) {
+    p.prevPos = p.turnPos ?? p.pos;
+    p.turnPos = { ...p.pos };
+    if (has(p, 'throne_guardian') && threatened) {
+      while (shieldTotal(p) < 2) addShield(s, p);
+    }
+    if (hasStatus(p, 'springLoaded')) {
+      removeStatus(p, 'springLoaded');
+      if (s.bonus.length === 0) s.bonus.push({ filter: 'any', optional: false, source: 'turn' });
+      s.bonus.push({ pieceId: p.id, filter: 'nonCapturing', optional: true, source: 'spring_loaded' });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Results
+// ---------------------------------------------------------------------------
 
 export function positionKey(state: GameState): string {
   const parts = state.pieces
     .map((p) => {
       const rights = (p.type === 'king' || p.type === 'rook') && !p.hasMoved ? '!' : '';
-      const hp = p.maxHp > 1 || p.shields ? `:${p.hp}/${p.shields}` : '';
+      const hp = p.maxHp > 1 || p.shields.length ? `:${p.hp}/${shieldTotal(p)}` : '';
       const used = p.used.length ? `[${[...p.used].sort().join(',')}]` : '';
-      return `${p.side[0]}${p.type}${p.pos.x},${p.pos.y}${rights}${hp}${used}`;
+      const st = p.statuses.length ? `{${p.statuses.map((x) => x.kind).sort().join(',')}}` : '';
+      return `${p.side[0]}${p.type}${p.pos.x},${p.pos.y}${rights}${hp}${used}${st}`;
     })
     .sort();
   const ep = state.enPassant ? coordKey(state.enPassant.target) : '-';
-  let cracked = '';
-  state.board.terrain.forEach((row, y) => row.forEach((t, x) => t === 'cracked' && (cracked += `${x},${y};`)));
-  return `${state.turn}|${ep}|${cracked}|${parts.join(';')}`;
+  let terrain = '';
+  state.board.terrain.forEach((row, y) => row.forEach((t, x) => t !== 'normal' && (terrain += `${t[0]}${x},${y};`)));
+  return `${state.turn}|${ep}|${state.bonus.length}|${terrain}|${parts.join(';')}`;
 }
 
 function insufficientMaterial(pieces: Piece[]): boolean {
@@ -618,3 +1006,21 @@ export function applyMove(state: GameState, m: Move): GameState {
   next.result = evaluateResult(next);
   return next;
 }
+
+export { takeDamageCompat as takeDamage };
+
+/** Legacy helper kept for tests: apply raw damage to a piece copy (shields first). */
+function takeDamageCompat(p: Piece, amount: number): Piece {
+  const copy = { ...p, shields: p.shields.map((s) => ({ ...s })) };
+  let dmg = amount;
+  for (const sh of copy.shields) {
+    const b = Math.min(sh.strength, dmg);
+    sh.strength -= b;
+    dmg -= b;
+  }
+  copy.shields = copy.shields.filter((s) => s.strength > 0);
+  copy.hp -= dmg;
+  return copy;
+}
+
+export { inBounds, enemiesOf, hasStatus, isEmpty };

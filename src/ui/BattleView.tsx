@@ -2,7 +2,8 @@ import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { chooseMove } from '../engine/ai';
 import { occupancy } from '../engine/board';
-import { describeMove } from '../engine/describe';
+import { actionLabel, describeMove } from '../engine/describe';
+import { UPGRADE_BY_ID } from '../engine/upgrades/catalog';
 import { applyMove, findKing, inCheck, legalMoves } from '../engine/moves';
 import { PIECE_STATS, footprint, sizeOf } from '../engine/pieces';
 import {
@@ -17,6 +18,7 @@ import {
   PromotionType,
   coordKey,
   sameCoord,
+  shieldTotal,
 } from '../engine/types';
 import BoardView, { Marker } from './BoardView';
 import { Button, Dialog } from './common';
@@ -32,6 +34,8 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   teleport: 'rgba(150, 90, 220, 0.95)',
   swap: 'rgba(70, 140, 230, 0.95)',
   heal: 'rgba(80, 190, 100, 0.95)',
+  upgrade: 'rgba(230, 200, 60, 0.95)',
+  pass: 'rgba(160, 160, 160, 0.95)',
 };
 
 const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string }>> = {
@@ -43,14 +47,45 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   medic: { label: 'Heal (green)' },
 };
 
-export function describePiece(p: Piece): { title: string; text: string } {
+const STATUS_NAMES: Partial<Record<string, string>> = {
+  bound: 'Bound',
+  stunned: 'Stunned',
+  silenced: 'Silenced',
+  slowed: 'Slowed',
+  disarmed: 'Disarmed',
+  pacified: 'Pacified',
+  blinded: 'Blinded',
+  crippled: 'Crippled',
+  rooted: 'Rooted',
+  confused: 'Confused',
+  cursed: 'Cursed',
+  marked: 'Marked',
+  permMarked: 'Marked (permanent)',
+  vulnerable: 'Vulnerable',
+  prey: 'Prey',
+  weakened: 'Weakened',
+  rangeBuff: '+Range',
+  damageBuff: '+Damage',
+  immune: 'Immune',
+  springLoaded: 'Spring Loaded',
+  fortified: 'Fortified',
+};
+
+export function describePiece(p: Piece): { title: string; text: string; upgrades: string } {
   const stats = PIECE_STATS[p.type];
-  const shields = p.shields ? ` · ${p.shields} shield${p.shields > 1 ? 's' : ''}` : '';
+  const sh = shieldTotal(p);
+  const shields = sh ? ` · ${sh} shield${sh > 1 ? 's' : ''}` : '';
   const ability = ABILITY_LABELS[p.type];
   const abilityText = ability
     ? ` ${ability.label}${ability.id ? (p.used.includes(ability.id) ? ': used' : ': ready') : ''}.`
     : '';
-  return { title: `${stats.name} · ${p.hp}/${p.maxHp} HP${shields}`, text: stats.blurb + abilityText };
+  const statuses = p.statuses.map((st) => STATUS_NAMES[st.kind] ?? st.kind);
+  const ups = p.upgrades.map((u) => `${UPGRADE_BY_ID[u]?.name ?? u}${p.used.includes(u) ? ' (used)' : ''}`);
+  return {
+    title: `${stats.name}${p.temp ? ' (summoned)' : ''} · ${p.hp}/${p.maxHp} HP${shields}${statuses.length ? ` · ${statuses.join(', ')}` : ''}`,
+    text: stats.blurb + abilityText,
+    upgrades: ups.length ? `Upgrades: ${ups.join(', ')}. Gold rings mark upgrade actions; tap the piece again for actions on itself.` : '',
+  };
 }
 
 export function resultText(r: GameResult): string {
@@ -95,7 +130,9 @@ export default function BattleView({ state, onMove, title, description, finishLa
   const [lastMove, setLastMove] = useState<Move | null>(null);
   const [log, setLog] = useState('');
   const [pendingPromotion, setPendingPromotion] = useState<Move[] | null>(null);
+  const [chooser, setChooser] = useState<Move[] | null>(null);
   const over = state.result.kind !== 'ongoing';
+  const bonus = state.turn === 'player' ? state.bonus[0] : undefined;
 
   const play = (before: GameState, m: Move) => {
     const after = applyMove(before, m);
@@ -117,10 +154,13 @@ export default function BattleView({ state, onMove, title, description, finishLa
 
   const occ = useMemo(() => occupancy(state.pieces), [state]);
   const playerMoves = useMemo(() => (state.turn === 'player' && !over ? legalMoves(state) : []), [state, over]);
-  const selectedPiece = selected ? state.pieces.find((p) => p.id === selected) : undefined;
+  const passMove = playerMoves.find((m) => m.action === 'pass');
+  // A bonus move for one specific piece selects it automatically.
+  const effectiveSelected = bonus?.pieceId && state.pieces.some((p) => p.id === bonus.pieceId) ? bonus.pieceId : selected;
+  const selectedPiece = effectiveSelected ? state.pieces.find((p) => p.id === effectiveSelected) : undefined;
   const selectedMoves = useMemo(
-    () => (selected ? playerMoves.filter((m) => m.pieceId === selected) : []),
-    [selected, playerMoves],
+    () => (effectiveSelected ? playerMoves.filter((m) => m.pieceId === effectiveSelected && m.action !== 'pass') : []),
+    [effectiveSelected, playerMoves],
   );
 
   // The square(s) you tap to make each move. For a large piece these are the
@@ -164,17 +204,26 @@ export default function BattleView({ state, onMove, title, description, finishLa
     play(state, m);
     setSelected(null);
     setPendingPromotion(null);
+    setChooser(null);
   };
 
   const onSquare = (c: Coord) => {
-    if (state.turn !== 'player' || over || pendingPromotion) return;
+    if (state.turn !== 'player' || over || pendingPromotion || chooser) return;
     const opts = options.get(coordKey(c)) ?? [];
     if (opts.length > 0) {
-      if (opts.length > 1 && opts.every((m) => m.promotion)) setPendingPromotion(opts);
+      if (opts.length > 1 && opts.every((m) => m.promotion)) {
+        setPendingPromotion(opts);
+        return;
+      }
+      // Several different things can happen here (or it's the piece itself): let the player choose.
+      const labels = new Set(opts.filter((m) => !m.promotion).map((m) => actionLabel(state, m)));
+      const ownSquare = selectedPiece && footprint(selectedPiece).some((f) => sameCoord(f, c));
+      if (labels.size > 1 || ownSquare) setChooser(opts);
       else commit(opts.find((m) => !m.action) ?? opts[0]);
       return;
     }
     const piece = occ.get(coordKey(c));
+    if (bonus?.pieceId) return; // the bonus move belongs to one piece
     setSelected(piece && piece.side === 'player' && piece.id !== selected ? piece.id : null);
   };
 
@@ -184,12 +233,17 @@ export default function BattleView({ state, onMove, title, description, finishLa
 
   const checkedKing =
     !over && state.rules.checkRules && inCheck(state, state.turn) ? findKing(state, state.turn) : undefined;
+  const bonusName = bonus && bonus.source !== 'turn' ? (UPGRADE_BY_ID[bonus.source]?.name ?? 'Bonus') : null;
   const status = over
     ? resultText(state.result)
     : state.turn === 'player'
       ? checkedKing
         ? 'Your King is in check!'
-        : 'Your move'
+        : bonus
+          ? bonusName
+            ? `Bonus move: ${bonusName}`
+            : 'Now make your normal move'
+          : 'Your move'
       : 'Enemy is thinking…';
 
   const tints = new Map<string, string[]>();
@@ -230,6 +284,7 @@ export default function BattleView({ state, onMove, title, description, finishLa
         <View style={styles.infoBox}>
           <Text style={styles.infoTitle}>{info.title}</Text>
           <Text style={styles.infoText}>{info.text}</Text>
+          {info.upgrades ? <Text style={styles.infoUpgrades}>{info.upgrades}</Text> : null}
         </View>
       ) : (
         <Text style={styles.log} numberOfLines={2}>
@@ -241,7 +296,33 @@ export default function BattleView({ state, onMove, title, description, finishLa
         Lost: {lostCount} · Taken: {takenCount}
       </Text>
 
+      {passMove && !over && (
+        <View style={{ marginTop: 8 }}>
+          <Button small label="Skip bonus move" onPress={() => commit(passMove)} />
+        </View>
+      )}
+
       {footer}
+
+      {chooser && (
+        <Dialog title="Choose an action">
+          <View style={{ gap: 8, alignSelf: 'stretch' }}>
+            {chooser
+              .filter((m, i, all) => all.findIndex((o) => actionLabel(state, o) === actionLabel(state, m)) === i)
+              .map((m, i) => (
+                <Button key={i} label={actionLabel(state, m)} onPress={() => (m.promotion ? setPendingPromotion(chooser.filter((o) => o.promotion)) : commit(m))} />
+              ))}
+          </View>
+          <Pressable
+            onPress={() => {
+              setChooser(null);
+              setSelected(null);
+            }}
+          >
+            <Text style={styles.cancel}>Cancel</Text>
+          </Pressable>
+        </Dialog>
+      )}
 
       {pendingPromotion && (
         <Dialog title="Promote to">
@@ -297,6 +378,7 @@ const styles = StyleSheet.create({
   },
   infoTitle: { color: COLORS.gold, fontSize: 13, fontWeight: '700' },
   infoText: { color: COLORS.text, fontSize: 12, marginTop: 2 },
+  infoUpgrades: { color: COLORS.gold, fontSize: 12, marginTop: 3 },
   promoChoice: { padding: 6, marginHorizontal: 4, borderRadius: 8, backgroundColor: COLORS.squareDark },
   cancel: { color: COLORS.textDim, fontSize: 14, textAlign: 'center' },
 });

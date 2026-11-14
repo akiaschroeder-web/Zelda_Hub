@@ -1,5 +1,7 @@
 import { PIECE_STATS } from '../engine/pieces';
 import { PieceType } from '../engine/types';
+import { UPGRADES, UPGRADE_BY_ID, UpgradeRarity } from '../engine/upgrades/catalog';
+import { canTake } from '../engine/upgrades/eligibility';
 import { Rng } from './rng';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
@@ -35,8 +37,56 @@ const RARITY_ODDS: Record<RewardSource, Partial<Record<Rarity, number>>> = {
 
 export type RewardOption =
   | { kind: 'piece'; type: PieceType }
+  | { kind: 'upgrade'; id: string }
   | { kind: 'armyPoints'; amount: number }
   | { kind: 'gold'; amount: number };
+
+/** Roster info needed to offer only upgrades that some piece can take. */
+export type RosterView = { type: PieceType; upgrades: string[] }[];
+
+const UPGRADE_ODDS: Record<'battle' | 'elite' | 'boss' | 'treasure' | 'shop' | 'enemy', Partial<Record<UpgradeRarity, number>>> = {
+  battle: { common: 40, uncommon: 38, rare: 18, epic: 4 },
+  elite: { uncommon: 30, rare: 42, epic: 22, legendary: 6 },
+  boss: { rare: 35, epic: 45, legendary: 20 },
+  treasure: { rare: 45, epic: 40, legendary: 15 },
+  shop: { common: 25, uncommon: 35, rare: 28, epic: 10, legendary: 2 },
+  enemy: { common: 30, uncommon: 35, rare: 25, epic: 9, legendary: 1 },
+};
+
+/** Roll an upgrade that at least one piece in `roster` can take. */
+export function rollUpgrade(
+  rng: Rng,
+  source: keyof typeof UPGRADE_ODDS,
+  act: number,
+  roster: RosterView,
+  exclude: string[] = [],
+): string | null {
+  const odds = { ...UPGRADE_ODDS[source] };
+  if (act > 0) {
+    odds.common = Math.max(0, (odds.common ?? 0) - 12 * act);
+    odds.epic = (odds.epic ?? 0) + 5 * act;
+    odds.legendary = (odds.legendary ?? 0) + 2 * act;
+  }
+  const usable = UPGRADES.filter(
+    (u) => !u.excluded && !exclude.includes(u.id) && roster.some((r) => canTake(u.id, r.type, r.upgrades)),
+  );
+  if (usable.length === 0) return null;
+  for (let tries = 0; tries < 12; tries++) {
+    const rarity = rng.weighted(odds);
+    const pool = usable.filter((u) => u.rarity === rarity);
+    if (pool.length) return rng.pick(pool).id;
+  }
+  return rng.pick(usable).id;
+}
+
+function upgradeOptions(rng: Rng, source: keyof typeof UPGRADE_ODDS, act: number, roster: RosterView, n: number): RewardOption[] {
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const id = rollUpgrade(rng, source, act, roster, out);
+    if (id) out.push(id);
+  }
+  return out.map((id) => ({ kind: 'upgrade', id }));
+}
 
 export interface PendingReward {
   title: string;
@@ -69,13 +119,20 @@ function pieceOptions(rng: Rng, source: RewardSource, act: number, n: number): R
   return out.map((type) => ({ kind: 'piece', type }));
 }
 
-export function battleReward(rng: Rng, source: 'battle' | 'elite' | 'boss' | 'draw', act: number, name: string): PendingReward {
+export function battleReward(
+  rng: Rng,
+  source: 'battle' | 'elite' | 'boss' | 'draw',
+  act: number,
+  name: string,
+  roster: RosterView,
+): PendingReward {
   switch (source) {
     case 'draw':
       return { title: `${name}: draw`, gold: 10, armyPoints: 0, options: [] };
     case 'battle': {
-      const options = pieceOptions(rng, 'battle', act, 2);
-      options.push(rng.chance(0.4) ? { kind: 'armyPoints', amount: 2 } : pieceOptions(rng, 'battle', act, 1)[0]);
+      const options = pieceOptions(rng, 'battle', act, 1);
+      options.push(...upgradeOptions(rng, 'battle', act, roster, 1));
+      options.push(rng.chance(0.35) ? { kind: 'armyPoints', amount: 2 } : rng.chance(0.5) ? pieceOptions(rng, 'battle', act, 1)[0] : upgradeOptions(rng, 'battle', act, roster, 1)[0] ?? { kind: 'armyPoints', amount: 2 });
       return { title: `${name} defeated`, gold: rng.int(18, 30) + act * 5, armyPoints: 0, options };
     }
     case 'elite':
@@ -83,20 +140,25 @@ export function battleReward(rng: Rng, source: 'battle' | 'elite' | 'boss' | 'dr
         title: `${name} defeated`,
         gold: rng.int(40, 55) + act * 8,
         armyPoints: 0,
-        options: [...pieceOptions(rng, 'elite', act, 2), { kind: 'armyPoints', amount: 3 }],
+        options: [...pieceOptions(rng, 'elite', act, 1), ...upgradeOptions(rng, 'elite', act, roster, 2), { kind: 'armyPoints', amount: 3 }],
       };
     case 'boss':
       return {
         title: `${name} has fallen!`,
         gold: 90 + act * 20,
         armyPoints: 3,
-        options: pieceOptions(rng, 'boss', act, 3),
+        options: [...pieceOptions(rng, 'boss', act, 1), ...upgradeOptions(rng, 'boss', act, roster, 2)],
       };
   }
 }
 
-export function treasureReward(rng: Rng, act: number): PendingReward {
-  return { title: 'Treasure', gold: rng.int(30, 55) + act * 10, armyPoints: 0, options: pieceOptions(rng, 'treasure', act, 2) };
+export function treasureReward(rng: Rng, act: number, roster: RosterView): PendingReward {
+  return {
+    title: 'Treasure',
+    gold: rng.int(30, 55) + act * 10,
+    armyPoints: 0,
+    options: [...pieceOptions(rng, 'treasure', act, 1), ...upgradeOptions(rng, 'treasure', act, roster, 2)],
+  };
 }
 
 export function recruitReward(rng: Rng, act: number): PendingReward {
@@ -119,7 +181,9 @@ export function piecePrice(t: PieceType): number {
   return 8 + PIECE_STATS[t].cost * 7 + RARITY_PREMIUM[rarityOf(t)];
 }
 
-export function generateShop(rng: Rng, act: number): ShopItem[] {
+const UPGRADE_PRICE: Record<UpgradeRarity, number> = { common: 30, uncommon: 45, rare: 65, epic: 95, legendary: 140 };
+
+export function generateShop(rng: Rng, act: number, roster: RosterView = []): ShopItem[] {
   const pieces: PieceType[] = [];
   for (let i = 0; i < 4; i++) pieces.push(rollPiece(rng, i === 0 ? 'battle' : 'recruit', act, pieces));
   const items: ShopItem[] = pieces.map((type) => ({
@@ -127,6 +191,11 @@ export function generateShop(rng: Rng, act: number): ShopItem[] {
     price: Math.round(piecePrice(type) * (0.85 + rng.next() * 0.3)),
     sold: false,
   }));
+  for (const o of upgradeOptions(rng, 'shop', act, roster, 2)) {
+    if (o.kind !== 'upgrade') continue;
+    const price = UPGRADE_PRICE[UPGRADE_BY_ID[o.id].rarity];
+    items.push({ option: o, price: Math.round(price * (0.9 + rng.next() * 0.2)), sold: false });
+  }
   items.push({ option: { kind: 'armyPoints', amount: 2 }, price: 55 + act * 15, sold: false });
   return items;
 }
@@ -135,6 +204,8 @@ export function describeOption(o: RewardOption): string {
   switch (o.kind) {
     case 'piece':
       return PIECE_STATS[o.type].name;
+    case 'upgrade':
+      return UPGRADE_BY_ID[o.id]?.name ?? o.id;
     case 'armyPoints':
       return `+${o.amount} Army Points`;
     case 'gold':

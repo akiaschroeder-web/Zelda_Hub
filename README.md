@@ -33,12 +33,40 @@ A turn-based chess roguelike for mobile (Expo / React Native, TypeScript).
 The run is saved after every action (including each battle move), and is reproducible from its seed.
 Bosses are placeholder armies of existing pieces until the Boss Pieces are implemented.
 
+## Upgrades
+
+All 240 upgrades from the compendium are in `src/engine/upgrades/catalog.ts`; 234 are in play.
+Six are held back because they need systems that don't exist yet (no piece facing, no objective
+squares, no wall HP, no slowing terrain, and Gap Sense duplicates what the board already shows):
+Free Rotation, Anchor Feet, Gap Sense, Terrain Adaptation, Wall Breaker, Board Dominion.
+
+- **Slots:** every piece has 3; Legendary upgrades take 2. A piece can't take the same upgrade twice.
+- **Cost:** each upgrade adds Army Points when the piece deploys — Common +0, Uncommon/Rare +1,
+  Epic +2, Legendary +3.
+- **Eligibility** (`eligibility.ts`): upgrades are only offered for pieces they make sense on
+  (heavy upgrades for multi-square pieces, Extended Healing only for healers, summon modifiers only
+  for summoners, the King only takes defensive upgrades plus Royal Resilience/Resurrection...).
+- **Getting them:** battle/elite/boss rewards, treasure and shops offer upgrades; you pick which
+  piece receives one. Enemy armies get upgrades too from act 2 on (elites and bosses earlier).
+- **In battle:** tap a piece to see its upgrades and statuses. Gold rings mark upgrade actions on
+  target squares; tap the piece again for actions that target itself. Bonus moves (Chain Capture,
+  Unstoppable March, Royal Command, ...) keep the turn with you and can be skipped.
+
+Interpretation notes for upgrades whose wording left room:
+- Shields gained at battle start last until used; shields gained during battle expire at the end
+  of their owner's next turn unless the piece has Lasting Guard. A piece holds at most 2 shields.
+- Status actions (Silence, Slow, Mark, ...) are actions with range 2; Bind and Fear are adjacent.
+- Pushing a piece into a gap or off the board makes it fall and be lost (Void Anchor/Immunity stop it).
+- "Behind" (Backstab) means attacking from the target's own back-row side.
+- Royal-class (Royal Hunter) currently means the Queen.
+
 ## Project layout
 
 | Path | What it is |
 |---|---|
 | `src/engine/` | Pure TypeScript rules engine (no React). Boards of any size, terrain, all chess rules, AI. |
-| `src/engine/__tests__/` | Engine tests (`npm test`). Perft checks against known chess positions, combat, every new piece, and AI self-play on every encounter. |
+| `src/engine/__tests__/` | Engine tests (`npm test`). Perft checks, combat, every piece, every upgrade (a coverage test fails if any offerable upgrade has no test), and AI self-play. |
+| `src/engine/upgrades/` | Upgrade catalog and eligibility rules. Effects live in `core.ts` (damage, pushes, summons, terrain), `movement.ts`, `actions.ts` and `moves.ts`. |
 | `src/app/` | Screens (Expo Router): menu, map, deploy, battle, reward, shop, event, army, sandbox. |
 | `src/run/` | Run logic: map generation, battle generation, rewards/shop/events, deployment, casualties, save/load. `config.ts` holds the placeholder starting numbers. |
 | `src/ui/` | Shared components: board renderer, battle view, piece tiles, buttons. |

@@ -1,6 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { sizeOf } from '../engine/pieces';
-import { Board, Coord, Piece, Terrain, coordKey, sameCoord } from '../engine/types';
+import { Board, Coord, Piece, Terrain, coordKey, sameCoord, shieldTotal } from '../engine/types';
 import { PIECE_IMAGES } from './pieceImages';
 import { COLORS } from './theme';
 
@@ -80,11 +80,17 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
             ))}
           </View>
         )}
-        {p.shields > 0 && (
+        {shieldTotal(p) > 0 && (
           <View style={styles.shieldBadge}>
-            <Text style={styles.shieldText}>{p.shields}</Text>
+            <Text style={styles.shieldText}>{shieldTotal(p)}</Text>
           </View>
         )}
+        {p.statuses.length > 0 && (
+          <View style={styles.statusDot}>
+            <Text style={styles.statusText}>{p.statuses.length}</Text>
+          </View>
+        )}
+        {p.temp && <View style={[StyleSheet.absoluteFill, styles.tempRing]} />}
       </View>
     );
   });
@@ -193,6 +199,19 @@ const styles = StyleSheet.create({
     borderColor: '#d8e8ff',
   },
   shieldText: { color: 'white', fontSize: 10, fontWeight: '700' },
+  statusDot: {
+    position: 'absolute',
+    top: 1,
+    left: 1,
+    minWidth: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#9b59b6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusText: { color: 'white', fontSize: 9, fontWeight: '700' },
+  tempRing: { borderWidth: 1, borderColor: 'rgba(170, 220, 255, 0.8)', borderStyle: 'dashed', borderRadius: 999 },
   crossH: { position: 'absolute', left: '25%', top: '50%', height: 2, marginTop: -1 },
   crossV: { position: 'absolute', top: '25%', left: '50%', width: 2, marginLeft: -1 },
 });

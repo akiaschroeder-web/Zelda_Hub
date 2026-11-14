@@ -23,7 +23,7 @@ export interface EventDef {
 let eventUid = 0;
 const recruit = (run: RunState, type: RunState['roster'][number]['type']): RunState => ({
   ...run,
-  roster: [...run.roster, { uid: `r-${type}-ev-${Date.now().toString(36)}-${eventUid++}`, type, battles: 0 }],
+  roster: [...run.roster, { uid: `r-${type}-ev-${Date.now().toString(36)}-${eventUid++}`, type, battles: 0, upgrades: [] }],
 });
 
 const hasPawn = (run: RunState) => run.roster.some((r) => r.type === 'pawn');

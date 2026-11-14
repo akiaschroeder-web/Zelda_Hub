@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { parseBoard } from '../engine/board';
+import { newPiece } from '../engine/core';
 import { PIECE_STATS, footprint } from '../engine/pieces';
 import { Coord, Piece, coordKey } from '../engine/types';
 import {
@@ -8,6 +9,7 @@ import {
   RunState,
   autoDeploy,
   canPlace,
+  costOf,
   deployZone,
   deploymentCost,
   deploymentErrors,
@@ -24,16 +26,9 @@ import { COLORS } from '../ui/theme';
 const ZONE_TINT = 'rgba(50, 120, 240, 0.45)';
 
 /** Turn a roster piece into a full Piece object for drawing on the board. */
-const asPiece = (uid: string, type: Piece['type'], at: Coord): Piece => ({
-  id: uid,
-  type,
-  side: 'player',
-  pos: at,
-  hasMoved: false,
-  hp: PIECE_STATS[type].maxHp,
-  maxHp: PIECE_STATS[type].maxHp,
-  shields: 0,
-  used: [],
+const asPiece = (uid: string, type: Piece['type'], at: Coord, upgrades: string[] = []): Piece => ({
+  ...newPiece(type, 'player', at, uid),
+  upgrades,
 });
 
 export default function Deploy() {
@@ -49,12 +44,14 @@ function DeployView({ run }: { run: RunState }) {
 
   const board = useMemo(() => parseBoard(battle.terrain), [battle]);
   const enemies = useMemo(
-    () => battle.enemies.map((p, i): Piece => ({ ...asPiece(`enemy${i}`, p.type, { x: p.x, y: p.y }), side: 'enemy' })),
+    () => battle.enemies.map((p, i): Piece => ({ ...asPiece(`enemy${i}`, p.type, { x: p.x, y: p.y }, p.upgrades), side: 'enemy' })),
     [battle],
   );
 
   const typeOf = (uid: string) => run.roster.find((r) => r.uid === uid)!.type;
-  const fielded: Piece[] = deployed.map((d) => asPiece(d.uid, typeOf(d.uid), { x: d.x, y: d.y }));
+  const fielded: Piece[] = deployed.map((d) =>
+    asPiece(d.uid, typeOf(d.uid), { x: d.x, y: d.y }, run.roster.find((r) => r.uid === d.uid)!.upgrades),
+  );
   const cost = deploymentCost(run, deployed);
   const zone = deployZone(battle);
   const squaresUsed = fielded.reduce((n, p) => n + footprint(p).length, 0);
@@ -62,7 +59,8 @@ function DeployView({ run }: { run: RunState }) {
   const reserve = run.roster.filter((r) => !deployed.some((d) => d.uid === r.uid)).sort(byRank);
 
   const pieceAt = (c: Coord) => fielded.find((p) => footprint(p).some((f) => f.x === c.x && f.y === c.y));
-  const fits = (uid: string) => cost - (deployed.some((d) => d.uid === uid) ? PIECE_STATS[typeOf(uid)].cost : 0) + PIECE_STATS[typeOf(uid)].cost <= run.armyPoints;
+  const pieceCost = (uid: string) => costOf(run.roster.find((r) => r.uid === uid)!);
+  const fits = (uid: string) => cost - (deployed.some((d) => d.uid === uid) ? pieceCost(uid) : 0) + pieceCost(uid) <= run.armyPoints;
 
   const onSquare = (c: Coord) => {
     const occupant = pieceAt(c);

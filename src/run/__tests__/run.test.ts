@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { chooseMove } from '../../engine/ai';
 import { applyMove } from '../../engine/moves';
 import { GameState } from '../../engine/types';
-import { bossBattle, generateBattle } from '../battlegen';
+import { covers } from '../../engine/__tests__/upgradeHelpers';
+import { bossBattle, enemyUpgradeCount, generateBattle } from '../battlegen';
 import { RUN_CONFIG } from '../config';
 import { EVENTS } from '../events';
 import { FLOORS_PER_ACT, generateAct } from '../map';
@@ -25,6 +26,9 @@ import {
   leaveShop,
   newRun,
   startBattle,
+  upgradeTargets,
+  costOf,
+  livingFortressBonus,
 } from '../run';
 
 describe('a new run', () => {
@@ -197,12 +201,24 @@ function simulateRun(seed: number): RunState {
         run = finishBattle(run, s);
         break;
       }
-      case 'reward':
-        run = claimReward(run, run.reward!.options.length ? 0 : null);
+      case 'reward': {
+        // Pick a random reward; upgrades go to a random piece that can take them.
+        const opts = run.reward!.options;
+        const i = opts.length ? Math.floor(rng.next() * opts.length) : -1;
+        const o = opts[i];
+        const target = o?.kind === 'upgrade' ? rng.pick(upgradeTargets(run, o.id))?.uid : undefined;
+        run = claimReward(run, o && (o.kind !== 'upgrade' || target) ? i : null, target);
         break;
+      }
       case 'shop': {
-        const i = run.shop!.findIndex((it) => !it.sold && it.price <= run.gold);
-        run = i >= 0 ? leaveShop(buy(run, i)) : leaveShop(run);
+        const affordable = run.shop!.map((it, i) => ({ it, i })).filter(({ it }) => !it.sold && it.price <= run.gold);
+        const pick = affordable.length ? rng.pick(affordable) : undefined;
+        if (pick) {
+          const o = pick.it.option;
+          const target = o.kind === 'upgrade' ? upgradeTargets(run, o.id)[0]?.uid : undefined;
+          if (o.kind !== 'upgrade' || target) run = buy(run, pick.i, target);
+        }
+        run = leaveShop(run);
         break;
       }
       case 'event': {
@@ -216,11 +232,84 @@ function simulateRun(seed: number): RunState {
   return run;
 }
 
+describe('upgrades in a run', () => {
+  const withReward = (option: { kind: 'upgrade'; id: string }): RunState => ({
+    ...newRun(21),
+    phase: 'reward',
+    reward: { title: 't', gold: 0, armyPoints: 0, options: [option] },
+  });
+
+  it('upgrade rewards attach to an eligible roster piece', () => {
+    const run = withReward({ kind: 'upgrade', id: 'thick_armor' });
+    const rook = run.roster.find((r) => r.type === 'rook')!;
+    const after = claimReward(run, 0, rook.uid);
+    expect(after.roster.find((r) => r.uid === rook.uid)!.upgrades).toEqual(['thick_armor']);
+    const pawn = run.roster.find((r) => r.type === 'pawn')!;
+    expect(() => claimReward(withReward({ kind: 'upgrade', id: 'diagonal_pivot' }), 0, pawn.uid)).toThrow();
+  });
+
+  it('upgrades raise a piece’s deployment cost by rarity', () => {
+    expect(costOf({ type: 'rook', upgrades: [] })).toBe(5);
+    expect(costOf({ type: 'rook', upgrades: ['thick_armor', 'perfect_strike'] })).toBe(5 + 1 + 3);
+  });
+
+  it('Living Fortress grows with battles survived', () => {
+    covers('living_fortress');
+    const r = { uid: 'x', type: 'rook' as const, battles: 7, upgrades: ['living_fortress'] };
+    expect(livingFortressBonus(r)).toBe(2);
+    expect(livingFortressBonus({ ...r, battles: 20 })).toBe(3);
+    let run = newRun(31);
+    const rook = run.roster.find((p) => p.type === 'rook')!;
+    run = { ...run, roster: run.roster.map((p) => (p.uid === rook.uid ? { ...p, battles: 6, upgrades: ['living_fortress'] } : p)) };
+    run = enterNode(run, availableNodes(run)[0].id);
+    run = startBattle(run, autoDeploy(run, run.battle!));
+    const fielded = run.activeBattle!.pieces.find((p) => p.id === rook.uid);
+    if (fielded) expect(fielded.maxHp).toBe(3);
+  });
+
+  it('Second Life returns a captured piece once, spending the upgrade', () => {
+    let run = newRun(41);
+    const pawn = run.roster.find((p) => p.type === 'pawn')!;
+    run = { ...run, roster: run.roster.map((p) => (p.uid === pawn.uid ? { ...p, upgrades: ['second_life'] } : p)) };
+    run = enterNode(run, availableNodes(run)[0].id);
+    run = startBattle(run, [{ uid: run.roster.find((r) => r.type === 'king')!.uid, x: 3, y: 7 }, ...autoDeploy(run, run.battle!).filter((d) => d.uid !== run.roster.find((r) => r.type === 'king')!.uid)]);
+    const fielded = run.activeBattle!.pieces.find((p) => p.id === pawn.uid);
+    if (!fielded) return; // not deployed by the auto setup on this map
+    const final: GameState = {
+      ...run.activeBattle!,
+      pieces: run.activeBattle!.pieces.filter((p) => p.id !== pawn.uid),
+      captured: [fielded],
+      saved: [pawn.uid],
+      result: { kind: 'checkmate', winner: 'player' },
+    };
+    const after = finishBattle(run, final);
+    const back = after.roster.find((r) => r.uid === pawn.uid);
+    expect(back).toBeDefined();
+    expect(back!.upgrades).not.toContain('second_life');
+    expect(after.fallen).toHaveLength(0);
+  });
+
+  it('once-per-run flags carry over between battles', () => {
+    let run = newRun(51);
+    run = enterNode(run, availableNodes(run)[0].id);
+    run = startBattle(run, autoDeploy(run, run.battle!));
+    const after = finishBattle(run, { ...run.activeBattle!, runFlags: ['royal_resilience'], result: { kind: 'checkmate', winner: 'player' } });
+    expect(after.runFlags).toContain('royal_resilience');
+  });
+
+  it('enemy armies get more upgrades in later acts and elite fights', () => {
+    expect(enemyUpgradeCount(0, 'battle')).toBe(0);
+    expect(enemyUpgradeCount(2, 'elite')).toBeGreaterThan(enemyUpgradeCount(0, 'elite'));
+    const battle = generateBattle(new Rng(9), 2, 3, 'elite', 'e');
+    expect(battle.enemies.flatMap((e) => e.upgrades ?? []).length).toBeGreaterThan(0);
+  });
+});
+
 describe('full runs', () => {
   it('simulated runs always finish without breaking', () => {
     const outcomes: Record<string, number> = {};
     let maxAct = 0;
-    for (let seed = 1; seed <= 6; seed++) {
+    for (let seed = 1; seed <= 8; seed++) {
       const run = simulateRun(seed);
       expect(run.status).not.toBe('active');
       outcomes[run.status] = (outcomes[run.status] ?? 0) + 1;

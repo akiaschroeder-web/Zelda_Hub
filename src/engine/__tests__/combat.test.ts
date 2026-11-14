@@ -76,21 +76,21 @@ describe('attacking a multi-HP piece', () => {
 
   it('shields absorb damage before HP, and the attacker still bounces', () => {
     const s = game(['.j..k...', '........', '........', '........', '........', '........', '........', '.R..K...']);
-    s.pieces = s.pieces.map((p) => (p.type === 'juggernaut' ? { ...p, shields: 1 } : p));
+    s.pieces = s.pieces.map((p) => (p.type === 'juggernaut' ? { ...p, shields: [{ strength: 1, expires: null }] } : p));
     const rook = piece(s, 'rook', 'player');
     const next = applyMove(s, moveTo(s, rook.id, 1, 1)!);
     const jug = piece(next, 'juggernaut', 'enemy');
     expect(jug.hp).toBe(3);
-    expect(jug.shields).toBe(0);
+    expect(jug.shields).toHaveLength(0);
     expect(next.pieces.find((p) => p.id === rook.id)!.pos).toEqual({ x: 1, y: 4 });
   });
 
   it('a shield on a 1 HP piece makes the attacker bounce instead of capturing', () => {
     const s = game(['....k...', '........', '........', '.p......', '........', '........', '........', '.R..K...']);
-    s.pieces = s.pieces.map((p) => (p.type === 'pawn' ? { ...p, shields: 1 } : p));
+    s.pieces = s.pieces.map((p) => (p.type === 'pawn' ? { ...p, shields: [{ strength: 1, expires: null }] } : p));
     const rook = piece(s, 'rook', 'player');
     const next = applyMove(s, moveTo(s, rook.id, 1, 3)!);
-    expect(piece(next, 'pawn', 'enemy').shields).toBe(0);
+    expect(piece(next, 'pawn', 'enemy').shields).toHaveLength(0);
     // travelled 4 -> bounce 2 back from (1,3)
     expect(next.pieces.find((p) => p.id === rook.id)!.pos).toEqual({ x: 1, y: 5 });
   });

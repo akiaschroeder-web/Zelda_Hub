@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { PIECE_STATS } from '../engine/pieces';
 import { PieceType } from '../engine/types';
+import { upgradeCost } from '../engine/upgrades/eligibility';
 import { PIECE_IMAGES } from './pieceImages';
 import { COLORS } from './theme';
 
@@ -9,7 +10,7 @@ export const byRank = (a: { type: PieceType }, b: { type: PieceType }) =>
   a.type === 'king' ? -1 : b.type === 'king' ? 1 : PIECE_STATS[b.type].value - PIECE_STATS[a.type].value;
 
 interface Props {
-  piece: { type: PieceType; battles?: number };
+  piece: { type: PieceType; battles?: number; upgrades?: string[] };
   side?: 'player' | 'enemy';
   faded?: boolean;
   selected?: boolean;
@@ -26,9 +27,10 @@ export default function PieceTile({ piece, side = 'player', faded, selected, onP
         {stats.name}
       </Text>
       <Text style={styles.meta}>
-        {piece.type === 'king' ? '—' : `${stats.cost} pt`}
+        {piece.type === 'king' && !piece.upgrades?.length ? '—' : `${stats.cost + upgradeCost(piece.upgrades ?? [])} pt`}
         {piece.battles ? ` · ${'★'.repeat(Math.min(piece.battles, 3))}` : ''}
       </Text>
+      {piece.upgrades && piece.upgrades.length > 0 && <Text style={styles.ups}>{'✦'.repeat(piece.upgrades.length)}</Text>}
     </View>
   );
   return onPress ? <Pressable onPress={onPress}>{body}</Pressable> : body;
@@ -48,4 +50,5 @@ const styles = StyleSheet.create({
   img: { width: 44, height: 44 },
   name: { color: COLORS.text, fontSize: 10, fontWeight: '600', marginTop: 2 },
   meta: { color: COLORS.gold, fontSize: 10 },
+  ups: { color: '#c99bf0', fontSize: 10, marginTop: 1 },
 });

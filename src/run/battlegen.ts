@@ -2,12 +2,34 @@ import { isStandable, parseBoard } from '../engine/board';
 import { PIECE_STATS, footprint } from '../engine/pieces';
 import { parsePlacements } from '../engine/setup';
 import { Coord, EncounterRules, Piece, PieceType, coordKey } from '../engine/types';
+import { canTake } from '../engine/upgrades/eligibility';
+import { rollUpgrade } from './rewards';
 import { Rng } from './rng';
+
+/** How many upgrades an enemy army gets. */
+export function enemyUpgradeCount(act: number, kind: 'battle' | 'elite' | 'boss'): number {
+  if (kind === 'boss') return 3 + act * 3;
+  if (kind === 'elite') return 1 + act * 2;
+  return act;
+}
+
+/** Hand out upgrades to random non-King enemy pieces. */
+export function upgradeEnemies(rng: Rng, enemies: EnemyPlacement[], act: number, count: number): EnemyPlacement[] {
+  const out = enemies.map((e) => ({ ...e, upgrades: [...(e.upgrades ?? [])] }));
+  const candidates = out.filter((e) => e.type !== 'king');
+  for (let i = 0; i < count && candidates.length; i++) {
+    const e = rng.pick(candidates);
+    const id = rollUpgrade(rng, 'enemy', act, [{ type: e.type, upgrades: e.upgrades! }]);
+    if (id && canTake(id, e.type, e.upgrades!)) e.upgrades!.push(id);
+  }
+  return out;
+}
 
 export interface EnemyPlacement {
   type: PieceType;
   x: number;
   y: number;
+  upgrades?: string[];
 }
 
 /** A battle in a run, generated or hand-made. */
@@ -201,7 +223,7 @@ export function generateBattle(rng: Rng, act: number, floor: number, kind: 'batt
     description: `${info.blurb} ${template.name}.`,
     rules,
     terrain: template.terrain,
-    enemies: placeArmy(template.terrain, army),
+    enemies: upgradeEnemies(rng, placeArmy(template.terrain, army), act, enemyUpgradeCount(act, kind)),
   };
 }
 
@@ -274,8 +296,11 @@ const BOSSES: { name: string; description: string; terrain: string[]; enemies: s
   },
 ];
 
-export function bossBattle(act: number, id: string): RunBattle {
+export function bossBattle(act: number, id: string, rng?: Rng): RunBattle {
   const b = BOSSES[Math.min(act, BOSSES.length - 1)];
+  const enemies = parsePlacements(b.enemies)
+    .filter((p) => p.side === 'enemy')
+    .map(({ type, x, y }) => ({ type, x, y }));
   return {
     id,
     kind: 'boss',
@@ -283,8 +308,6 @@ export function bossBattle(act: number, id: string): RunBattle {
     description: b.description,
     rules: { checkRules: true },
     terrain: b.terrain,
-    enemies: parsePlacements(b.enemies)
-      .filter((p) => p.side === 'enemy')
-      .map(({ type, x, y }) => ({ type, x, y })),
+    enemies: rng ? upgradeEnemies(rng, enemies, act, enemyUpgradeCount(act, 'boss')) : enemies,
   };
 }

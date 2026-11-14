@@ -1,7 +1,8 @@
 import { isStandable, parseBoard } from './board';
+import { addStatus, adjacent, freeze, has, newPiece } from './core';
 import { evaluateResult, positionKey } from './moves';
-import { PIECE_STATS, footprint } from './pieces';
-import { Board, EncounterRules, GameState, Piece, PieceType, Side } from './types';
+import { PIECE_STATS, footprint, sizeOf } from './pieces';
+import { Board, EncounterRules, GameState, Piece, PieceType, Side, opponent } from './types';
 
 export interface Placement {
   /** Fixed id (roster pieces keep theirs so casualties can be tracked). */
@@ -12,23 +13,62 @@ export interface Placement {
   y: number;
   /** Starting HP if not full (e.g. a wounded roster piece). */
   hp?: number;
+  /** Starting shields (each absorbs one damage, lasting). */
   shields?: number;
+  upgrades?: string[];
+  /** Extra maximum HP from the run (e.g. Living Fortress). */
+  bonusMaxHp?: number;
+}
+
+/** Maximum HP including upgrades that raise it. */
+export function maxHpFor(type: PieceType, upgrades: string[] = [], bonus = 0): number {
+  let hp = PIECE_STATS[type].maxHp + bonus;
+  if (upgrades.includes('reinforced_body')) hp += 1;
+  if (upgrades.includes('reinforced_frame') && PIECE_STATS[type].size > 1) hp += 1;
+  if (upgrades.includes('colossal_endurance')) hp += 2;
+  return hp;
+}
+
+/** Shields and marks granted when a battle begins. */
+function battleStart(state: GameState) {
+  const lasting = (p: Piece, strength = 1) => p.shields.push({ strength, expires: null });
+  for (const p of state.pieces) {
+    const friends = state.pieces.filter((o) => o.side === p.side && o.id !== p.id);
+    if (has(p, 'thick_armor')) lasting(p);
+    if (has(p, 'heavy_armor')) {
+      lasting(p);
+      lasting(p);
+    }
+    if (has(p, 'wide_shield')) lasting(p, 2);
+    if (has(p, 'guardian_aura')) friends.filter((a) => adjacent(a, p)).forEach((a) => lasting(a));
+    if (has(p, 'footprint_guard') && sizeOf(p) > 1) friends.filter((a) => adjacent(a, p)).forEach((a) => lasting(a));
+    if (has(p, 'kings_shield')) {
+      const king = state.pieces.find((o) => o.side === p.side && o.type === 'king');
+      if (king) lasting(king);
+    }
+    if (has(p, 'marked_prey')) {
+      // The most valuable enemy (other than the King, if possible) becomes the prey.
+      const foes = state.pieces.filter((o) => o.side === opponent(p.side));
+      const prey = [...foes].sort(
+        (a, b) => Number(a.type === 'king') - Number(b.type === 'king') || PIECE_STATS[b.type].value - PIECE_STATS[a.type].value,
+      )[0];
+      if (prey) addStatus(prey, { kind: 'prey', until: null, source: p.side });
+    }
+  }
 }
 
 let nextId = 0;
 
-export function createGame(board: Board, placements: Placement[], rules: EncounterRules): GameState {
-  const pieces: Piece[] = placements.map((p) => ({
-    id: p.id ?? `${p.side[0]}${p.type}${nextId++}`,
-    type: p.type,
-    side: p.side,
-    pos: { x: p.x, y: p.y },
-    hasMoved: false,
-    hp: p.hp ?? PIECE_STATS[p.type].maxHp,
-    maxHp: PIECE_STATS[p.type].maxHp,
-    shields: p.shields ?? 0,
-    used: [],
-  }));
+export function createGame(board: Board, placements: Placement[], rules: EncounterRules, runFlags: string[] = []): GameState {
+  const pieces: Piece[] = placements.map((p) => {
+    const piece = newPiece(p.type, p.side, { x: p.x, y: p.y }, p.id ?? `${p.side[0]}${p.type}${nextId++}`);
+    piece.hasMoved = false;
+    piece.upgrades = [...(p.upgrades ?? [])];
+    piece.maxHp = maxHpFor(p.type, piece.upgrades, p.bonusMaxHp ?? 0);
+    piece.hp = Math.min(p.hp ?? piece.maxHp, piece.maxHp);
+    for (let i = 0; i < (p.shields ?? 0); i++) piece.shields.push({ strength: 1, expires: null });
+    return piece;
+  });
   // Every square of every footprint must be open terrain and unshared.
   const taken = new Set<string>();
   for (const p of pieces) {
@@ -49,7 +89,20 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
     positionHistory: [],
     captured: [],
     result: { kind: 'ongoing' },
+    ply: 0,
+    timed: [],
+    destroyedWalls: [],
+    bonus: [],
+    snapshot: {},
+    zones: [],
+    runFlags: [],
+    saved: [],
+    log: [],
   };
+  state.runFlags = [...runFlags];
+  battleStart(state);
+  for (const p of state.pieces) p.turnPos = { ...p.pos };
+  freeze(state);
   state.positionHistory = [positionKey(state)];
   state.result = evaluateResult(state);
   return state;
@@ -99,8 +152,11 @@ export interface EncounterDef {
   rules: EncounterRules;
   terrain: string[];
   pieces: string[];
+  /** Upgrades by square ("x,y"). */
+  upgrades?: Record<string, string[]>;
 }
 
 export function createEncounter(def: EncounterDef): GameState {
-  return createGame(parseBoard(def.terrain), parsePlacements(def.pieces), def.rules);
+  const placements = parsePlacements(def.pieces).map((p) => ({ ...p, upgrades: def.upgrades?.[`${p.x},${p.y}`] ?? [] }));
+  return createGame(parseBoard(def.terrain), placements, def.rules);
 }

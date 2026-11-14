@@ -59,6 +59,10 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 1, damage: 1, cost: 5, value: 300, name: 'Medic',
     blurb: 'One square diagonally or sideways. Can heal an adjacent ally 1 HP instead of moving.',
   },
+  decoy: {
+    size: 1, maxHp: 1, damage: 0, cost: 0, value: 60, name: 'Decoy',
+    blurb: 'A temporary 1 HP decoy. Moves one square; cannot attack.',
+  },
 };
 
 export const sizeOf = (p: Piece): number => PIECE_STATS[p.type].size;

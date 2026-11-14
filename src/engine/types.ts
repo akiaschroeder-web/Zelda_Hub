@@ -25,13 +25,66 @@ export type PieceType =
   | 'mage'
   | 'switcher'
   | 'chancellor'
-  | 'medic';
+  | 'medic'
+  /** Temporary 1 HP summon that cannot attack. */
+  | 'decoy';
 
-/** Once-per-battle abilities, recorded on the piece when spent. */
-export type AbilityId = 'intercept' | 'teleport' | 'swap';
+/** Once-per-battle abilities, recorded on the piece when spent. Upgrade ids are also recorded here. */
+export type AbilityId = 'intercept' | 'teleport' | 'swap' | (string & {});
 
-/** Actions other than an ordinary move. Ordinary moves leave this unset. */
-export type ActionKind = 'shoot' | 'demolish' | 'teleport' | 'swap' | 'heal';
+/**
+ * Actions other than an ordinary move. Ordinary moves leave this unset.
+ * `upgrade` actions name the upgrade in `Move.upgrade`; `pass` skips an
+ * optional bonus move.
+ */
+export type ActionKind = 'shoot' | 'demolish' | 'teleport' | 'swap' | 'heal' | 'upgrade' | 'pass';
+
+/** A shield absorbs `strength` damage. Temporary shields vanish at the end of ply `expires`. */
+export interface Shield {
+  strength: number;
+  expires: number | null;
+}
+
+export type StatusKind =
+  | 'bound' // cannot move
+  | 'stunned' // cannot act at all
+  | 'silenced' // cannot use special abilities
+  | 'slowed' // -1 movement range
+  | 'disarmed' // cannot attack
+  | 'pacified' // cannot attack
+  | 'blinded' // -2 ranged distance
+  | 'crippled' // no jumping movement
+  | 'rooted' // immune to forced movement
+  | 'confused' // ranges limited to 1
+  | 'cursed' // max HP reduced (amount)
+  | 'marked' // +1 damage from the next attack
+  | 'permMarked' // +1 damage from every attack
+  | 'vulnerable' // +1 damage from the next `count` attacks
+  | 'prey' // Marked Prey target of `source` side
+  | 'weakened' // -1 damage on its next attack
+  | 'rangeBuff' // +amount movement range
+  | 'damageBuff' // +amount damage on next attack
+  | 'immune' // takes no damage
+  | 'springLoaded' // bonus non-capturing move at the start of next turn
+  | 'fortified'; // Fortified Position bonus HP applied
+
+export interface Status {
+  kind: StatusKind;
+  /** Removed at the end of this ply. null = rest of the battle. */
+  until: number | null;
+  amount?: number;
+  count?: number;
+  source?: string;
+}
+
+/** Bookkeeping for summoned pieces. Temporary pieces never join the roster. */
+export interface TempInfo {
+  summonerId: string;
+  /** Removed at the end of this ply (null = until the battle ends). */
+  expires: number | null;
+  /** Upgrade or ability that created it. */
+  kind: string;
+}
 
 export type PromotionType = 'queen' | 'rook' | 'bishop' | 'knight';
 
@@ -49,10 +102,34 @@ export interface Piece {
   hasMoved: boolean;
   hp: number;
   maxHp: number;
-  /** Each shield absorbs one point of damage before HP is lost. */
-  shields: number;
-  /** Once-per-battle abilities already spent. */
+  /** Shields absorb damage before HP is lost. */
+  shields: Shield[];
+  /** Once-per-battle abilities and upgrades already spent. */
   used: AbilityId[];
+  /** Upgrade ids this piece carries. */
+  upgrades: string[];
+  statuses: Status[];
+  /** Present on summoned (temporary) pieces. */
+  temp?: TempInfo;
+  /** Square the piece started the battle on. */
+  startPos: Coord;
+  /** Square at the start of its owner's previous turn (Retreat). */
+  prevPos?: Coord;
+  /** Square at the start of its owner's current turn. */
+  turnPos?: Coord;
+  /** Direction of its last move and how many moves in a row went that way. */
+  lastDir?: Coord;
+  streak: number;
+  /** Consecutive owner turns without moving. */
+  stillTurns: number;
+  /** Attacks made / hits taken this battle. */
+  attacks: number;
+  hitsTaken: number;
+  lastAttackerId?: string;
+  /** Ply on which this piece last acted. */
+  actedPly?: number;
+  /** Turn counters for periodic or cooldown effects. */
+  counters: Record<string, number>;
 }
 
 export interface Board {
@@ -66,6 +143,33 @@ export interface Board {
   deployZone?: Coord[];
   /** Squares where generated enemy armies are placed. */
   enemyZone?: Coord[];
+}
+
+/** A terrain change that reverts later (bridges over gaps, barricades). */
+export interface TimedTerrain {
+  pos: Coord;
+  revertTo: Terrain;
+  /** Reverts at the end of this ply. */
+  expires: number;
+  kind: 'bridge' | 'barricade';
+  side: Side;
+}
+
+/** A protective area: pieces of `side` inside take no damage until `until`. */
+export interface Zone {
+  cells: Coord[];
+  side: Side;
+  until: number;
+}
+
+/** An extra move the side to play gets before its turn ends. */
+export interface Bonus {
+  /** Only this piece may make the bonus move (any piece if absent). */
+  pieceId?: string;
+  filter: 'any' | 'nonCapturing' | 'captureOnly';
+  /** Optional bonuses can be skipped with a `pass` move. */
+  optional: boolean;
+  source: string;
 }
 
 export interface CastleInfo {
@@ -101,6 +205,22 @@ export interface Move {
   enPassant?: boolean;
   /** pawn double step: the square it skipped (en passant target) */
   doubleStep?: Coord;
+  /** Upgrade used by an `upgrade` action. */
+  upgrade?: string;
+  /** Extra parameter for some actions (summon type, conversion target...). */
+  param?: string;
+  /** Once-per-battle upgrades this move spends (e.g. Corner Turn). */
+  uses?: string[];
+  /** Ordinary-move bonuses this move relies on (e.g. Quick March range). */
+  via?: Coord;
+  /** Royal Escort: the King steps with this piece. */
+  escort?: { kingId: string; to: Coord };
+  /** The move crossed a gap (Gap Assault / Leap Assault). */
+  crossedGap?: boolean;
+  /** The move was a jump (leapers bounce back to their start square). */
+  leap?: boolean;
+  /** Multi-Target Precision: this target takes +1 damage. */
+  focusId?: string;
 }
 
 export interface EncounterRules {
@@ -130,9 +250,25 @@ export interface GameState {
   halfmoveClock: number;
   /** Position keys seen so far, for threefold repetition. */
   positionHistory: string[];
-  /** Pieces removed this battle, in capture order. */
+  /** Pieces removed this battle, in capture order (summons included). */
   captured: Piece[];
   result: GameResult;
+  /** Turn counter: increases by one each time the turn passes. Even = player's turn. */
+  ply: number;
+  timed: TimedTerrain[];
+  /** Cracked walls destroyed this battle (Wall Repair can restore them). */
+  destroyedWalls: Coord[];
+  /** Pending bonus moves for the side to play. */
+  bonus: Bonus[];
+  /** State before each side's most recent turn (Time Reversal). Never nested. */
+  snapshot: { player?: GameState; enemy?: GameState };
+  zones: Zone[];
+  /** Once-per-run effects already spent (e.g. 'royal_resilience'). */
+  runFlags: string[];
+  /** Roster pieces saved from permanent loss this battle (Second Life). */
+  saved: string[];
+  /** Human-readable notes about effects triggered by the last move. */
+  log: string[];
 }
 
 export const opponent = (side: Side): Side => (side === 'player' ? 'enemy' : 'player');
@@ -142,3 +278,16 @@ export const forward = (side: Side): number => (side === 'player' ? -1 : 1);
 export const sameCoord = (a: Coord, b: Coord): boolean => a.x === b.x && a.y === b.y;
 
 export const coordKey = (c: Coord): string => `${c.x},${c.y}`;
+
+/** Owner of a ply: the player moves on even plies. */
+export const sideOfPly = (ply: number): Side => (ply % 2 === 0 ? 'player' : 'enemy');
+
+/** The last ply of `side`'s next turn after `ply` (strictly later), `n` turns ahead. */
+export function endOfTurn(ply: number, side: Side, n = 1): number {
+  let q = ply + 1;
+  while (sideOfPly(q) !== side) q++;
+  return q + 2 * (n - 1);
+}
+
+/** Total shield strength. */
+export const shieldTotal = (p: Piece): number => p.shields.reduce((s, sh) => s + sh.strength, 0);

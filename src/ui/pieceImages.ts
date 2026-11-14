@@ -19,6 +19,7 @@ export const PIECE_IMAGES: Record<Side, Record<PieceType, ImageSourcePropType>> 
     switcher: require('../../assets/pieces/switcher_player.png'),
     chancellor: require('../../assets/pieces/chancellor_player.png'),
     medic: require('../../assets/pieces/medic_player.png'),
+    decoy: require('../../assets/pieces/illusionist_player.png'),
   },
   enemy: {
     pawn: require('../../assets/pieces/pawn_enemy.png'),
@@ -36,5 +37,6 @@ export const PIECE_IMAGES: Record<Side, Record<PieceType, ImageSourcePropType>> 
     switcher: require('../../assets/pieces/switcher_enemy.png'),
     chancellor: require('../../assets/pieces/chancellor_enemy.png'),
     medic: require('../../assets/pieces/medic_enemy.png'),
+    decoy: require('../../assets/pieces/illusionist_enemy.png'),
   },
 };

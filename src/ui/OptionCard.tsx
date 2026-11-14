@@ -1,8 +1,12 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { PIECE_STATS } from '../engine/pieces';
+import { CATEGORY_NAMES, UPGRADE_BY_ID } from '../engine/upgrades/catalog';
 import { RARITY_COLORS, RewardOption, describeOption, rarityOf } from '../run/rewards';
 import { PIECE_IMAGES } from './pieceImages';
 import { COLORS } from './theme';
+
+/** Colours for upgrade rarities (piece rarities plus Legendary). */
+export const UPGRADE_RARITY_COLORS = { ...RARITY_COLORS, legendary: '#f0a030' };
 
 interface Props {
   option: RewardOption;
@@ -17,6 +21,7 @@ interface Props {
 export default function OptionCard({ option, selected, disabled, footer, onPress }: Props) {
   const piece = option.kind === 'piece' ? option.type : null;
   const rarity = piece ? rarityOf(piece) : null;
+  const upgrade = option.kind === 'upgrade' ? UPGRADE_BY_ID[option.id] : null;
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -26,7 +31,9 @@ export default function OptionCard({ option, selected, disabled, footer, onPress
         {piece ? (
           <Image source={PIECE_IMAGES.player[piece]} style={styles.img} resizeMode="contain" />
         ) : (
-          <Text style={styles.bigIcon}>{option.kind === 'armyPoints' ? '⚑' : '💰'}</Text>
+          <Text style={[styles.bigIcon, upgrade && { color: UPGRADE_RARITY_COLORS[upgrade.rarity] }]}>
+            {option.kind === 'armyPoints' ? '⚑' : upgrade ? '✦' : '💰'}
+          </Text>
         )}
       </View>
       <View style={{ flex: 1 }}>
@@ -36,8 +43,20 @@ export default function OptionCard({ option, selected, disabled, footer, onPress
             {rarity.toUpperCase()} · {PIECE_STATS[piece].cost} pt · {PIECE_STATS[piece].maxHp} HP
           </Text>
         )}
+        {upgrade && (
+          <Text style={[styles.rarity, { color: UPGRADE_RARITY_COLORS[upgrade.rarity] }]}>
+            {upgrade.rarity.toUpperCase()} UPGRADE · {CATEGORY_NAMES[upgrade.category]} · +{upgrade.cost} pt
+            {upgrade.slots > 1 ? ' · 2 slots' : ''}
+          </Text>
+        )}
         <Text style={styles.blurb}>
-          {piece ? PIECE_STATS[piece].blurb : option.kind === 'armyPoints' ? 'Field a bigger army in every battle.' : ''}
+          {piece
+            ? PIECE_STATS[piece].blurb
+            : upgrade
+              ? upgrade.text
+              : option.kind === 'armyPoints'
+                ? 'Field a bigger army in every battle.'
+                : ''}
         </Text>
         {footer ? <Text style={styles.footer}>{footer}</Text> : null}
       </View>

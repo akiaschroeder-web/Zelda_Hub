@@ -4,6 +4,7 @@ import { PIECE_STATS } from '../engine/pieces';
 import { claimReward } from '../run/run';
 import { useRun } from '../run/RunContext';
 import OptionCard from '../ui/OptionCard';
+import UpgradeTargetPicker from '../ui/UpgradeTargetPicker';
 import RunGuard from '../ui/RunGuard';
 import { Button, Panel, text } from '../ui/common';
 import { COLORS } from '../ui/theme';
@@ -11,12 +12,16 @@ import { COLORS } from '../ui/theme';
 export default function RewardScreen() {
   const { update } = useRun();
   const [choice, setChoice] = useState<number | null>(null);
+  const [target, setTarget] = useState<string | null>(null);
   return (
     <RunGuard phase="reward">
       {(run) => {
         const r = run.reward!;
         const lost = run.lastResult?.lost ?? [];
         const fromBattle = run.battle !== null;
+        const chosen = choice !== null ? r.options[choice] : undefined;
+        const needsTarget = chosen?.kind === 'upgrade';
+        const ready = choice !== null && (!needsTarget || !!target);
         return (
           <ScrollView style={{ backgroundColor: COLORS.background }} contentContainerStyle={styles.screen}>
             <Text style={text.title}>{r.title}</Text>
@@ -26,6 +31,11 @@ export default function RewardScreen() {
               </Text>
             )}
             {fromBattle && lost.length === 0 && <Text style={[text.dim, { textAlign: 'center' }]}>No pieces lost.</Text>}
+            {fromBattle && (run.lastResult?.saved?.length ?? 0) > 0 && (
+              <Text style={[text.body, { color: COLORS.gold, textAlign: 'center' }]}>
+                Second Life saved: {run.lastResult!.saved!.map((p) => PIECE_STATS[p.type].name).join(', ')}
+              </Text>
+            )}
             {(r.gold > 0 || r.armyPoints > 0) && (
               <Panel>
                 {r.gold > 0 && <Text style={styles.gain}>+{r.gold} gold</Text>}
@@ -35,16 +45,27 @@ export default function RewardScreen() {
             {r.options.length > 0 && <Text style={text.heading}>CHOOSE ONE</Text>}
             <View style={{ gap: 8 }}>
               {r.options.map((o, i) => (
-                <OptionCard key={i} option={o} selected={choice === i} onPress={() => setChoice(i)} />
+                <OptionCard
+                  key={i}
+                  option={o}
+                  selected={choice === i}
+                  onPress={() => {
+                    setChoice(i);
+                    setTarget(null);
+                  }}
+                />
               ))}
             </View>
+            {chosen?.kind === 'upgrade' && (
+              <UpgradeTargetPicker run={run} upgradeId={chosen.id} selected={target} onSelect={setTarget} />
+            )}
             <View style={{ gap: 8, marginTop: 6 }}>
               {r.options.length > 0 && (
                 <Button
-                  label={choice === null ? 'Choose a reward' : 'Take it'}
+                  label={choice === null ? 'Choose a reward' : needsTarget && !target ? 'Choose a piece' : 'Take it'}
                   primary
-                  disabled={choice === null}
-                  onPress={() => update((s) => claimReward(s, choice))}
+                  disabled={!ready}
+                  onPress={() => update((s) => claimReward(s, choice, target ?? undefined))}
                 />
               )}
               <Button

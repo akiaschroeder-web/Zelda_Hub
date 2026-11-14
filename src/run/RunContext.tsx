@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { RunState, newRun } from './run';
 
-const STORAGE_KEY = 'chessrogue.run.v2';
+const STORAGE_KEY = 'chessrogue.run.v3';
 
 interface RunApi {
   /** False until the saved run (if any) has been read from storage. */
@@ -28,7 +28,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       .then((raw) => {
         if (!raw) return;
         const saved = JSON.parse(raw) as RunState;
-        if (saved?.version === 2) setRun(saved);
+        if (saved?.version === 3) setRun(saved);
       })
       .catch(() => {
         /* A corrupt or unreadable save just means no run to continue. */

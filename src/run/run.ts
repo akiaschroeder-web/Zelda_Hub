@@ -3,6 +3,7 @@ import { inCheck } from '../engine/moves';
 import { PIECE_STATS, footprint } from '../engine/pieces';
 import { createGame, Placement } from '../engine/setup';
 import { Coord, GameResult, GameState, Piece, PieceType, coordKey } from '../engine/types';
+import { canTake, upgradeCost } from '../engine/upgrades/eligibility';
 import { RunBattle, bossBattle, generateBattle } from './battlegen';
 import { RUN_CONFIG } from './config';
 import { EVENTS, EventDef } from './events';
@@ -16,6 +17,8 @@ export interface RosterPiece {
   type: PieceType;
   /** Battles this piece has fought in and survived. */
   battles: number;
+  /** Upgrade ids attached to this piece. */
+  upgrades: string[];
 }
 
 export interface FallenPiece extends RosterPiece {
@@ -33,7 +36,7 @@ export interface DeployedPiece {
 export type RunPhase = 'map' | 'deploy' | 'battle' | 'reward' | 'shop' | 'event';
 
 export interface RunState {
-  version: 2;
+  version: 3;
   seed: number;
   /** Current random generator state (saved so the run is reproducible). */
   rng: number;
@@ -58,14 +61,20 @@ export interface RunState {
   shop: ShopItem[] | null;
   event: { id: string; outcome: string | null } | null;
   /** Result of the most recent battle, for summaries. */
-  lastResult: { battle: string; result: GameResult; lost: RosterPiece[] } | null;
+  lastResult: { battle: string; result: GameResult; lost: RosterPiece[]; saved?: RosterPiece[] } | null;
+  /** Once-per-run effects already spent (Royal Resilience, Royal Resurrection). */
+  runFlags: string[];
 }
 
 export const ACTS = 3;
 
 let uidCounter = 0;
 const newUid = (type: PieceType) => `r-${type}-${Date.now().toString(36)}-${(uidCounter++).toString(36)}`;
-export const makeRosterPiece = (type: PieceType): RosterPiece => ({ uid: newUid(type), type, battles: 0 });
+export const makeRosterPiece = (type: PieceType): RosterPiece => ({ uid: newUid(type), type, battles: 0, upgrades: [] });
+
+/** Living Fortress: +1 max HP per three battles survived, up to +3. */
+export const livingFortressBonus = (r: RosterPiece) =>
+  r.upgrades.includes('living_fortress') ? Math.min(3, Math.floor(r.battles / 3)) : 0;
 
 /** Run `fn` with the run's random generator and store the advanced state back. */
 function withRng<T>(run: RunState, fn: (rng: Rng) => T): [T, number] {
@@ -78,7 +87,7 @@ export function newRun(seed = randomSeed()): RunState {
   const rng = new Rng(seed);
   const maps = Array.from({ length: ACTS }, (_, i) => generateAct(rng, i));
   return {
-    version: 2,
+    version: 3,
     seed,
     rng: rng.state,
     status: 'active',
@@ -97,6 +106,7 @@ export function newRun(seed = randomSeed()): RunState {
     shop: null,
     event: null,
     lastResult: null,
+    runFlags: [],
   };
 }
 
@@ -135,11 +145,11 @@ export function enterNode(run: RunState, nodeId: string): RunState {
       case 'elite':
         return { phase: 'deploy', battle: generateBattle(rng, run.act, node.floor, node.type, node.id) };
       case 'boss':
-        return { phase: 'deploy', battle: bossBattle(run.act, node.id) };
+        return { phase: 'deploy', battle: bossBattle(run.act, node.id, rng) };
       case 'shop':
-        return { phase: 'shop', shop: generateShop(rng, run.act) };
+        return { phase: 'shop', shop: generateShop(rng, run.act, run.roster) };
       case 'treasure':
-        return { phase: 'reward', reward: treasureReward(rng, run.act) };
+        return { phase: 'reward', reward: treasureReward(rng, run.act, run.roster) };
       case 'recruit':
         return { phase: 'reward', reward: recruitReward(rng, run.act) };
       case 'event': {
@@ -160,10 +170,19 @@ function leaveNode(run: RunState): RunState {
   return { ...cleared, act: run.act + 1, nodeId: null };
 }
 
-function grant(run: RunState, o: RewardOption): RunState {
+/** Roster pieces that can take this upgrade. */
+export const upgradeTargets = (run: RunState, id: string) => run.roster.filter((r) => canTake(id, r.type, r.upgrades));
+
+function grant(run: RunState, o: RewardOption, targetUid?: string): RunState {
   switch (o.kind) {
     case 'piece':
       return { ...run, roster: [...run.roster, makeRosterPiece(o.type)] };
+    case 'upgrade': {
+      const target = run.roster.find((r) => r.uid === targetUid);
+      if (!target || !canTake(o.id, target.type, target.upgrades)) throw new Error('That piece cannot take this upgrade');
+      const roster = run.roster.map((r) => (r.uid === targetUid ? { ...r, upgrades: [...r.upgrades, o.id] } : r));
+      return { ...run, roster };
+    }
     case 'armyPoints':
       return { ...run, armyPoints: run.armyPoints + o.amount };
     case 'gold':
@@ -171,19 +190,22 @@ function grant(run: RunState, o: RewardOption): RunState {
   }
 }
 
-/** Collect a pending reward: gold and Army Points automatically, plus the chosen option (or none). */
-export function claimReward(run: RunState, choice: number | null): RunState {
+/**
+ * Collect a pending reward: gold and Army Points automatically, plus the
+ * chosen option (or none). Upgrades need the roster piece that receives them.
+ */
+export function claimReward(run: RunState, choice: number | null, targetUid?: string): RunState {
   const r = run.reward;
   if (run.phase !== 'reward' || !r) throw new Error('No reward to claim');
   let next: RunState = { ...run, gold: run.gold + r.gold, armyPoints: run.armyPoints + r.armyPoints };
-  if (choice !== null && r.options[choice]) next = grant(next, r.options[choice]);
+  if (choice !== null && r.options[choice]) next = grant(next, r.options[choice], targetUid);
   return leaveNode(next);
 }
 
-export function buy(run: RunState, index: number): RunState {
+export function buy(run: RunState, index: number, targetUid?: string): RunState {
   const item = run.shop?.[index];
   if (run.phase !== 'shop' || !item || item.sold || item.price > run.gold) throw new Error('Cannot buy that');
-  const next = grant({ ...run, gold: run.gold - item.price }, item.option);
+  const next = grant({ ...run, gold: run.gold - item.price }, item.option, targetUid);
   return { ...next, shop: run.shop!.map((it, i) => (i === index ? { ...it, sold: true } : it)) };
 }
 
@@ -206,12 +228,13 @@ export const leaveEvent = (run: RunState): RunState => leaveNode(run);
 // Deployment
 // ---------------------------------------------------------------------------
 
-export const costOf = (type: PieceType) => PIECE_STATS[type].cost;
+/** Army Points to deploy a roster piece: its base cost plus its upgrades' costs. */
+export const costOf = (r: { type: PieceType; upgrades?: string[] }) => PIECE_STATS[r.type].cost + upgradeCost(r.upgrades ?? []);
 
 export function deploymentCost(run: RunState, deployed: DeployedPiece[]): number {
   return deployed.reduce((sum, d) => {
     const piece = run.roster.find((r) => r.uid === d.uid);
-    return sum + (piece ? costOf(piece.type) : 0);
+    return sum + (piece ? costOf(piece) : 0);
   }, 0);
 }
 
@@ -239,11 +262,19 @@ function buildBattle(run: RunState, battle: RunBattle, deployed: DeployedPiece[]
   const placements: Placement[] = [
     ...deployed.map((d) => {
       const piece = run.roster.find((r) => r.uid === d.uid)!;
-      return { id: piece.uid, type: piece.type, side: 'player' as const, x: d.x, y: d.y };
+      return {
+        id: piece.uid,
+        type: piece.type,
+        side: 'player' as const,
+        x: d.x,
+        y: d.y,
+        upgrades: piece.upgrades,
+        bonusMaxHp: livingFortressBonus(piece),
+      };
     }),
     ...battle.enemies.map((e) => ({ ...e, side: 'enemy' as const })),
   ];
-  return createGame(parseBoard(battle.terrain), placements, battle.rules);
+  return createGame(parseBoard(battle.terrain), placements, battle.rules, run.runFlags);
 }
 
 /** Problems that stop the battle from starting; empty when the deployment is valid. */
@@ -274,7 +305,7 @@ export function autoDeploy(run: RunState, battle: RunBattle): DeployedPiece[] {
     a.type === 'king' ? -1 : b.type === 'king' ? 1 : PIECE_STATS[b.type].value - PIECE_STATS[a.type].value,
   );
   for (const piece of order) {
-    const cost = costOf(piece.type);
+    const cost = costOf(piece);
     if (points + cost > run.armyPoints) continue;
     // Pawns go in front (the zone row furthest forward).
     const candidates = piece.type === 'pawn' ? [...zone].sort((a, b) => a.y - b.y) : zone;
@@ -305,12 +336,17 @@ export const isDefeat = (r: GameResult) => r.kind !== 'ongoing' && r.kind !== 'd
  */
 export function finishBattle(run: RunState, final: GameState): RunState {
   const battle = run.battle!;
-  const lostIds = new Set(final.captured.filter((p) => p.side === 'player').map((p) => p.id));
+  const capturedIds = new Set(final.captured.filter((p) => p.side === 'player').map((p) => p.id));
+  // Second Life: the first time a piece would be lost, it comes back (and the upgrade is spent).
+  const savedIds = new Set(final.saved.filter((id) => capturedIds.has(id)));
+  const lostIds = new Set([...capturedIds].filter((id) => !savedIds.has(id)));
   const onField = new Map(final.pieces.filter((p) => p.side === 'player').map((p) => [p.id, p]));
   const lost = run.roster.filter((r) => lostIds.has(r.uid));
+  const saved = run.roster.filter((r) => savedIds.has(r.uid));
   const roster = run.roster
     .filter((r) => !lostIds.has(r.uid))
     .map((r) => {
+      if (savedIds.has(r.uid)) return { ...r, upgrades: r.upgrades.filter((u) => u !== 'second_life') };
       const fielded = onField.get(r.uid);
       if (!fielded) return r;
       const type = RUN_CONFIG.promotionsArePermanent ? fielded.type : r.type;
@@ -321,12 +357,13 @@ export function finishBattle(run: RunState, final: GameState): RunState {
     roster,
     fallen: [...run.fallen, ...lost.map((r) => ({ ...r, lostIn: battle.name }))],
     activeBattle: null,
-    lastResult: { battle: battle.name, result: final.result, lost },
+    lastResult: { battle: battle.name, result: final.result, lost, saved },
+    runFlags: [...new Set([...run.runFlags, ...final.runFlags])],
   };
   if (isDefeat(final.result) || !roster.some((r) => r.type === 'king')) {
     return { ...after, status: 'lost', phase: 'map' };
   }
   const source = final.result.kind === 'draw' ? 'draw' : battle.kind;
-  const [reward, rngState] = withRng(run, (rng) => battleReward(rng, source, run.act, battle.name));
+  const [reward, rngState] = withRng(run, (rng) => battleReward(rng, source, run.act, battle.name, roster));
   return { ...after, rng: rngState, phase: 'reward', reward };
 }

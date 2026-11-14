@@ -1,50 +1,78 @@
-import { resolveAttack } from './moves';
 import { PIECE_STATS } from './pieces';
+import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { GameState, Move, Piece, sameCoord } from './types';
 
 const name = (p: Piece) => `${p.side === 'player' ? 'Your' : 'Enemy'} ${PIECE_STATS[p.type].name}`;
+const pieceName = (p: Piece) => PIECE_STATS[p.type].name;
+
+/** Short label for a move, used in the action chooser. */
+export function actionLabel(state: GameState, m: Move): string {
+  const target = m.allyId ? state.pieces.find((p) => p.id === m.allyId) : undefined;
+  switch (m.action) {
+    case 'pass':
+      return 'Skip bonus move';
+    case 'shoot':
+      return 'Shoot';
+    case 'demolish':
+      return 'Demolish wall';
+    case 'teleport':
+      return 'Teleport';
+    case 'swap':
+      return `Swap with ${target ? pieceName(target) : 'ally'}`;
+    case 'heal':
+      return `Heal ${target ? pieceName(target) : 'ally'}`;
+    case 'upgrade': {
+      const u = UPGRADE_BY_ID[m.upgrade!]?.name ?? m.upgrade!;
+      if (m.param) return `${u}: ${m.param}`;
+      return target && target.id !== m.pieceId ? `${u} → ${pieceName(target)}` : u;
+    }
+  }
+  const extras: string[] = [];
+  if (m.targets?.length) extras.push('Attack');
+  else extras.push('Move');
+  for (const u of m.uses ?? []) extras.push(UPGRADE_BY_ID[u]?.name ?? u);
+  if (m.escort) extras.push('with the King');
+  if (m.focusId) extras.push('focus');
+  if (m.bounceTo && m.targets?.length && !sameCoord(m.bounceTo, m.to)) {
+    if (sameCoord(m.bounceTo, m.from)) extras.push('(bounce home)');
+  }
+  return extras.join(' · ');
+}
 
 /** One-line, human-readable summary of what a move did. */
 export function describeMove(before: GameState, m: Move, after: GameState): string {
   const mover = before.pieces.find((p) => p.id === m.pieceId);
-  if (!mover) return '';
+  const notes = after.log.join(' ');
+  if (m.action === 'pass') return 'Bonus move skipped.';
+  if (!mover) return notes;
   if (m.castle) return `${name(mover)} castled.`;
   const ally = m.allyId ? before.pieces.find((p) => p.id === m.allyId) : undefined;
-  if (m.action === 'demolish') return `${name(mover)} demolished a cracked wall.`;
-  if (m.action === 'teleport') return `${name(mover)} teleported.`;
-  if (m.action === 'swap' && ally) return `${name(mover)} swapped places with the ${PIECE_STATS[ally.type].name}.`;
-  if (m.action === 'heal' && ally) {
-    const healed = after.pieces.find((p) => p.id === ally.id)!;
-    return `${name(mover)} healed the ${PIECE_STATS[ally.type].name} (${healed.hp}/${healed.maxHp} HP).`;
-  }
-  const targets = (m.targets ?? []).map((id) => before.pieces.find((p) => p.id === id)).filter(Boolean) as Piece[];
-  if (targets.length === 0) {
-    return m.promotion ? `${name(mover)} promoted to ${PIECE_STATS[m.promotion].name}.` : '';
-  }
   const parts: string[] = [];
-  const outcome = resolveAttack(before, m);
-  if (outcome.interceptor) {
-    const g = outcome.interceptor;
-    const survived = after.pieces.find((p) => p.id === g.id);
-    const verb = m.action === 'shoot' ? 'shot at' : 'attacked';
-    return `${name(mover)} ${verb} the ${PIECE_STATS[targets[0].type].name}, but a Guardian intercepted${
-      survived ? ` (${survived.hp}/${survived.maxHp} HP left)` : ' and fell'
-    }.`;
-  }
-  if (m.action === 'shoot') parts.push('fired');
-  const capturedCounts = new Map<string, number>();
-  for (const t of targets) {
-    const now = after.pieces.find((p) => p.id === t.id);
-    const label = PIECE_STATS[t.type].name;
-    if (!now) capturedCounts.set(label, (capturedCounts.get(label) ?? 0) + 1);
-    else if (now.shields < t.shields && now.hp === t.hp) parts.push(`broke a shield on ${label}`);
-    else parts.push(`hit ${label} (${now.hp}/${now.maxHp} HP left)`);
-  }
-  const whose = mover.side === 'player' ? 'enemy' : 'your';
-  for (const [label, n] of capturedCounts) {
-    parts.unshift(n === 1 ? `captured ${whose === 'enemy' ? 'an enemy' : 'your'} ${label}` : `captured ${n} ${whose} ${label}s`);
-  }
-  const moverAfter = after.pieces.find((p) => p.id === m.pieceId);
-  const bounced = moverAfter && !sameCoord(moverAfter.pos, m.to);
-  return `${name(mover)} ${parts.join(', ')}${bounced ? ' and bounced back.' : '.'}`;
+  if (m.action === 'demolish') parts.push(`${name(mover)} demolished a cracked wall.`);
+  else if (m.action === 'teleport') parts.push(`${name(mover)} teleported.`);
+  else if (m.action === 'swap' && ally) parts.push(`${name(mover)} swapped places with the ${pieceName(ally)}.`);
+  else if (m.action === 'heal' && ally) {
+    const healed = after.pieces.find((p) => p.id === ally.id);
+    parts.push(`${name(mover)} healed the ${pieceName(ally)}${healed ? ` (${healed.hp}/${healed.maxHp} HP)` : ''}.`);
+  } else if (m.action === 'upgrade' && m.upgrade !== 'temporal_echo') {
+    // The engine log already says "X uses Y."
+  } else if (m.targets?.length) {
+    const results: string[] = [];
+    let captured = 0;
+    for (const id of m.targets) {
+      const t = before.pieces.find((p) => p.id === id);
+      if (!t) continue;
+      const now = after.pieces.find((p) => p.id === id);
+      if (!now) captured++;
+      else if (now.hp < t.hp) results.push(`hit ${pieceName(t)} (${now.hp}/${now.maxHp} HP left)`);
+      else results.push(`struck ${pieceName(t)}`);
+    }
+    if (captured) results.unshift(captured === 1 ? 'captured a piece' : `captured ${captured} pieces`);
+    const moverAfter = after.pieces.find((p) => p.id === m.pieceId);
+    const bounced = moverAfter && m.action !== 'shoot' && !sameCoord(moverAfter.pos, m.to);
+    parts.push(`${name(mover)} ${m.action === 'shoot' ? 'fired and ' : ''}${results.join(', ')}${bounced ? ' and bounced back' : ''}.`);
+  } else if (m.promotion) parts.push(`${name(mover)} promoted to ${PIECE_STATS[m.promotion].name}.`);
+  else if (m.uses?.length) parts.push(`${name(mover)} moved (${m.uses.map((u) => UPGRADE_BY_ID[u]?.name ?? u).join(', ')}).`);
+  const capitalized = notes ? notes.charAt(0).toUpperCase() + notes.slice(1) : '';
+  return [...parts, capitalized].filter(Boolean).join(' ');
 }

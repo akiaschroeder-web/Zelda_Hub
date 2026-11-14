@@ -1,7 +1,6 @@
-import { applyMoveRaw, findKing, inCheck, legalMoves } from './moves';
+import { applyMoveRaw, findKing, inCheck, legalMoves, quickApply } from './moves';
 import { PIECE_STATS } from './pieces';
-import { GameState, Move, Side } from './types';
-
+import { GameState, Move, Side, shieldTotal } from './types';
 
 const MATE = 1_000_000;
 
@@ -14,7 +13,12 @@ function evaluate(state: GameState, side: Side): number {
   for (const p of state.pieces) {
     const base = PIECE_STATS[p.type].value;
     // Wounded multi-HP pieces are worth proportionally less; shields add a little.
-    let v = p.maxHp > 1 ? base * (0.4 + (0.6 * p.hp) / p.maxHp) + p.shields * 40 : base + p.shields * 40;
+    const shields = shieldTotal(p) * 40;
+    let v = p.maxHp > 1 ? base * (0.4 + (0.6 * p.hp) / p.maxHp) + shields : base + shields;
+    // Temporary summons are worth less than permanent pieces.
+    if (p.temp) v *= 0.6;
+    // Each unspent once-per-battle upgrade is worth keeping in reserve.
+    v += p.upgrades.length * 15;
     if (p.type !== 'king') {
       // mild pull toward the centre
       v += 6 - (Math.abs(p.pos.x - cx) + Math.abs(p.pos.y - cy));
@@ -50,12 +54,26 @@ function negamax(state: GameState, depth: number, alpha: number, beta: number, p
   }
   let best = -Infinity;
   for (const m of orderMoves(moves)) {
-    const score = -negamax(applyMoveRaw(state, m), depth - 1, -beta, -alpha, ply + 1);
+    // At the search horizon a cheap position is enough to score the move.
+    const child = (depth === 1 && quickApply(state, m)) || applyMoveRaw(state, m);
+    const score = scoreChild(child, side, depth, alpha, beta, ply);
     if (score > best) best = score;
     if (best > alpha) alpha = best;
     if (alpha >= beta) break;
   }
   return best;
+}
+
+/**
+ * Score a child position from `side`'s point of view. Bonus moves keep the
+ * turn with the same side, so those are searched without flipping sides.
+ */
+function scoreChild(child: GameState, side: Side, depth: number, alpha: number, beta: number, ply: number): number {
+  if (child.turn === side) {
+    if (ply > 10) return evaluate(child, side);
+    return negamax(child, depth, alpha, beta, ply + 1);
+  }
+  return -negamax(child, depth - 1, -beta, -alpha, ply + 1);
 }
 
 /** Pick a move for the side to play. Ties are broken randomly for variety. */
@@ -65,7 +83,7 @@ export function chooseMove(state: GameState, depth = 2, rng: () => number = Math
   let bestScore = -Infinity;
   let best: Move[] = [];
   for (const m of orderMoves(moves)) {
-    const score = -negamax(applyMoveRaw(state, m), depth - 1, -Infinity, -bestScore + 1, 1);
+    const score = scoreChild(applyMoveRaw(state, m), state.turn, depth, bestScore === -Infinity ? -Infinity : bestScore - 1, Infinity, 1);
     if (score > bestScore) {
       bestScore = score;
       best = [m];
