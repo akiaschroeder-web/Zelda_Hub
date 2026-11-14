@@ -64,6 +64,8 @@ export interface Board {
   promotionSquares?: { side: Side; pos: Coord }[];
   /** Squares where the player may place pieces before a battle. */
   deployZone?: Coord[];
+  /** Squares where generated enemy armies are placed. */
+  enemyZone?: Coord[];
 }
 
 export interface CastleInfo {

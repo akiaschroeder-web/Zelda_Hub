@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { ROUTES } from '../run/run';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { useRun } from '../run/RunContext';
 import { Button, text } from '../ui/common';
@@ -11,7 +12,7 @@ export default function Home() {
 
   const newRun = () => {
     startNewRun();
-    router.push('/army');
+    router.push('/map');
   };
 
   return (
@@ -22,7 +23,7 @@ export default function Home() {
         <Text style={[text.dim, { textAlign: 'center' }]}>Build an army. Every capture is permanent.</Text>
       </View>
       <View style={styles.buttons}>
-        {canContinue && <Button label="Continue run" primary onPress={() => router.push(run.activeBattle ? '/battle' : '/army')} />}
+        {canContinue && <Button label="Continue run" primary onPress={() => router.push(ROUTES[run.phase])} />}
         <Button label="New run" primary={!canContinue} disabled={!loaded} onPress={newRun} />
         <Button label="Sandbox battles" onPress={() => router.push('/sandbox')} />
       </View>

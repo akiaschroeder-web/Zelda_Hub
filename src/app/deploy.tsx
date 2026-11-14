@@ -1,19 +1,20 @@
-import { Redirect, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { parseBoard } from '../engine/board';
 import { PIECE_STATS, footprint } from '../engine/pieces';
-import { parsePlacements } from '../engine/setup';
 import { Coord, Piece, coordKey } from '../engine/types';
 import {
   DeployedPiece,
+  RunState,
   autoDeploy,
   canPlace,
-  currentBattle,
   deployZone,
   deploymentCost,
   deploymentErrors,
+  startBattle,
 } from '../run/run';
+import { NODE_INFO } from '../run/map';
+import RunGuard from '../ui/RunGuard';
 import { useRun } from '../run/RunContext';
 import BoardView, { Marker } from '../ui/BoardView';
 import PieceTile, { byRank } from '../ui/PieceTile';
@@ -36,26 +37,21 @@ const asPiece = (uid: string, type: Piece['type'], at: Coord): Piece => ({
 });
 
 export default function Deploy() {
-  const { loaded, run, beginBattle } = useRun();
+  return <RunGuard phase="deploy">{(run) => <DeployView run={run} />}</RunGuard>;
+}
+
+function DeployView({ run }: { run: RunState }) {
+  const { update } = useRun();
   const { width, height } = useWindowDimensions();
-  const battle = run ? currentBattle(run) : undefined;
-  const [deployed, setDeployed] = useState<DeployedPiece[]>(() => (run && battle ? autoDeploy(run, battle) : []));
+  const battle = run.battle!;
+  const [deployed, setDeployed] = useState<DeployedPiece[]>(() => autoDeploy(run, battle));
   const [selected, setSelected] = useState<string | null>(null);
 
-  const board = useMemo(() => (battle ? parseBoard(battle.terrain) : null), [battle]);
+  const board = useMemo(() => parseBoard(battle.terrain), [battle]);
   const enemies = useMemo(
-    () =>
-      battle
-        ? parsePlacements(battle.enemies).map(
-            (p, i): Piece => ({ ...asPiece(`enemy${i}`, p.type, { x: p.x, y: p.y }), side: 'enemy' }),
-          )
-        : [],
+    () => battle.enemies.map((p, i): Piece => ({ ...asPiece(`enemy${i}`, p.type, { x: p.x, y: p.y }), side: 'enemy' })),
     [battle],
   );
-
-  if (!loaded) return null;
-  if (!run || !battle || !board || run.status !== 'active') return <Redirect href="/army" />;
-  if (run.activeBattle) return <Redirect href="/battle" />;
 
   const typeOf = (uid: string) => run.roster.find((r) => r.uid === uid)!.type;
   const fielded: Piece[] = deployed.map((d) => asPiece(d.uid, typeOf(d.uid), { x: d.x, y: d.y }));
@@ -97,7 +93,15 @@ export default function Deploy() {
 
   return (
     <ScrollView style={{ backgroundColor: COLORS.background }} contentContainerStyle={styles.screen}>
-      <Text style={text.title}>Deploy: {battle.name}</Text>
+      <Text style={styles.kind}>
+        {NODE_INFO[battle.kind].icon} {NODE_INFO[battle.kind].label.toUpperCase()} ·{' '}
+        {battle.rules.checkRules ? 'ROYAL DUEL' : 'EXTERMINATION'}
+      </Text>
+      <Text style={text.title}>{battle.name}</Text>
+      <Text style={[text.dim, { textAlign: 'center' }]}>
+        {battle.description}{' '}
+        {battle.rules.checkRules ? 'Checkmate the enemy King.' : 'Destroy every enemy piece; no check rules.'}
+      </Text>
       <View style={styles.counters}>
         <Text style={[styles.counter, over && { color: COLORS.danger }]}>
           Army Points {cost}/{run.armyPoints}
@@ -146,17 +150,14 @@ export default function Deploy() {
       <View style={styles.buttons}>
         <Button small label="Auto" onPress={() => setDeployed(autoDeploy(run, battle))} />
         <Button small label="Clear" onPress={() => setDeployed([])} />
-        <Button small label="‹ Back" onPress={() => router.back()} />
+
       </View>
       <View style={{ width: '100%', maxWidth: 320 }}>
         <Button
           label="Start battle"
           primary
           disabled={errors.length > 0}
-          onPress={() => {
-            beginBattle(deployed);
-            router.replace('/battle');
-          }}
+          onPress={() => update((r) => startBattle(r, deployed))}
         />
       </View>
     </ScrollView>
@@ -166,6 +167,7 @@ export default function Deploy() {
 const styles = StyleSheet.create({
   screen: { padding: 12, gap: 10, alignItems: 'center', maxWidth: 600, width: '100%', alignSelf: 'center' },
   counters: { flexDirection: 'row', gap: 16 },
+  kind: { color: COLORS.gold, fontSize: 12, fontWeight: '700', letterSpacing: 1.2 },
   counter: { color: COLORS.gold, fontWeight: '700', fontSize: 14 },
   tray: { gap: 6, paddingVertical: 8 },
   error: { color: COLORS.danger, fontSize: 13, textAlign: 'center' },

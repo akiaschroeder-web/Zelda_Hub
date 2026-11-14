@@ -1,9 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { GameState } from '../engine/types';
-import { DeployedPiece, RunState, currentBattle, finishBattle, newRun, startBattle } from './run';
+import { RunState, newRun } from './run';
 
-const STORAGE_KEY = 'chessrogue.run.v1';
+const STORAGE_KEY = 'chessrogue.run.v2';
 
 interface RunApi {
   /** False until the saved run (if any) has been read from storage. */
@@ -11,12 +10,11 @@ interface RunApi {
   run: RunState | null;
   startNewRun: () => void;
   abandonRun: () => void;
-  /** Lock in a deployment and start the current battle. */
-  beginBattle: (deployed: DeployedPiece[]) => void;
-  /** Save the in-progress battle after each move. */
-  updateBattle: (state: GameState) => void;
-  /** Apply the finished battle's casualties and advance the run. */
-  endBattle: (final: GameState) => void;
+  /**
+   * Apply one of the pure run actions from run.ts, e.g.
+   * `update((r) => enterNode(r, id))`. The result is saved immediately.
+   */
+  update: (fn: (run: RunState) => RunState) => void;
 }
 
 const RunContext = createContext<RunApi | null>(null);
@@ -30,7 +28,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       .then((raw) => {
         if (!raw) return;
         const saved = JSON.parse(raw) as RunState;
-        if (saved?.version === 1) setRun(saved);
+        if (saved?.version === 2) setRun(saved);
       })
       .catch(() => {
         /* A corrupt or unreadable save just means no run to continue. */
@@ -49,20 +47,9 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
   const startNewRun = useCallback(() => setRun(newRun()), []);
   const abandonRun = useCallback(() => setRun(null), []);
-  const beginBattle = useCallback((deployed: DeployedPiece[]) => {
-    setRun((r) => (r ? { ...r, activeBattle: startBattle(r, currentBattle(r)!, deployed) } : r));
-  }, []);
-  const updateBattle = useCallback((state: GameState) => {
-    setRun((r) => (r ? { ...r, activeBattle: state } : r));
-  }, []);
-  const endBattle = useCallback((final: GameState) => {
-    setRun((r) => (r ? finishBattle(r, final) : r));
-  }, []);
+  const update = useCallback((fn: (run: RunState) => RunState) => setRun((r) => (r ? fn(r) : r)), []);
 
-  const api = useMemo(
-    () => ({ loaded, run, startNewRun, abandonRun, beginBattle, updateBattle, endBattle }),
-    [loaded, run, startNewRun, abandonRun, beginBattle, updateBattle, endBattle],
-  );
+  const api = useMemo(() => ({ loaded, run, startNewRun, abandonRun, update }), [loaded, run, startNewRun, abandonRun, update]);
   return <RunContext.Provider value={api}>{children}</RunContext.Provider>;
 }
 

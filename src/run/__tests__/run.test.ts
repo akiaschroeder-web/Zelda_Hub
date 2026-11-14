@@ -1,146 +1,232 @@
 import { describe, expect, it } from 'vitest';
 import { chooseMove } from '../../engine/ai';
-import { applyMove, legalMoves } from '../../engine/moves';
+import { applyMove } from '../../engine/moves';
 import { GameState } from '../../engine/types';
-import { RUN_BATTLES } from '../battles';
+import { bossBattle, generateBattle } from '../battlegen';
 import { RUN_CONFIG } from '../config';
+import { EVENTS } from '../events';
+import { FLOORS_PER_ACT, generateAct } from '../map';
+import { Rng } from '../rng';
 import {
+  ACTS,
+  RunState,
   autoDeploy,
+  availableNodes,
+  buy,
   canPlace,
-  currentBattle,
+  chooseEventOption,
+  claimReward,
+  currentEvent,
   deploymentCost,
   deploymentErrors,
+  enterNode,
   finishBattle,
+  leaveEvent,
+  leaveShop,
   newRun,
   startBattle,
 } from '../run';
 
 describe('a new run', () => {
-  it('starts with the configured roster and Army Points', () => {
-    const run = newRun();
+  it('starts with the configured roster, Army Points and gold, on the map', () => {
+    const run = newRun(1);
     expect(run.roster.map((r) => r.type)).toEqual(RUN_CONFIG.startingRoster);
     expect(run.armyPoints).toBe(RUN_CONFIG.armyPoints);
+    expect(run.gold).toBe(RUN_CONFIG.startingGold);
+    expect(run.phase).toBe('map');
+    expect(run.maps).toHaveLength(ACTS);
     expect(new Set(run.roster.map((r) => r.uid)).size).toBe(run.roster.length);
+  });
+
+  it('is reproducible from its seed', () => {
+    expect(JSON.stringify(newRun(42).maps)).toBe(JSON.stringify(newRun(42).maps));
+    expect(JSON.stringify(newRun(42).maps)).not.toBe(JSON.stringify(newRun(43).maps));
+  });
+});
+
+describe('map generation', () => {
+  it('builds connected acts that always lead to a single boss', () => {
+    for (let seed = 0; seed < 50; seed++) {
+      const rng = new Rng(seed);
+      const act = generateAct(rng, 0);
+      expect(act.floors).toHaveLength(FLOORS_PER_ACT + 1);
+      expect(act.floors[FLOORS_PER_ACT]).toHaveLength(1);
+      expect(act.floors[FLOORS_PER_ACT][0].type).toBe('boss');
+      expect(act.floors[0].every((n) => n.type === 'battle')).toBe(true);
+      for (let f = 0; f < FLOORS_PER_ACT; f++) {
+        const next = new Set(act.floors[f + 1].map((n) => n.id));
+        for (const n of act.floors[f]) {
+          expect(n.next.length).toBeGreaterThan(0);
+          n.next.forEach((id) => expect(next.has(id)).toBe(true));
+        }
+        // every node on the next floor has a way in
+        for (const n of act.floors[f + 1]) expect(act.floors[f].some((p) => p.next.includes(n.id))).toBe(true);
+      }
+      expect(act.floors[1].some((n) => n.type === 'elite')).toBe(false);
+    }
+  });
+});
+
+describe('battle generation', () => {
+  it('produces valid battles that the default deployment can start', () => {
+    const run = newRun(5);
+    for (let seed = 0; seed < 120; seed++) {
+      const rng = new Rng(seed);
+      const act = seed % 3;
+      const battle = generateBattle(rng, act, seed % FLOORS_PER_ACT, seed % 4 === 0 ? 'elite' : 'battle', `b${seed}`);
+      expect(battle.enemies.filter((e) => e.type === 'king')).toHaveLength(1);
+      const deployed = autoDeploy(run, battle);
+      const errors = deploymentErrors(run, battle, deployed);
+      // The only acceptable auto-deploy problem is accidentally attacking the King (rare; the player fixes it).
+      expect(errors.filter((e) => !e.includes('attacks the enemy King'))).toEqual([]);
+    }
+  });
+
+  it('has a valid boss for every act', () => {
+    const run = newRun(5);
+    for (let act = 0; act < ACTS; act++) {
+      const boss = bossBattle(act, 'boss');
+      expect(boss.kind).toBe('boss');
+      expect(deploymentErrors(run, boss, autoDeploy(run, boss))).toEqual([]);
+    }
   });
 });
 
 describe('deployment', () => {
-  it('auto-deploys a valid army within budget for every battle', () => {
-    const run = newRun();
-    for (const battle of RUN_BATTLES) {
-      const d = autoDeploy(run, battle);
-      expect(deploymentErrors(run, battle, d)).toEqual([]);
-      expect(deploymentCost(run, d)).toBeLessThanOrEqual(run.armyPoints);
-      expect(() => startBattle(run, battle, d)).not.toThrow();
-    }
+  const battleRun = () => {
+    const run = newRun(7);
+    return enterNode(run, availableNodes(run)[0].id);
+  };
+
+  it('requires the King and respects the Army Point budget', () => {
+    const run = battleRun();
+    const battle = run.battle!;
+    const d = autoDeploy(run, battle);
+    expect(deploymentCost(run, d)).toBeLessThanOrEqual(run.armyPoints);
+    const noKing = d.filter((p) => run.roster.find((r) => r.uid === p.uid)!.type !== 'king');
+    expect(deploymentErrors(run, battle, noKing)).toContain('Your King must take the field.');
+    const poor = { ...run, armyPoints: 2 };
+    expect(deploymentErrors(poor, battle, d).some((e) => e.startsWith('Over budget'))).toBe(true);
   });
 
-  it('requires the King', () => {
-    const run = newRun();
-    const battle = RUN_BATTLES[0];
-    const d = autoDeploy(run, battle).filter((p) => run.roster.find((r) => r.uid === p.uid)!.type !== 'king');
-    expect(deploymentErrors(run, battle, d)).toContain('Your King must take the field.');
-  });
-
-  it('rejects going over the Army Point budget', () => {
-    const run = { ...newRun(), armyPoints: 5 };
-    const battle = RUN_BATTLES[0];
+  it('only allows squares inside the deployment zone', () => {
+    const run = battleRun();
     const king = run.roster.find((r) => r.type === 'king')!;
-    const queen = run.roster.find((r) => r.type === 'queen')!;
-    const d = [
-      { uid: king.uid, x: 3, y: 7 },
-      { uid: queen.uid, x: 4, y: 7 },
-    ];
-    expect(deploymentErrors(run, battle, d).some((e) => e.startsWith('Over budget'))).toBe(true);
-  });
-
-  it('only allows squares inside the deployment zone, without overlap', () => {
-    const run = newRun();
-    const battle = RUN_BATTLES[0]; // zone: row 6 x1-6, row 7 x2-5
-    const king = run.roster.find((r) => r.type === 'king')!;
-    expect(canPlace(run, battle, [], king.uid, { x: 3, y: 7 })).toBe(true);
-    expect(canPlace(run, battle, [], king.uid, { x: 0, y: 7 })).toBe(false);
-    expect(canPlace(run, battle, [], king.uid, { x: 3, y: 2 })).toBe(false);
-    const rook = run.roster.find((r) => r.type === 'rook')!;
-    expect(canPlace(run, battle, [{ uid: king.uid, x: 3, y: 7 }], rook.uid, { x: 3, y: 7 })).toBe(false);
-  });
-
-  it('needs a full 2x2 inside the zone for a Juggernaut', () => {
-    const run = newRun();
-    run.roster.push({ uid: 'jug', type: 'juggernaut', battles: 0 });
-    const battle = RUN_BATTLES[0];
-    expect(canPlace(run, battle, [], 'jug', { x: 2, y: 6 })).toBe(true); // (2..3, 6..7) all in zone
-    expect(canPlace(run, battle, [], 'jug', { x: 1, y: 6 })).toBe(false); // (1,7) not in zone
+    expect(canPlace(run, run.battle!, [], king.uid, { x: 0, y: 0 })).toBe(false);
   });
 });
 
-function playOut(state: GameState, maxPlies = 200): GameState {
-  let s = state;
-  for (let i = 0; i < maxPlies && s.result.kind === 'ongoing'; i++) s = applyMove(s, chooseMove(s, 1, () => 0.5)!);
-  return s;
+describe('nodes and rewards', () => {
+  it('only lets you enter reachable nodes', () => {
+    const run = newRun(3);
+    const far = run.maps[0].floors[3][0];
+    expect(() => enterNode(run, far.id)).toThrow();
+  });
+
+  it('battle rewards add gold and the chosen piece', () => {
+    let run = newRun(11);
+    run = enterNode(run, availableNodes(run)[0].id);
+    run = startBattle(run, autoDeploy(run, run.battle!));
+    const final: GameState = {
+      ...run.activeBattle!,
+      pieces: run.activeBattle!.pieces.filter((p) => !(p.side === 'enemy' && p.type === 'king')),
+      result: { kind: 'checkmate', winner: 'player' },
+    };
+    run = finishBattle(run, final);
+    expect(run.phase).toBe('reward');
+    const gold = run.gold + run.reward!.gold;
+    const option = run.reward!.options[0];
+    const size = run.roster.length;
+    run = claimReward(run, 0);
+    expect(run.phase).toBe('map');
+    expect(run.gold).toBe(gold);
+    expect(run.roster.length).toBe(option.kind === 'piece' ? size + 1 : size);
+  });
+
+  it('losses are permanent and losing the King ends the run', () => {
+    let run = newRun(12);
+    run = enterNode(run, availableNodes(run)[0].id);
+    run = startBattle(run, autoDeploy(run, run.battle!));
+    const pawn = run.activeBattle!.pieces.find((p) => p.side === 'player' && p.type === 'pawn')!;
+    const won = finishBattle(run, {
+      ...run.activeBattle!,
+      pieces: run.activeBattle!.pieces.filter((p) => p.id !== pawn.id),
+      captured: [pawn],
+      result: { kind: 'checkmate', winner: 'player' },
+    });
+    expect(won.roster.some((r) => r.uid === pawn.id)).toBe(false);
+    expect(won.fallen.map((f) => f.uid)).toEqual([pawn.id]);
+    const lost = finishBattle(run, { ...run.activeBattle!, result: { kind: 'checkmate', winner: 'enemy' } });
+    expect(lost.status).toBe('lost');
+  });
+
+  it('every event choice applies cleanly', () => {
+    for (const ev of EVENTS) {
+      ev.choices.forEach((c, i) => {
+        const run: RunState = { ...newRun(9), gold: 200, phase: 'event', event: { id: ev.id, outcome: null } };
+        if (c.available && !c.available(run)) return;
+        const after = chooseEventOption(run, i);
+        expect(after.event?.outcome).toBeTruthy();
+        expect(after.roster.some((r) => r.type === 'king')).toBe(true);
+        expect(after.gold).toBeGreaterThanOrEqual(0);
+      });
+    }
+  });
+});
+
+/** Play a whole run with simple random decisions and AI-vs-AI battles. */
+function simulateRun(seed: number): RunState {
+  let run = newRun(seed);
+  const rng = new Rng(seed * 7 + 1);
+  for (let step = 0; step < 200 && run.status === 'active'; step++) {
+    switch (run.phase) {
+      case 'map':
+        run = enterNode(run, rng.pick(availableNodes(run)).id);
+        break;
+      case 'deploy': {
+        let d = autoDeploy(run, run.battle!);
+        // If the default setup attacks the King, drop pieces until it doesn't.
+        while (deploymentErrors(run, run.battle!, d).length && d.length > 1) d = d.slice(0, -1);
+        run = startBattle(run, d);
+        break;
+      }
+      case 'battle': {
+        let s = run.activeBattle!;
+        for (let ply = 0; ply < 120 && s.result.kind === 'ongoing'; ply++) s = applyMove(s, chooseMove(s, 1, () => rng.next())!);
+        if (s.result.kind === 'ongoing') s = { ...s, result: { kind: 'draw', reason: 'fiftyMove' } };
+        run = finishBattle(run, s);
+        break;
+      }
+      case 'reward':
+        run = claimReward(run, run.reward!.options.length ? 0 : null);
+        break;
+      case 'shop': {
+        const i = run.shop!.findIndex((it) => !it.sold && it.price <= run.gold);
+        run = i >= 0 ? leaveShop(buy(run, i)) : leaveShop(run);
+        break;
+      }
+      case 'event': {
+        const ev = currentEvent(run)!;
+        const i = ev.choices.findIndex((c) => !c.available || c.available(run));
+        run = leaveEvent(chooseEventOption(run, i));
+        break;
+      }
+    }
+  }
+  return run;
 }
 
-describe('after a battle', () => {
-  it('permanently removes captured pieces and credits survivors', () => {
-    const run = newRun();
-    const battle = currentBattle(run)!;
-    const deployed = autoDeploy(run, battle);
-    let s = startBattle(run, battle, deployed);
-    // Fake a finished battle: one deployed pawn was captured, enemy King gone.
-    const victim = s.pieces.find((p) => p.side === 'player' && p.type === 'pawn')!;
-    s = {
-      ...s,
-      pieces: s.pieces.filter((p) => p.id !== victim.id && !(p.side === 'enemy' && p.type === 'king')),
-      captured: [victim],
-      result: { kind: 'checkmate', winner: 'player' },
-    };
-    const after = finishBattle(run, s);
-    expect(after.roster.some((r) => r.uid === victim.id)).toBe(false);
-    expect(after.fallen.map((f) => f.uid)).toEqual([victim.id]);
-    expect(after.fallen[0].lostIn).toBe(battle.name);
-    expect(after.battleIndex).toBe(1);
-    expect(after.status).toBe('active');
-    const fielded = after.roster.filter((r) => deployed.some((d) => d.uid === r.uid));
-    expect(fielded.every((r) => r.battles === 1)).toBe(true);
-    const reserve = after.roster.filter((r) => !deployed.some((d) => d.uid === r.uid));
-    expect(reserve.length).toBeGreaterThan(0);
-    expect(reserve.every((r) => r.battles === 0)).toBe(true);
-  });
-
-  it('keeps promotions', () => {
-    const run = newRun();
-    const battle = currentBattle(run)!;
-    let s = startBattle(run, battle, autoDeploy(run, battle));
-    const pawn = s.pieces.find((p) => p.side === 'player' && p.type === 'pawn')!;
-    s = {
-      ...s,
-      pieces: s.pieces.map((p) => (p.id === pawn.id ? { ...p, type: 'queen' } : p)),
-      result: { kind: 'checkmate', winner: 'player' },
-    };
-    expect(finishBattle(run, s).roster.find((r) => r.uid === pawn.id)!.type).toBe('queen');
-  });
-
-  it('ends the run when the King falls', () => {
-    const run = newRun();
-    const battle = currentBattle(run)!;
-    const s = startBattle(run, battle, autoDeploy(run, battle));
-    const after = finishBattle(run, { ...s, result: { kind: 'checkmate', winner: 'enemy' } });
-    expect(after.status).toBe('lost');
-  });
-
-  it('wins the run after the last battle', () => {
-    const run = { ...newRun(), battleIndex: RUN_BATTLES.length - 1 };
-    const battle = currentBattle(run)!;
-    const s = startBattle(run, battle, autoDeploy(run, battle));
-    expect(finishBattle(run, { ...s, result: { kind: 'checkmate', winner: 'player' } }).status).toBe('won');
-  });
-
-  it('survives a real AI-vs-AI battle and stays consistent', () => {
-    const run = newRun();
-    const battle = currentBattle(run)!;
-    const final = playOut(startBattle(run, battle, autoDeploy(run, battle)));
-    const after = finishBattle(run, final);
-    expect(after.roster.length + after.fallen.length).toBe(run.roster.length);
-    expect(legalMoves).toBeDefined();
-  });
+describe('full runs', () => {
+  it('simulated runs always finish without breaking', () => {
+    const outcomes: Record<string, number> = {};
+    let maxAct = 0;
+    for (let seed = 1; seed <= 6; seed++) {
+      const run = simulateRun(seed);
+      expect(run.status).not.toBe('active');
+      outcomes[run.status] = (outcomes[run.status] ?? 0) + 1;
+      maxAct = Math.max(maxAct, run.act);
+      expect(run.roster.length + run.fallen.length).toBeGreaterThan(0);
+    }
+    console.log('simulated run outcomes', JSON.stringify(outcomes), 'furthest act', maxAct + 1);
+  }, 120000);
 });

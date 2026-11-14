@@ -14,20 +14,24 @@ A turn-based chess roguelike for mobile (Expo / React Native, TypeScript).
 
 `npx expo start --web` runs it in a browser instead.
 
-## How a run works (so far)
+## How a run works
 
-1. **Menu → New run.** You start with the roster in `src/run/config.ts` (placeholder: a standard chess army).
-2. **Army screen** shows your roster, the fallen, and the next battle's enemy army.
-3. **Deploy.** Place pieces on the blue deployment squares. Both limits apply: Army Points
-   (placeholder 24) and the number of squares. The King must deploy. Undeployed pieces sit in reserve
-   and can't be captured.
-4. **Battle.** Every move is saved; closing the app and reopening resumes the same battle.
-5. **Afterwards** captured pieces are gone for the rest of the run, survivors earn a ★ per battle,
-   promoted Pawns stay promoted, and multi-HP pieces heal to full. Losing the King ends the run; a
-   draw counts as surviving. Win all four battles in `src/run/battles.ts` to win the run.
+1. **Menu → New run.** You start with the roster, Army Points and gold in `src/run/config.ts`
+   (placeholders: a standard chess army, 24 AP, 40 gold).
+2. **Map.** Three acts, each six floors of branching nodes ending in a boss. Tap a glowing node:
+   ⚔️ battle · 💀 elite · 🛡️ recruit · 🛒 shop · ❓ event · 💰 treasure · 👑 boss.
+3. **Battles** are generated: a board template, Royal Duel or Extermination rules, and an enemy army
+   bought from a point budget that grows with act and floor, styled by an archetype (Swarm, Cavalry,
+   Fortress, Royal Guard, Unorthodox). Elites have bigger budgets and can field a Juggernaut.
+4. **Deploy** on the blue squares within your Army Points; the King must deploy; reserves are safe.
+   A setup that attacks the enemy King before the battle starts is rejected.
+5. **After a battle** captured pieces are gone for good, survivors earn ★, promotions stick, and you
+   get gold plus a choice of pieces or Army Points. Losing the King ends the run; a draw is survived
+   with a small reward. Beat the act 3 boss to win.
+6. Shops sell pieces and Army Points; recruit and treasure nodes give free pieces; events offer trades.
 
-The four battles and all the numbers are placeholders until the run map (next step) and the real
-starting setup replace them.
+The run is saved after every action (including each battle move), and is reproducible from its seed.
+Bosses are placeholder armies of existing pieces until the Boss Pieces are implemented.
 
 ## Project layout
 
@@ -35,8 +39,8 @@ starting setup replace them.
 |---|---|
 | `src/engine/` | Pure TypeScript rules engine (no React). Boards of any size, terrain, all chess rules, AI. |
 | `src/engine/__tests__/` | Engine tests (`npm test`). Perft checks against known chess positions, combat, every new piece, and AI self-play on every encounter. |
-| `src/app/` | Screens (Expo Router): menu, army, deploy, battle, sandbox. |
-| `src/run/` | Run logic: roster, deployment rules, casualties, save/load. `config.ts` holds all placeholder numbers. |
+| `src/app/` | Screens (Expo Router): menu, map, deploy, battle, reward, shop, event, army, sandbox. |
+| `src/run/` | Run logic: map generation, battle generation, rewards/shop/events, deployment, casualties, save/load. `config.ts` holds the placeholder starting numbers. |
 | `src/ui/` | Shared components: board renderer, battle view, piece tiles, buttons. |
 | `assets/pieces/` | Processed piece sprites (`<type>_player.png`, `<type>_enemy.png`) for all 39 pieces in the art so far. |
 | `art/source/` | Original artwork as delivered. |

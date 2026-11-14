@@ -27,6 +27,7 @@ export function occupancy(pieces: Piece[]): Map<string, Piece> {
  *   .  normal     #  solid wall     +  cracked wall     (space) or _  gap
  *   *  normal square that promotes pawns of either side
  *   d  normal square in the player's deployment zone
+ *   e  normal square in the enemy's deployment zone
  */
 export function parseBoard(rows: string[]): Board {
   const height = rows.length;
@@ -34,6 +35,7 @@ export function parseBoard(rows: string[]): Board {
   const terrain: Terrain[][] = [];
   const promotionSquares: { side: Side; pos: Coord }[] = [];
   const deployZone: Coord[] = [];
+  const enemyZone: Coord[] = [];
   for (let y = 0; y < height; y++) {
     const row: Terrain[] = [];
     for (let x = 0; x < width; x++) {
@@ -44,6 +46,7 @@ export function parseBoard(rows: string[]): Board {
       else {
         row.push('normal');
         if (ch === 'd') deployZone.push({ x, y });
+        if (ch === 'e') enemyZone.push({ x, y });
         if (ch === '*') {
           promotionSquares.push({ side: 'player', pos: { x, y } });
           promotionSquares.push({ side: 'enemy', pos: { x, y } });
@@ -52,5 +55,5 @@ export function parseBoard(rows: string[]): Board {
     }
     terrain.push(row);
   }
-  return { width, height, terrain, promotionSquares, deployZone };
+  return { width, height, terrain, promotionSquares, deployZone, enemyZone };
 }
