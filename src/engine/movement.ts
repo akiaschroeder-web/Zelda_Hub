@@ -110,6 +110,26 @@ function basePatterns(type: PieceType): Pattern[] {
       return [{ kind: 'slide', dirs: [...DIAG, ...SIDEWAYS], max: 1 }];
     case 'decoy':
       return [{ kind: 'slide', dirs: ALL_DIRS, max: 1, capture: false }];
+    case 'hopper':
+      return [{ kind: 'leap', offsets: DIAG.map((d) => scale(d, 2)), rule: 'line' }];
+    case 'magnet':
+    case 'bastion':
+    case 'sentinel':
+      return [{ kind: 'slide', dirs: ORTHO, max: 1 }];
+    case 'pusher':
+    case 'jailer':
+      return [{ kind: 'slide', dirs: ORTHO, max: 2 }];
+    case 'mimic':
+    case 'anchor':
+      return [{ kind: 'slide', dirs: DIAG, max: 1 }];
+    case 'reaper':
+      return [{ kind: 'slide', dirs: DIAG, max: 3 }];
+    case 'pathfinder':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
+    case 'splitter':
+      return [{ kind: 'slide', dirs: DIAG, max: 2 }];
+    case 'phoenix':
+      return [{ kind: 'slide', dirs: ORTHO, max: 3 }];
     default:
       return []; // pawn and large pieces have their own rules
   }
@@ -240,9 +260,32 @@ function leapClear(s: GameState, from: Coord, off: Coord, rule: 'rect' | 'line',
 /** Can this piece use once-per-battle movement abilities right now? */
 export const canUseMoveAbilities = (s: GameState, p: Piece) => !silenced(p) && !suppressed(s, p);
 
+/**
+ * Mimic: the movement of every adjacent friendly 1x1 piece (movement only;
+ * a copied Pawn just steps forward and captures diagonally forward). With no
+ * eligible neighbour it steps one square diagonally.
+ */
+function mimicPatterns(s: GameState, p: Piece): Pattern[] {
+  const f = forward(p.side);
+  const copied = new Set(
+    s.pieces
+      .filter((a) => a.side === p.side && a.id !== p.id && a.type !== 'mimic' && sizeOf(a) === 1 && adjacent(a, p))
+      .map((a) => movementType(s, a)),
+  );
+  if (copied.size === 0) return basePatterns('mimic');
+  const out: Pattern[] = [];
+  for (const t of copied) {
+    if (t === 'pawn') {
+      out.push({ kind: 'slide', dirs: [{ x: 0, y: f }], max: 1, capture: false });
+      out.push({ kind: 'slide', dirs: [{ x: -1, y: f }, { x: 1, y: f }], max: 1, quiet: false });
+    } else out.push(...basePatterns(t));
+  }
+  return out;
+}
+
 function patternsFor(s: GameState, p: Piece): Pattern[] {
   const type = movementType(s, p);
-  const pats = basePatterns(type);
+  const pats = type === 'mimic' ? mimicPatterns(s, p) : basePatterns(type);
   if (p.upgrades.length === 0) return p.type === 'decoy' ? pats.map((pt) => ({ ...pt, capture: false })) : pats;
   const abilities = canUseMoveAbilities(s, p);
   if (has(p, 'diagonal_step')) pats.push({ kind: 'slide', dirs: DIAG, max: 1 });
@@ -286,7 +329,8 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
       let max = finite ? Math.max(1, pat.max + bonus) : Infinity;
       if (confused) max = 1;
       const squares = walk(s, p.pos, dir, max, cross);
-      for (const q of squares) out.push({ to: q.to, capture, quiet: true, leap: false, uses: pat.uses, crossedGap: q.crossedGap });
+      const quiet = pat.quiet !== false;
+      for (const q of squares) out.push({ to: q.to, capture, quiet, leap: false, uses: pat.uses, crossedGap: q.crossedGap });
       // Wall Climber / Master of the Void: once per battle, cross obstacles further.
       if (abilities && !pat.uses && (ready(p, 'wall_climber') || ready(p, 'master_of_the_void'))) {
         const extra = walk(s, p.pos, dir, max, {
@@ -538,7 +582,7 @@ export function attacksSquare(s: GameState, p: Piece, sq: Coord): boolean {
     case 'medic':
       return cheb === 1 && (diag || dy === 0);
     default:
-      return false;
+      return attackSquares(s, p).some((c) => sameCoord(c, sq));
   }
 }
 

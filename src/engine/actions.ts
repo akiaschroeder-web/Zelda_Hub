@@ -19,6 +19,7 @@ import {
   collapseBridge,
   dealDamage,
   destroyCracked,
+  emptyZoneSquare,
   distance,
   distanceTo,
   enemiesOf,
@@ -80,23 +81,6 @@ function squaresNear(s: GameState, p: Piece, r: number): Coord[] {
       if (inBounds(s.board, c) && within(p, c, r)) out.push(c);
     }
   return out;
-}
-
-function zoneFor(s: GameState, side: Side): Coord[] {
-  const zone = side === 'player' ? s.board.deployZone : s.board.enemyZone;
-  if (zone && zone.length) return zone;
-  // Fall back to the side's two back rows.
-  const rows = side === 'player' ? [s.board.height - 1, s.board.height - 2] : [0, 1];
-  const out: Coord[] = [];
-  for (const y of rows) for (let x = 0; x < s.board.width; x++) out.push({ x, y });
-  return out;
-}
-
-/** Empty deployment square nearest the side's back edge. */
-function emptyZoneSquare(s: GameState, side: Side): Coord | undefined {
-  return zoneFor(s, side)
-    .filter((c) => isEmpty(s, c))
-    .sort((a, b) => (side === 'player' ? b.y - a.y : a.y - b.y))[0];
 }
 
 const healRange = (p: Piece) => 1 + (has(p, 'extended_healing') ? 1 : 0);

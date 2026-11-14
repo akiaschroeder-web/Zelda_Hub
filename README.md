@@ -116,3 +116,24 @@ Encounter layouts use `J`/`j` for a Juggernaut (top-left square of its footprint
 | Switcher `W` | 1 | 5 | 1 any direction | Once per battle, swaps places with a 1×1 ally within 2 squares (not the King). |
 | Chancellor `C` | 1 | 10 | Rook + Knight | — |
 | Medic `H` | 1 | 5 | 1 diagonal or sideways | Instead of moving, heals an adjacent wounded ally 1 HP (not the King). |
+
+### Expanded collection
+
+| Piece | HP | Pts | Movement | Special |
+|---|---|---|---|---|
+| Hopper `O` | 1 | 3 | Jumps exactly 2 diagonally over the square between | Crosses a single gap; walls block it. |
+| Magnet `T` | 1 | 5 | 1 orthogonal | Instead of moving, pulls an enemy exactly 2 squares away (in a line) one square closer. Not Kings or large pieces. |
+| Pusher `U` | 2 | 6 | Up to 2 orthogonal | Instead of capturing, shoves an adjacent enemy one square away. Fails into a wall or piece; into a gap the target falls. |
+| Mimic `I` | 1 | 7 | Movement of every adjacent friendly 1×1 piece (a copied Pawn has no double step) | Alone: 1 diagonal. Copies movement only. |
+| Anchor `V` | 2 | 5 | 1 diagonal | Adjacent allies can't be pushed, pulled or forcibly moved. |
+| Reaper `X` | 1 | 7 | Up to 3 diagonal | On a capture, enemies next to the captured piece take 1 damage. |
+| Bastion `F` | 3 | 8 | 1 orthogonal | If it neither moves nor acts in your turn, gains a shield (max one). |
+| Pathfinder `Z` | 1 | 5 | Up to 2 any direction | Once per battle, bridges an adjacent gap for three rounds. |
+| Sentinel `Y` | 1 | 6 | 1 orthogonal | Instead of moving, watches a line of up to 4 squares; the first enemy to stop on it takes 1 damage. Ends at the start of its next turn. |
+| Splitter `D` | 1 | 6 | Up to 2 diagonal | Once per battle, makes a temporary 1 HP copy on an adjacent square (the copy can't split). |
+| Jailer `E` | 1 | 7 | Up to 2 orthogonal | Instead of moving, binds an adjacent enemy 1×1 (not the King) so it can't move next turn. |
+| Phoenix `@`/`&` | 1 | 8 | Up to 3 orthogonal | The first time it would be captured, it's reborn on a free friendly deployment square at the start of your next turn. |
+
+The Jailer uses the Trapper artwork and the Phoenix the Revenant artwork. Twelve more pieces have
+art but no rules yet (Engineer, Assassin, Illusionist, Summoner, Converter, Displacer, Oracle, Clone,
+Bomber, Slayer, Warden, Harvester).

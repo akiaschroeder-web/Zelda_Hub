@@ -98,6 +98,8 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
     runFlags: [],
     saved: [],
     log: [],
+    overwatch: [],
+    reborn: [],
   };
   state.runFlags = [...runFlags];
   battleStart(state);
@@ -115,6 +117,9 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
  *   J  Juggernaut (top-left square of its 2x2 footprint; leave the rest '.')
  *   A Archer   G Guardian   L Lancer   S Siege Engine
  *   M Mage     W Switcher   C Chancellor   H Medic (healer)
+ *   O Hopper   T Magnet     U Pusher       I Mimic    V Anchor   X Reaper
+ *   F Bastion  Z Pathfinder Y Sentinel     D Splitter E Jailer
+ *   @ / &  Phoenix (player / enemy) — there are more piece types than letters
  */
 export function parsePlacements(rows: string[]): Placement[] {
   const types: Record<string, PieceType> = {
@@ -133,10 +138,25 @@ export function parsePlacements(rows: string[]): Placement[] {
     w: 'switcher',
     c: 'chancellor',
     h: 'medic',
+    o: 'hopper',
+    t: 'magnet',
+    u: 'pusher',
+    i: 'mimic',
+    v: 'anchor',
+    x: 'reaper',
+    f: 'bastion',
+    z: 'pathfinder',
+    y: 'sentinel',
+    d: 'splitter',
+    e: 'jailer',
   };
   const out: Placement[] = [];
   rows.forEach((row, y) => {
     [...row].forEach((ch, x) => {
+      if (ch === '@' || ch === '&') {
+        out.push({ type: 'phoenix', side: ch === '@' ? 'player' : 'enemy', x, y });
+        return;
+      }
       const type = types[ch.toLowerCase()];
       if (!type) return;
       out.push({ type, side: ch === ch.toUpperCase() ? 'player' : 'enemy', x, y });

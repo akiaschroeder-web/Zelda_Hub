@@ -155,6 +155,8 @@ export function cloneState(s: GameState): GameState {
     runFlags: [...s.runFlags],
     saved: [...s.saved],
     log: [],
+    overwatch: s.overwatch.map((o) => ({ ...o })),
+    reborn: s.reborn.map(clonePiece),
   };
 }
 
@@ -444,10 +446,37 @@ function onSurvivedHit(s: GameState, t: Piece, hpBefore: number, ctx: DamageCtx,
   }
 }
 
+/** A side's deployment squares (falling back to its two back rows). */
+export function zoneFor(s: GameState, side: Side): Coord[] {
+  const zone = side === 'player' ? s.board.deployZone : s.board.enemyZone;
+  if (zone && zone.length) return zone;
+  const rows = side === 'player' ? [s.board.height - 1, s.board.height - 2] : [0, 1];
+  const out: Coord[] = [];
+  for (const y of rows) for (let x = 0; x < s.board.width; x++) out.push({ x, y });
+  return out;
+}
+
+/** Empty deployment square nearest the side's back edge. */
+export function emptyZoneSquare(s: GameState, side: Side): Coord | undefined {
+  return zoneFor(s, side)
+    .filter((c) => isEmpty(s, c))
+    .sort((a, b) => (side === 'player' ? b.y - a.y : a.y - b.y))[0];
+}
+
 /** Remove a piece from the battlefield and fire capture triggers. */
 export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: DamageKind }) {
   if (!s.pieces.includes(p)) return;
   s.pieces = s.pieces.filter((o) => o !== p);
+  // Phoenix: the first time it would be captured, it is reborn next turn instead.
+  if (p.type === 'phoenix' && !hasUsed(p, 'rebirth') && ctx.kind !== 'ability') {
+    markUsed(p, 'rebirth');
+    p.hp = p.maxHp;
+    p.shields = [];
+    p.statuses = [];
+    s.reborn.push(p);
+    log(s, `${nameOf(p)} bursts into flame — it will be reborn.`);
+    return;
+  }
   s.captured.push(p);
   if (has(p, 'second_life') && !p.temp) s.saved.push(p.id);
   log(s, `${nameOf(p)} is ${ctx.kind === 'fall' ? 'lost to the void' : 'captured'}.`);
@@ -491,12 +520,19 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
 // Forced movement
 // ---------------------------------------------------------------------------
 
-export function immuneToForcedMove(s: GameState, p: Piece, source?: Piece): boolean {
+/** `peek` checks without spending a once-per-battle Brace (used when listing moves). */
+export function immuneToForcedMove(s: GameState, p: Piece, source?: Piece, peek = false): boolean {
   if (p.type === 'king' || isBoss(p)) return true;
   if (hasStatus(p, 'rooted') || has(p, 'steadfast')) return true;
   if (has(p, 'heavy_stabilizer') && source && sizeOf(source) < sizeOf(p)) return true;
-  if (allies(s, p).some((a) => (has(a, 'anchor_formation') || has(a, 'defensive_formation')) && adjacent(a, p))) return true;
+  if (
+    allies(s, p).some(
+      (a) => (a.type === 'anchor' || has(a, 'anchor_formation') || has(a, 'defensive_formation')) && adjacent(a, p),
+    )
+  )
+    return true;
   if (ready(p, 'brace')) {
+    if (peek) return false;
     markUsed(p, 'brace');
     log(s, `${nameOf(p)} braces against the push.`);
     return true;

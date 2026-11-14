@@ -34,6 +34,11 @@ import {
   sub,
   anyHas,
   freeze,
+  addTimedTerrain,
+  emptyZoneSquare,
+  immuneToForcedMove,
+  summon,
+  nameOf,
   collapseBridge,
   DamageOutcome,
   hasUsed,
@@ -185,6 +190,61 @@ function abilityMoves(state: GameState, p: Piece, ordinary: Move[]): Move[] {
       for (const ally of state.pieces) {
         if (ally.side !== p.side || ally.id === p.id || ally.type === 'king' || sizeOf(ally) > 1) continue;
         if (distance(ally.pos, p.pos) <= SWAP_RANGE) moves.push({ ...base, to: ally.pos, action: 'swap', allyId: ally.id });
+      }
+      break;
+    case 'magnet':
+      // Attraction: pull an enemy exactly two squares away (in a line) one square closer.
+      if (silenced(p)) break;
+      for (const d of ALL_DIRS) {
+        const mid = add(p.pos, d);
+        const far = add(mid, d);
+        const target = pieceAt(state, far);
+        if (!target || target.side === p.side || target.type === 'king' || sizeOf(target) > 1 || isBoss(target)) continue;
+        if (!isEmpty(state, mid) || immuneToForcedMove(state, target, p, true)) continue;
+        moves.push({ ...base, to: far, action: 'pull', allyId: target.id });
+      }
+      break;
+    case 'pusher':
+      // Shove: push an adjacent enemy one square directly away (fails if blocked by a wall or piece).
+      if (silenced(p)) break;
+      for (const d of ALL_DIRS) {
+        const target = pieceAt(state, add(p.pos, d));
+        if (!target || target.side === p.side || target.type === 'king' || sizeOf(target) > 1 || isBoss(target)) continue;
+        const dest = add(target.pos, d);
+        const blocked = inBounds(state.board, dest) && (isWall(state.board, dest) || !!pieceAt(state, dest));
+        if (blocked || immuneToForcedMove(state, target, p, true)) continue;
+        moves.push({ ...base, to: target.pos, action: 'shove', allyId: target.id });
+      }
+      break;
+    case 'sentinel':
+      // Overwatch: watch a straight line of up to four squares; tap its first square to choose it.
+      if (silenced(p)) break;
+      for (const d of ALL_DIRS) {
+        const first = add(p.pos, d);
+        if (isStandable(state.board, first)) moves.push({ ...base, to: first, action: 'overwatch' });
+      }
+      break;
+    case 'pathfinder':
+      if (hasUsed(p, 'bridge') || silenced(p)) break;
+      for (const d of ALL_DIRS) {
+        const c = add(p.pos, d);
+        if (inBounds(state.board, c) && terrainAt(state.board, c) === 'gap') moves.push({ ...base, to: c, action: 'bridge' });
+      }
+      break;
+    case 'splitter':
+      if (hasUsed(p, 'divide') || silenced(p)) break;
+      for (const d of ALL_DIRS) {
+        const c = add(p.pos, d);
+        if (isEmpty(state, c)) moves.push({ ...base, to: c, action: 'divide' });
+      }
+      break;
+    case 'jailer':
+      if (silenced(p)) break;
+      for (const d of ALL_DIRS) {
+        const target = pieceAt(state, add(p.pos, d));
+        if (!target || target.side === p.side || target.type === 'king' || sizeOf(target) > 1 || isBoss(target)) continue;
+        if (hasStatus(target, 'bound')) continue;
+        moves.push({ ...base, to: target.pos, action: 'bind', allyId: target.id });
       }
       break;
     case 'medic':
@@ -340,7 +400,7 @@ export const INTERCEPT_UPGRADES = ['sacrificial_guard', 'summoned_guard', 'criti
  */
 export function quickApply(state: GameState, m: Move): GameState | undefined {
   if (m.action && m.action !== 'shoot' && m.action !== 'teleport' && m.action !== 'swap' && m.action !== 'heal') return undefined;
-  if (m.castle || state.timed.length || state.bonus.length || m.uses) return undefined;
+  if (m.castle || state.timed.length || state.bonus.length || state.overwatch.length || state.reborn.length || m.uses) return undefined;
   const mover = getPiece(state, m.pieceId);
   if (!mover || mover.upgrades.length || mover.statuses.length) return undefined;
   const removed = new Set<string>();
@@ -357,6 +417,7 @@ export function quickApply(state: GameState, m: Move): GameState | undefined {
       if (m.targets.length !== 1) return undefined;
       const t = getPiece(state, m.targets[0]);
       if (!t || t.upgrades.length || t.shields.length || t.statuses.length || t.hp > PIECE_STATS[mover.type].damage) return undefined;
+      if (t.type === 'phoenix' || mover.type === 'reaper') return undefined;
       if (state.zones.length || INTERCEPT_UPGRADES.some((u) => anyHas(state, u))) return undefined;
       if (state.pieces.some((g) => g.side === t.side && g.id !== t.id && (g.type === 'guardian' || g.temp) && adjacent(g, t)))
         return undefined;
@@ -649,6 +710,7 @@ function afterCapture(s: GameState, p: Piece, m: Move, dir: Coord, entry?: Bonus
       if (e && e.side !== p.side) dealDamage(s, e.id, 1, { sourceId: p.id, kind: 'splash' });
     }
   };
+  if (p.type === 'reaper') cleave(ALL_DIRS);
   if (has(p, 'diagonal_cleave')) cleave(ALL_DIRS.slice(4));
   if (has(p, 'orthogonal_cleave')) cleave(ORTHO);
   if (has(p, 'shockwave') && alive(s, p.id)) {
@@ -749,6 +811,45 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
       if (has(p, 'medics_reward')) addShield(s, p);
       return;
     }
+    case 'pull': {
+      const target = getPiece(s, m.allyId);
+      if (target) push(s, target.id, sign(sub(p.pos, target.pos)), 1, p.id);
+      return;
+    }
+    case 'shove': {
+      const target = getPiece(s, m.allyId);
+      if (target) push(s, target.id, sign(sub(target.pos, p.pos)), pushDistance(p), p.id);
+      return;
+    }
+    case 'overwatch': {
+      const d = sign(sub(m.to, p.pos));
+      const cells: Coord[] = [];
+      let c = p.pos;
+      for (let i = 0; i < 4; i++) {
+        c = add(c, d);
+        if (!isStandable(s.board, c)) break;
+        cells.push(c);
+      }
+      s.overwatch = s.overwatch.filter((o) => o.sentinelId !== p.id);
+      s.overwatch.push({ sentinelId: p.id, side: p.side, cells });
+      log(s, `${nameOf(p)} keeps watch.`);
+      return;
+    }
+    case 'bridge':
+      markUsed(p, 'bridge');
+      addTimedTerrain(s, m.to, 'bridge', 3, p.side, p);
+      return;
+    case 'divide': {
+      markUsed(p, 'divide');
+      const copy = summon(s, p, 'splitter', m.to, 'divide', { copy: 'weak' });
+      markUsed(copy, 'divide'); // the copy cannot duplicate itself
+      return;
+    }
+    case 'bind': {
+      const target = getPiece(s, m.allyId);
+      if (target) addStatus(target, { kind: 'bound', until: nextTurnEnd(s, target.side) });
+      return;
+    }
     case 'upgrade':
       if (m.upgrade === 'temporal_echo') {
         markUsed(p, 'temporal_echo');
@@ -803,6 +904,18 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   const mover = getPiece(s, m.pieceId);
   const from = mover ? { ...mover.pos } : undefined;
   resolve(s, m, entry);
+
+  // Overwatch: the first enemy to end a move on a watched line takes 1 damage.
+  const moved = getPiece(s, m.pieceId);
+  if (moved && from && !sameCoord(from, moved.pos) && s.overwatch.length) {
+    const cells = footprint(moved);
+    const watch = s.overwatch.find((o) => o.side !== moved.side && o.cells.some((c) => cells.some((f) => sameCoord(f, c))));
+    if (watch) {
+      s.overwatch = s.overwatch.filter((o) => o !== watch);
+      log(s, 'Overwatch fires!');
+      dealDamage(s, moved.id, 1, { sourceId: watch.sentinelId, kind: 'splash' });
+    }
+  }
 
   // Bookkeeping on the mover.
   const after = getPiece(s, m.pieceId);
@@ -863,7 +976,7 @@ function endTurn(s: GameState) {
     const king = kingOf(s, side);
     const nextToKing = !!king && king.id !== p.id && adjacent(king, p);
 
-    if (has(p, 'fortress_stance') && p.actedPly !== s.ply && shieldTotal(p) === 0) addShield(s, p);
+    if ((p.type === 'bastion' || has(p, 'fortress_stance')) && p.actedPly !== s.ply && shieldTotal(p) === 0) addShield(s, p);
     if (has(p, 'island_defender') && footprint(p).some((c) => orthoGaps(s, c) >= 2)) addShield(s, p);
     if (has(p, 'wall_shield') && wallsAround(s, p) > 0 && shieldTotal(p) === 0) addShield(s, p);
     if (has(p, 'crown_defender') && nextToKing && shieldTotal(p) === 0) addShield(s, p);
@@ -923,6 +1036,22 @@ function endTurn(s: GameState) {
 
 function startTurn(s: GameState) {
   const side = s.turn;
+  // A Sentinel's watch ends when its next turn starts.
+  s.overwatch = s.overwatch.filter((o) => o.side !== side);
+  // Phoenixes rise again on a free deployment square (or are lost if there is none).
+  for (const ph of s.reborn.filter((p) => p.side === side)) {
+    s.reborn = s.reborn.filter((p) => p !== ph);
+    const spot = emptyZoneSquare(s, side);
+    if (spot) {
+      ph.pos = { ...spot };
+      ph.turnPos = { ...spot };
+      s.pieces.push(ph);
+      log(s, 'The Phoenix is reborn!');
+    } else {
+      s.captured.push(ph);
+      log(s, 'The Phoenix has nowhere to rise and is lost.');
+    }
+  }
   const king = kingOf(s, side);
   const guardians = s.pieces.some((p) => p.side === side && has(p, 'throne_guardian'));
   const threatened = guardians && !!king && isSquareAttacked(s, king.pos, opponent(side));
@@ -975,7 +1104,7 @@ export function evaluateResult(state: GameState): GameResult {
   if (!playerKing) return { kind: 'kingCaptured', winner: 'enemy' };
 
   if (!state.rules.checkRules) {
-    const enemyLeft = state.pieces.some((p) => p.side === 'enemy');
+    const enemyLeft = state.pieces.some((p) => p.side === 'enemy') || state.reborn.some((p) => p.side === 'enemy');
     if (!enemyLeft) return { kind: 'eliminated', winner: 'player' };
   } else if (!enemyKing) {
     return { kind: 'kingCaptured', winner: 'player' };

@@ -59,6 +59,54 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 1, damage: 1, cost: 5, value: 300, name: 'Medic',
     blurb: 'One square diagonally or sideways. Can heal an adjacent ally 1 HP instead of moving.',
   },
+  hopper: {
+    size: 1, maxHp: 1, damage: 1, cost: 3, value: 280, name: 'Hopper',
+    blurb: 'Jumps exactly two squares diagonally over the square between. Crosses a single gap; walls block it.',
+  },
+  magnet: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 380, name: 'Magnet',
+    blurb: 'One square orthogonally. Instead of moving, pulls an enemy exactly two squares away one square closer (not Kings or large pieces).',
+  },
+  pusher: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 450, name: 'Pusher',
+    blurb: 'Up to two squares orthogonally. Instead of capturing, can shove an adjacent enemy one square directly away.',
+  },
+  mimic: {
+    size: 1, maxHp: 1, damage: 1, cost: 7, value: 420, name: 'Mimic',
+    blurb: 'Moves like any adjacent friendly 1×1 piece (movement only, not abilities). Alone, it steps one square diagonally.',
+  },
+  anchor: {
+    size: 1, maxHp: 2, damage: 1, cost: 5, value: 380, name: 'Anchor',
+    blurb: 'One square diagonally. Adjacent allies cannot be pushed, pulled or forcibly moved by enemy abilities.',
+  },
+  reaper: {
+    size: 1, maxHp: 1, damage: 1, cost: 7, value: 600, name: 'Reaper',
+    blurb: 'Up to three squares diagonally. When it captures, enemies next to the captured piece take 1 damage.',
+  },
+  bastion: {
+    size: 1, maxHp: 3, damage: 1, cost: 8, value: 600, name: 'Bastion',
+    blurb: 'One square orthogonally. If it neither moves nor acts in your turn, it gains a shield (maximum one).',
+  },
+  pathfinder: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 400, name: 'Pathfinder',
+    blurb: 'Up to two squares in any direction. Once per battle, bridges an adjacent gap for three rounds.',
+  },
+  sentinel: {
+    size: 1, maxHp: 1, damage: 1, cost: 6, value: 420, name: 'Sentinel',
+    blurb: 'One square orthogonally. Instead of moving, watches a line of up to four squares: the first enemy to stop on it takes 1 damage.',
+  },
+  splitter: {
+    size: 1, maxHp: 1, damage: 1, cost: 6, value: 420, name: 'Splitter',
+    blurb: 'Up to two squares diagonally. Once per battle, creates a temporary 1 HP copy of itself on an adjacent square.',
+  },
+  jailer: {
+    size: 1, maxHp: 1, damage: 1, cost: 7, value: 520, name: 'Jailer',
+    blurb: 'Up to two squares orthogonally. Instead of moving, binds an adjacent enemy so it cannot move on its next turn.',
+  },
+  phoenix: {
+    size: 1, maxHp: 1, damage: 1, cost: 8, value: 650, name: 'Phoenix',
+    blurb: 'Up to three squares orthogonally. The first time it would be captured, it is reborn on a friendly deployment square next turn.',
+  },
   decoy: {
     size: 1, maxHp: 1, damage: 0, cost: 0, value: 60, name: 'Decoy',
     blurb: 'A temporary 1 HP decoy. Moves one square; cannot attack.',

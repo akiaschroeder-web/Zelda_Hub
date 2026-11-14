@@ -128,17 +128,17 @@ const ARCHETYPES: Record<Archetype, { name: string; blurb: string; weights: Part
   swarm: {
     name: 'Swarm Raiders',
     blurb: 'Overwhelming numbers of weak pieces.',
-    weights: { pawn: 10, knight: 2, archer: 2, guardian: 1 },
+    weights: { pawn: 10, knight: 2, archer: 2, guardian: 1, hopper: 3 },
   },
   cavalry: {
     name: 'Cavalry Patrol',
     blurb: 'Knights and leapers that strike from odd angles.',
-    weights: { knight: 6, lancer: 5, pawn: 3, chancellor: 1, bishop: 1 },
+    weights: { knight: 6, lancer: 5, pawn: 3, chancellor: 1, bishop: 1, hopper: 4, phoenix: 1 },
   },
   fortress: {
     name: 'Border Garrison',
     blurb: 'Defenders, archers and siege engines dug in behind walls.',
-    weights: { guardian: 4, archer: 4, siege: 2, rook: 2, pawn: 3, medic: 1 },
+    weights: { guardian: 4, archer: 4, siege: 2, rook: 2, pawn: 3, medic: 1, bastion: 2, anchor: 2, sentinel: 3 },
   },
   royal: {
     name: 'Royal Guard',
@@ -148,7 +148,22 @@ const ARCHETYPES: Record<Archetype, { name: string; blurb: string; weights: Part
   unorthodox: {
     name: 'Strange Company',
     blurb: 'Unconventional pieces with tricks of their own.',
-    weights: { mage: 3, switcher: 2, medic: 2, lancer: 3, archer: 3, chancellor: 1, pawn: 2 },
+    weights: {
+      mage: 3,
+      switcher: 2,
+      medic: 2,
+      lancer: 2,
+      archer: 2,
+      chancellor: 1,
+      pawn: 2,
+      magnet: 2,
+      pusher: 2,
+      mimic: 1,
+      splitter: 2,
+      jailer: 2,
+      reaper: 2,
+      pathfinder: 2,
+    },
   },
 };
 
@@ -205,7 +220,7 @@ function buyArmy(rng: Rng, archetype: Archetype, budget: number, act: number, el
     const t = rng.weighted(affordable);
     army.push(t);
     left -= PIECE_STATS[t].cost;
-    if (t === 'juggernaut' || t === 'queen') weights[t] = 0; // at most one
+    if (t === 'juggernaut' || t === 'queen' || t === 'phoenix') weights[t] = 0; // at most one
   }
   return army;
 }

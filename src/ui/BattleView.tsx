@@ -34,6 +34,12 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   teleport: 'rgba(150, 90, 220, 0.95)',
   swap: 'rgba(70, 140, 230, 0.95)',
   heal: 'rgba(80, 190, 100, 0.95)',
+  pull: 'rgba(200, 80, 160, 0.95)',
+  shove: 'rgba(230, 110, 60, 0.95)',
+  overwatch: 'rgba(90, 200, 220, 0.95)',
+  bridge: 'rgba(170, 130, 80, 0.95)',
+  divide: 'rgba(150, 90, 220, 0.95)',
+  bind: 'rgba(120, 120, 220, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -45,6 +51,16 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   mage: { id: 'teleport', label: 'Teleport (purple)' },
   switcher: { id: 'swap', label: 'Swap (blue)' },
   medic: { label: 'Heal (green)' },
+  magnet: { label: 'Attraction (pink)' },
+  pusher: { label: 'Shove (orange)' },
+  sentinel: { label: 'Overwatch (cyan): tap a square to watch that line' },
+  pathfinder: { id: 'bridge', label: 'Bridge (brown)' },
+  splitter: { id: 'divide', label: 'Division (purple)' },
+  jailer: { label: 'Bind (blue)' },
+  phoenix: { id: 'rebirth', label: 'Rebirth' },
+  bastion: { label: 'Fortify (passive)' },
+  anchor: { label: 'Stabilize (passive)' },
+  reaper: { label: 'Cleave (passive)' },
 };
 
 const STATUS_NAMES: Partial<Record<string, string>> = {

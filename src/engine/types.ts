@@ -26,6 +26,18 @@ export type PieceType =
   | 'switcher'
   | 'chancellor'
   | 'medic'
+  | 'hopper'
+  | 'magnet'
+  | 'pusher'
+  | 'mimic'
+  | 'anchor'
+  | 'reaper'
+  | 'bastion'
+  | 'pathfinder'
+  | 'sentinel'
+  | 'splitter'
+  | 'jailer'
+  | 'phoenix'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy';
 
@@ -37,7 +49,20 @@ export type AbilityId = 'intercept' | 'teleport' | 'swap' | (string & {});
  * `upgrade` actions name the upgrade in `Move.upgrade`; `pass` skips an
  * optional bonus move.
  */
-export type ActionKind = 'shoot' | 'demolish' | 'teleport' | 'swap' | 'heal' | 'upgrade' | 'pass';
+export type ActionKind =
+  | 'shoot'
+  | 'demolish'
+  | 'teleport'
+  | 'swap'
+  | 'heal'
+  | 'pull' // Magnet: Attraction
+  | 'shove' // Pusher: Shove
+  | 'overwatch' // Sentinel: Overwatch
+  | 'bridge' // Pathfinder: Bridge
+  | 'divide' // Splitter: Division
+  | 'bind' // Jailer: Bind
+  | 'upgrade'
+  | 'pass';
 
 /** A shield absorbs `strength` damage. Temporary shields vanish at the end of ply `expires`. */
 export interface Shield {
@@ -269,6 +294,10 @@ export interface GameState {
   saved: string[];
   /** Human-readable notes about effects triggered by the last move. */
   log: string[];
+  /** Sentinel Overwatch lines: the first enemy to end a move on one takes 1 damage. */
+  overwatch: { sentinelId: string; side: Side; cells: Coord[] }[];
+  /** Phoenixes waiting to be reborn at the start of their owner's next turn. */
+  reborn: Piece[];
 }
 
 export const opponent = (side: Side): Side => (side === 'player' ? 'enemy' : 'player');
