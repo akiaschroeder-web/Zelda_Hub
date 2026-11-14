@@ -50,6 +50,17 @@ export type PieceType =
   | 'slayer'
   | 'warden'
   | 'harvester'
+  // Boss Pieces
+  | 'colossus'
+  | 'empress'
+  | 'necromancer'
+  | 'stormbringer'
+  | 'watcher'
+  | 'worldbreaker'
+  | 'phantom_king'
+  | 'doppelganger'
+  | 'hive_mother'
+  | 'chronarch'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -90,6 +101,12 @@ export type ActionKind =
   | 'detonate' // Bomber
   | 'soulHeal' // Harvester: 2 souls -> heal 1
   | 'soulPower' // Harvester: 3 souls -> +1 damage
+  | 'royalCommand' // Empress
+  | 'chainLightning' // Stormbringer
+  | 'earthquake' // Worldbreaker
+  | 'rupture' // Worldbreaker
+  | 'rewind' // Chronarch
+  | 'accelerate' // Chronarch: Temporal Acceleration
   | 'upgrade'
   | 'pass';
 
@@ -283,6 +300,8 @@ export interface Move {
 }
 
 export interface EncounterRules {
+  /** Boss battles: defeating every enemy Boss Piece also wins. */
+  bossKill?: boolean;
   /**
    * true  = Royal Duel style: check and checkmate apply, moves that leave the
    *         King attacked are illegal.
@@ -296,6 +315,7 @@ export type GameResult =
   | { kind: 'checkmate'; winner: Side }
   | { kind: 'kingCaptured'; winner: Side }
   | { kind: 'eliminated'; winner: Side }
+  | { kind: 'bossDefeated'; winner: Side }
   | { kind: 'draw'; reason: 'stalemate' | 'fiftyMove' | 'repetition' | 'insufficientMaterial' };
 
 export interface GameState {

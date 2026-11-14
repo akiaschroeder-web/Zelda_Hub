@@ -1,5 +1,5 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { sizeOf } from '../engine/pieces';
+import { BOSS_TYPES, sizeOf } from '../engine/pieces';
 import { Board, Coord, Piece, Terrain, coordKey, sameCoord, shieldTotal } from '../engine/types';
 import { PIECE_IMAGES } from './pieceImages';
 import { COLORS } from './theme';
@@ -65,6 +65,9 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
         pointerEvents="none"
         style={{ position: 'absolute', left: p.pos.x * cell, top: p.pos.y * cell, width: size, height: size }}
       >
+        {BOSS_TYPES.has(p.type) && (
+          <View style={[StyleSheet.absoluteFill, styles.bossRing, { borderColor: p.side === 'player' ? COLORS.gold : COLORS.danger }]} />
+        )}
         <Image source={PIECE_IMAGES[p.side][p.type]} style={styles.pieceImg} resizeMode="contain" />
         {p.maxHp > 1 && (
           <View style={styles.hpRow}>
@@ -211,6 +214,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statusText: { color: 'white', fontSize: 9, fontWeight: '700' },
+  bossRing: { borderWidth: 2, borderRadius: 999, margin: 2 },
   tempRing: { borderWidth: 1, borderColor: 'rgba(170, 220, 255, 0.8)', borderStyle: 'dashed', borderRadius: 999 },
   crossH: { position: 'absolute', left: '25%', top: '50%', height: 2, marginTop: -1 },
   crossV: { position: 'absolute', top: '25%', left: '50%', width: 2, marginLeft: -1 },

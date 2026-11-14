@@ -42,6 +42,8 @@ export interface RunBattle {
   /** Terrain rows; `d` marks the player's deployment squares. */
   terrain: string[];
   enemies: EnemyPlacement[];
+  /** The Boss Piece at the heart of a boss battle. */
+  boss?: PieceType;
 }
 
 /**
@@ -230,11 +232,23 @@ function buyArmy(rng: Rng, archetype: Archetype, budget: number, act: number, el
   return army;
 }
 
-export function generateBattle(rng: Rng, act: number, floor: number, kind: 'battle' | 'elite', id: string): RunBattle {
+export function generateBattle(
+  rng: Rng,
+  act: number,
+  floor: number,
+  kind: 'battle' | 'elite',
+  id: string,
+  unlockedBosses: PieceType[] = [],
+): RunBattle {
   const template = rng.pick(TEMPLATES);
   const archetype = rng.pick(Object.keys(ARCHETYPES) as Archetype[]);
   const rules: EncounterRules = { checkRules: rng.chance(0.65) };
-  const army = buyArmy(rng, archetype, enemyBudget(act, floor, kind), act, kind === 'elite');
+  // Elites in later acts may bring a boss you've already beaten, with a smaller escort.
+  const smallBosses = unlockedBosses.filter((b) => PIECE_STATS[b].size <= 2);
+  const withBoss = kind === 'elite' && act >= 1 && smallBosses.length > 0 && rng.chance(0.35);
+  const budget = enemyBudget(act, floor, kind) - (withBoss ? 10 : 0);
+  const army = buyArmy(rng, archetype, budget, act, kind === 'elite');
+  if (withBoss) army.splice(1, 0, rng.pick(smallBosses));
   const info = ARCHETYPES[archetype];
   return {
     id,
@@ -247,87 +261,162 @@ export function generateBattle(rng: Rng, act: number, floor: number, kind: 'batt
   };
 }
 
-/**
- * Act bosses. PLACEHOLDERS built from existing pieces until the real Boss
- * Pieces (Colossus, Empress, ...) are implemented.
- */
-const BOSSES: { name: string; description: string; terrain: string[]; enemies: string[] }[] = [
-  {
-    name: 'The Iron Juggernaut',
-    description: 'A war machine with a Medic to keep it running and Guardians at its side.',
-    terrain: ['........', '........', '........', '.#....#.', '........', '........', 'dddddddd', 'dddddddd'],
-    enemies: ['r..k...r', '.g.j..g.', 'pph...pp', '..p..p..', '........', '........', '........', '........'],
-  },
-  {
-    name: 'The Siege Lord',
-    description: 'A fortress line of cracked walls, Archers, Siege Engines and a Juggernaut.',
-    terrain: [
-      '..........',
-      '..........',
-      '..........',
-      '.++.##.++.',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '.dddddddd.',
-      'dddddddddd',
-    ],
-    enemies: [
-      'r..gkg...r',
-      '.a.j...a..',
-      'p.s....s.p',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-    ],
-  },
-  {
-    name: 'The Grand Court',
-    description: 'The enemy throne room: a Queen, two Chancellors, a Mage and their guard.',
-    terrain: [
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '...#..#...',
-      '..........',
-      '..........',
-      '..........',
-      'dddddddddd',
-      'dddddddddd',
-    ],
-    enemies: [
-      'rc.qkm.c.r',
-      'g.h..w..g.',
-      'pp.pppp.pp',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-    ],
-  },
+/** Boss pools by act (ordered by deployment cost). */
+export const BOSS_POOLS: PieceType[][] = [
+  ['necromancer', 'stormbringer', 'phantom_king'],
+  ['empress', 'doppelganger', 'watcher', 'hive_mother'],
+  ['worldbreaker', 'colossus', 'chronarch'],
 ];
 
-export function bossBattle(act: number, id: string, rng?: Rng): RunBattle {
-  const b = BOSSES[Math.min(act, BOSSES.length - 1)];
-  const enemies = parsePlacements(b.enemies)
+/**
+ * Each boss's debut arena. `β` marks the boss (top-left square for large
+ * bosses); other letters are ordinary enemy pieces.
+ */
+const ARENAS: Partial<Record<PieceType, { name: string; description: string; terrain: string[]; enemies: string[] }>> = {
+  necromancer: {
+    name: 'The Ossuary',
+    description: 'Weak soldiers that keep rising while the Necromancer stands.',
+    terrain: ['........', '.#....#.', '........', '...##...', '........', '.#....#.', 'dddddddd', 'dddddddd'],
+    enemies: ['.n.kβ.b.', 'p.pppp.p', '........', '........', '........', '........', '........', '........'],
+  },
+  stormbringer: {
+    name: 'The Open Steppe',
+    description: 'An open field under a storm. Spread out — lightning arcs between clustered pieces.',
+    terrain: ['..........', '..........', '..........', '..........', '..........', '..........', 'dddddddddd', 'dddddddddd'],
+    enemies: ['r..akβa..r', 'pp.p..p.pp', '..l....l..', '..........', '..........', '..........', '..........', '..........'],
+  },
+  phantom_king: {
+    name: 'The Labyrinth',
+    description: 'Walls everywhere. The Phantom King walks straight through them.',
+    terrain: [
+      '..........',
+      '..........',
+      '.##.##.##.',
+      '..........',
+      '#.##..##.#',
+      '..........',
+      '.##.##.##.',
+      '..........',
+      'dddddddddd',
+      'dddddddddd',
+    ],
+    enemies: ['.n.gkβg.n.', 'pp.pp.pp.p', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
+  },
+  empress: {
+    name: 'The Throne Room',
+    description: 'A royal army that the Empress drives forward, move after move.',
+    terrain: ['........', '........', '.#....#.', '........', '........', '........', 'dddddddd', 'dddddddd'],
+    enemies: ['rnbkβbnr', 'pgp..pgp', '........', '........', '........', '........', '........', '........'],
+  },
+  doppelganger: {
+    name: 'Hall of Mirrors',
+    description: 'The Doppelganger moves like your own pieces and borrows their tricks.',
+    terrain: ['........', '........', '..#..#..', '........', '........', '..#..#..', 'dddddddd', 'dddddddd'],
+    enemies: ['.w.kβ.i.', 'pppppppp', '........', '........', '........', '........', '........', '........'],
+  },
+  watcher: {
+    name: 'The Long Corridors',
+    description: 'Every open line is watched. Use walls to approach from protected angles.',
+    terrain: [
+      '..........',
+      '..........',
+      '.#.#..#.#.',
+      '.#.#..#.#.',
+      '.#......#.',
+      '.#.####.#.',
+      '..........',
+      '..........',
+      'dddddddddd',
+      'dddddddddd',
+    ],
+    enemies: ['a..kβ...a.', '.y.p..p.y.', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
+  },
+  hive_mother: {
+    name: 'The Nest',
+    description: 'An ever-growing swarm of Pawns. Box the Hive Mother in to stop the spawning.',
+    terrain: [
+      '..........',
+      '..........',
+      '..........',
+      '...+..+...',
+      '..........',
+      '..........',
+      '...+..+...',
+      '..........',
+      'dddddddddd',
+      'dddddddddd',
+    ],
+    enemies: ['...kβ.....', 'pppp..pppp', '.o......o.', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
+  },
+  worldbreaker: {
+    name: 'The Shattered Plain',
+    description: 'The ground breaks apart as the fight goes on — but the Worldbreaker cannot cross gaps either.',
+    terrain: [
+      '..........',
+      '..........',
+      '.+.+..+.+.',
+      '..._.._...',
+      '.+..++..+.',
+      '..._.._...',
+      '.+.+..+.+.',
+      '..........',
+      'dddddddddd',
+      'dddddddddd',
+    ],
+    enemies: ['r..kβ..s.r', 'pp.p..p.pp', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
+  },
+  colossus: {
+    name: 'The Fortress Gate',
+    description: 'The Colossus advances steadily. Spread out and strike it from several sides.',
+    terrain: [
+      '..........',
+      '..........',
+      '..........',
+      '++..++..++',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+      'dddddddddd',
+      'dddddddddd',
+    ],
+    enemies: ['gk..β..g.r', 'pp.....p.p', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
+  },
+  chronarch: {
+    name: 'The Clockwork Court',
+    description: 'A master tactician that can undo your best move — but only once.',
+    terrain: [
+      '..........',
+      '..........',
+      '..#....#..',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+      '..#....#..',
+      'dddddddddd',
+      'dddddddddd',
+    ],
+    enemies: ['rc.qkβm..r', 'ppgpp.pgpp', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
+  },
+};
+
+export const bossArenaName = (boss: PieceType) => ARENAS[boss]?.name ?? PIECE_STATS[boss].name;
+
+export function bossBattle(act: number, id: string, rng?: Rng, boss?: PieceType): RunBattle {
+  const type = boss ?? BOSS_POOLS[Math.min(act, BOSS_POOLS.length - 1)][0];
+  const arena = ARENAS[type]!;
+  const enemies = parsePlacements(arena.enemies, { β: [type, 'enemy'] })
     .filter((p) => p.side === 'enemy')
-    .map(({ type, x, y }) => ({ type, x, y }));
+    .map(({ type: t, x, y }) => ({ type: t, x, y }));
   return {
     id,
     kind: 'boss',
-    name: b.name,
-    description: b.description,
-    rules: { checkRules: true },
-    terrain: b.terrain,
+    name: `${PIECE_STATS[type].name} — ${arena.name}`,
+    description: arena.description,
+    rules: { checkRules: true, bossKill: true },
+    terrain: arena.terrain,
     enemies: rng ? upgradeEnemies(rng, enemies, act, enemyUpgradeCount(act, 'boss')) : enemies,
+    boss: type,
   };
 }

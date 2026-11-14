@@ -6,8 +6,9 @@
  * clones the incoming state once, then resolves the move on the clone.
  */
 import { inBounds, isStandable, terrainAt } from './board';
-import { PIECE_STATS, footprint, sizeOf } from './pieces';
+import { BOSS_TYPES, PIECE_STATS, footprint, sizeOf } from './pieces';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
+import { etherealEscape, haunted } from './bosses';
 import {
   Coord,
   GameState,
@@ -78,8 +79,7 @@ export const markUsed = (p: Piece, id: string) => {
   if (!p.used.includes(id)) p.used.push(id);
 };
 
-/** Boss Pieces arrive later; nothing is a boss yet. */
-export const isBoss = (_p: Piece) => false;
+export const isBoss = (p: Piece) => BOSS_TYPES.has(p.type);
 
 export const getPiece = (s: GameState, id: string | undefined) => (id ? s.pieces.find((p) => p.id === id) : undefined);
 /**
@@ -276,7 +276,8 @@ function protectedByZone(s: GameState, p: Piece) {
 
 function findInterceptor(s: GameState, target: Piece, amount: number, source?: Piece): Piece | undefined {
   const lethal = amount >= target.hp + shieldTotal(target);
-  const friends = allies(s, target).filter((a) => a.id !== source?.id && !hasStatus(a, 'stunned'));
+  // Haunting Presence also switches off interception for pieces next to a Phantom King.
+  const friends = allies(s, target).filter((a) => a.id !== source?.id && !hasStatus(a, 'stunned') && !haunted(s, a));
   if (target.type === 'king') {
     const reach = (a: Piece) => (has(a, 'crowns_reach') ? 2 : 1);
     return (
@@ -323,6 +324,20 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   if (hasStatus(target, 'immune') || protectedByZone(s, target)) {
     log(s, `${nameOf(target)} is protected.`);
     return { kind: 'immune' };
+  }
+
+  // Phantom King: Ethereal Escape dodges the first attack by teleporting away.
+  if (direct(ctx.kind) && !ctx.lethal && etherealEscape(s, target, source)) return { kind: 'survived', dealt: 0 };
+
+  // Empress: Imperial Guard — the first attack on her is absorbed by an adjacent ally.
+  if (direct(ctx.kind) && target.type === 'empress' && !hasUsed(target, 'imperial_guard')) {
+    const guard = allies(s, target).find((a) => a.type !== 'king' && adjacent(a, target));
+    if (guard) {
+      markUsed(target, 'imperial_guard');
+      log(s, `${nameOf(guard)} shields the Empress.`);
+      const outcome = dealDamage(s, guard.id, amount, { ...ctx, allowIntercept: false });
+      return { kind: 'intercepted', by: guard.id, outcome };
+    }
   }
 
   if (ctx.allowIntercept && direct(ctx.kind) && !ctx.lethal) {
@@ -490,6 +505,8 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
   }
   s.captured.push(p);
   if (has(p, 'second_life') && !p.temp) s.saved.push(p.id);
+  // Necromancer: Death Harvest — heals whenever an enemy is captured.
+  for (const n of s.pieces.filter((o) => o.side !== p.side && o.type === 'necromancer')) heal(s, n, 1);
   // Bomber Volatile: when captured (not detonated), 1 damage to every adjacent piece.
   if (p.type === 'bomber' && ctx.kind !== 'ability') {
     log(s, 'The Bomber explodes as it falls!');

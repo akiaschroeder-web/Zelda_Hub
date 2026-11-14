@@ -46,6 +46,7 @@ import {
   upgradeName,
 } from './core';
 import { sizeOf } from './pieces';
+import { haunted } from './bosses';
 import { Coord, GameState, Move, Piece, PieceType, Side, endOfTurn, opponent, sameCoord, shieldTotal } from './types';
 
 /** Upgrade actions that move pieces around (blocked by Bind and Suppression). */
@@ -90,7 +91,7 @@ const canHeal = (healer: Piece, t: Piece) =>
 /** Generate every upgrade action available to a piece. */
 export function upgradeActions(s: GameState, p: Piece): Move[] {
   if (p.upgrades.length === 0 && !anyHas(s, 'structural_weakness')) return [];
-  if (silenced(p)) return [];
+  if (silenced(p) || haunted(s, p)) return [];
   const moves: Move[] = [];
   const base = { pieceId: p.id, from: p.pos, action: 'upgrade' as const };
   const act = (upgrade: string, to: Coord, extra: Partial<Move> = {}) => moves.push({ ...base, upgrade, to, ...extra });

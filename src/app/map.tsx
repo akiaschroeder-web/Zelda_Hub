@@ -163,8 +163,12 @@ function MapView({ run }: { run: RunState }) {
       <Panel style={styles.footer}>
         {chosenNode && reachable.has(chosenNode.id) ? (
           <>
-            <Text style={text.heading}>{NODE_INFO[chosenNode.type].label.toUpperCase()}</Text>
-            <Text style={[text.body, { marginVertical: 6 }]}>{NODE_INFO[chosenNode.type].blurb}</Text>
+            <Text style={text.heading}>
+              {chosenNode.boss ? `BOSS: ${PIECE_STATS[chosenNode.boss].name.toUpperCase()}` : NODE_INFO[chosenNode.type].label.toUpperCase()}
+            </Text>
+            <Text style={[text.body, { marginVertical: 6 }]}>
+              {chosenNode.boss ? PIECE_STATS[chosenNode.boss].blurb : NODE_INFO[chosenNode.type].blurb}
+            </Text>
             <Button
               label="Go"
               primary

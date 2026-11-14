@@ -155,6 +155,46 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Harvester',
     blurb: 'Up to two squares in any direction. Gains a Soul per capture (max 5, kept between battles). Spend 2 to heal or 3 for +1 damage. Reaching 5 Souls grants +1 max HP once per run.',
   },
+  colossus: {
+    size: 3, maxHp: 6, damage: 2, cost: 28, value: 3000, name: 'The Colossus',
+    blurb: '3×3. One square orthogonally. Deals 2 damage to every enemy under its new footprint and smashes cracked walls in its path.',
+  },
+  empress: {
+    size: 1, maxHp: 3, damage: 1, cost: 25, value: 2600, name: 'The Empress',
+    blurb: 'Moves like a Queen or a Knight. Every 3 turns grants an ally an immediate extra move. The first attack on her is absorbed by an adjacent ally.',
+  },
+  necromancer: {
+    size: 1, maxHp: 3, damage: 1, cost: 23, value: 2300, name: 'The Necromancer',
+    blurb: 'Up to two squares diagonally. Every 3 turns raises a fallen ally on a deployment square. Heals 1 whenever an enemy is captured.',
+  },
+  stormbringer: {
+    size: 1, maxHp: 4, damage: 1, cost: 24, value: 2400, name: 'The Stormbringer',
+    blurb: 'Up to three squares orthogonally. Chain Lightning every 4 turns. The square it leaves is charged: the first enemy to stop there takes 1.',
+  },
+  watcher: {
+    size: 2, maxHp: 4, damage: 1, cost: 26, value: 2600, name: 'The Watcher',
+    blurb: '2×2. One square diagonally. Marks every open line from its footprint; the first enemy to stop on a marked square takes 1.',
+  },
+  worldbreaker: {
+    size: 2, maxHp: 5, damage: 1, cost: 27, value: 2700, name: 'The Worldbreaker',
+    blurb: '2×2. One square orthogonally. Earthquake (every 4 turns) shatters nearby cracked walls; Rupture turns an adjacent square into a gap.',
+  },
+  phantom_king: {
+    size: 1, maxHp: 3, damage: 1, cost: 24, value: 2400, name: 'The Phantom King',
+    blurb: 'Up to three squares any direction through walls and pieces, not gaps. Escapes the first attack by teleporting. Adjacent enemies cannot use abilities.',
+  },
+  doppelganger: {
+    size: 1, maxHp: 4, damage: 1, cost: 25, value: 2500, name: 'The Doppelganger',
+    blurb: 'One square any direction, or the movement of any enemy 1×1 piece. Every 4 turns, borrows an enemy piece’s ability for one use.',
+  },
+  hive_mother: {
+    size: 2, maxHp: 5, damage: 1, cost: 26, value: 2600, name: 'The Hive Mother',
+    blurb: '2×2. One square orthogonally. Spawns a temporary Pawn every 3 turns. Adjacent friendly Pawns may advance an extra square.',
+  },
+  chronarch: {
+    size: 1, maxHp: 4, damage: 1, cost: 30, value: 3000, name: 'The Chronarch',
+    blurb: 'Up to two squares any direction. Rewind undoes the enemy’s last move (once). Every 4 turns, takes two actions in a row.',
+  },
   illusion: {
     size: 1, maxHp: 1, damage: 0, cost: 0, value: 80, name: 'Illusion',
     blurb: 'A 1 HP illusion. Moves one square; cannot capture.',
@@ -166,6 +206,11 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
 };
 
 export const sizeOf = (p: Piece): number => PIECE_STATS[p.type].size;
+
+export const BOSS_TYPES = new Set<PieceType>([
+  'colossus', 'empress', 'necromancer', 'stormbringer', 'watcher',
+  'worldbreaker', 'phantom_king', 'doppelganger', 'hive_mother', 'chronarch',
+]);
 
 /** Every square a piece occupies. */
 export function footprint(p: Piece, at: Coord = p.pos): Coord[] {

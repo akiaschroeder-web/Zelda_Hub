@@ -55,6 +55,12 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   detonate: 'rgba(214, 60, 60, 0.95)',
   soulHeal: 'rgba(80, 190, 100, 0.95)',
   soulPower: 'rgba(214, 60, 60, 0.95)',
+  royalCommand: 'rgba(240, 200, 80, 0.95)',
+  chainLightning: 'rgba(90, 160, 255, 0.95)',
+  earthquake: 'rgba(230, 110, 60, 0.95)',
+  rupture: 'rgba(80, 40, 30, 0.95)',
+  rewind: 'rgba(150, 90, 220, 0.95)',
+  accelerate: 'rgba(240, 200, 80, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -140,6 +146,8 @@ export function resultText(r: GameResult): string {
       return r.winner === 'player' ? 'Enemy King captured — victory!' : 'Your King has fallen.';
     case 'eliminated':
       return 'Enemy army eliminated — victory!';
+    case 'bossDefeated':
+      return r.winner === 'player' ? 'The boss has fallen — victory!' : 'Your army was overwhelmed.';
     case 'draw':
       return {
         stalemate: 'Stalemate — draw.',

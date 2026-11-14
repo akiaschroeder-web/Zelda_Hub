@@ -47,6 +47,7 @@ import {
 } from './core';
 import { attacksSquare, heavySteps, shotSquares, sideStepVariants, stepsFor } from './movement';
 import { harvestSoul, resolveSpecial, specialMoves } from './specials';
+import { FREE_BOSS_ACTIONS, BOSS_COOLDOWNS, bossMoves, bossTurnEnd, bossTurnStart, haunted, resolveBoss, swarmCommanded } from './bosses';
 import { PIECE_STATS, footprint, sizeOf } from './pieces';
 import {
   Bonus,
@@ -141,6 +142,9 @@ function pawnMoves(state: GameState, p: Piece): Move[] {
     const two = { x: p.pos.x, y: p.pos.y + 2 * f };
     if (!p.hasMoved && isStandable(state.board, two) && !pieceAt(state, two)) {
       moves.push({ pieceId: p.id, from: p.pos, to: two, doubleStep: one });
+    } else if (isStandable(state.board, two) && !pieceAt(state, two) && swarmCommanded(state, p)) {
+      // Swarm Command: Pawns next to a friendly Hive Mother may advance an extra square.
+      moves.push(...withPromotions(state, p, { pieceId: p.id, from: p.pos, to: two }));
     }
   }
   for (const dx of [-1, 1]) {
@@ -159,6 +163,7 @@ function pawnMoves(state: GameState, p: Piece): Move[] {
 /** Built-in piece abilities (Archer, Siege Engine, Mage, Switcher, Medic). */
 function abilityMoves(state: GameState, p: Piece, ordinary: Move[]): Move[] {
   const moves: Move[] = [];
+  if (haunted(state, p) && p.type !== 'archer') return moves;
   const base = { pieceId: p.id, from: p.pos };
   const blockedMove = hasStatus(p, 'bound') || suppressed(state, p);
   switch (p.type) {
@@ -318,6 +323,26 @@ function heavyMoves(state: GameState, p: Piece): Move[] {
   return moves;
 }
 
+/**
+ * Doppelganger: Stolen Talent — every 4 turns it may use one ability of any
+ * enemy piece type on the board (not bosses; not self-destroying or self-changing ones).
+ */
+function stolenTalents(state: GameState, p: Piece): Move[] {
+  if (p.type !== 'doppelganger' || (p.counters.stealCd ?? 0) > 0 || silenced(p) || state.bonus.length) return [];
+  const out: Move[] = [];
+  const seen = new Set<string>();
+  for (const e of state.pieces) {
+    if (e.side === p.side || isBoss(e) || sizeOf(e) > 1 || seen.has(e.type)) continue;
+    seen.add(e.type);
+    const fake: Piece = { ...p, type: e.type, used: [], counters: {}, upgrades: [] };
+    for (const m of [...abilityMoves(state, fake, []), ...specialMoves(state, fake)]) {
+      if (m.action === 'detonate' || m.action === 'replicate') continue;
+      out.push({ ...m, param: 'stolen' });
+    }
+  }
+  return out;
+}
+
 /** Temporal Echo: repeat this piece's last displacement as a free extra move. */
 function temporalEchoMoves(state: GameState, p: Piece, ordinary: Move[]): Move[] {
   if (!ready(p, 'temporal_echo') || p.counters.ldx === undefined || silenced(p) || state.bonus.length) return [];
@@ -343,6 +368,8 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...ordinary,
     ...abilityMoves(state, p, ordinary),
     ...specialMoves(state, p),
+    ...bossMoves(state, p),
+    ...stolenTalents(state, p),
     ...upgradeActions(state, p),
     ...temporalEchoMoves(state, p, ordinary),
   ];
@@ -411,6 +438,7 @@ export function quickApply(state: GameState, m: Move): GameState | undefined {
   if (m.castle || state.timed.length || state.bonus.length || state.overwatch.length || state.reborn.length || m.uses) return undefined;
   const mover = getPiece(state, m.pieceId);
   if (!mover || mover.upgrades.length || mover.statuses.length) return undefined;
+  if (state.pieces.some((p) => p.type === 'necromancer' || p.type === 'stormbringer')) return undefined;
   const removed = new Set<string>();
   let pieces = state.pieces;
   if (m.action === 'heal') {
@@ -425,7 +453,7 @@ export function quickApply(state: GameState, m: Move): GameState | undefined {
       if (m.targets.length !== 1) return undefined;
       const t = getPiece(state, m.targets[0]);
       if (!t || t.upgrades.length || t.shields.length || t.statuses.length || t.hp > PIECE_STATS[mover.type].damage) return undefined;
-      if (t.type === 'phoenix' || mover.type === 'reaper') return undefined;
+      if (t.type === 'phoenix' || mover.type === 'reaper' || isBoss(t)) return undefined;
       if (state.zones.length || INTERCEPT_UPGRADES.some((u) => anyHas(state, u))) return undefined;
       if (state.pieces.some((g) => g.side === t.side && g.id !== t.id && (g.type === 'guardian' || g.temp) && adjacent(g, t)))
         return undefined;
@@ -467,8 +495,8 @@ export function legalMoves(state: GameState, side: Side = state.turn): Move[] {
     if (bonus?.pieceId && bonus.pieceId !== p.id) continue;
     for (const m of pseudoMovesFor(state, p)) {
       if (bonus && !fitsBonus(m, bonus)) continue;
-      if (bonus && m.upgrade && FREE_ACTIONS.has(m.upgrade)) continue; // no chaining free actions
-      if (state.rules.checkRules && m.upgrade !== 'time_reversal') {
+      if (bonus && ((m.upgrade && FREE_ACTIONS.has(m.upgrade)) || (m.action && FREE_BOSS_ACTIONS.has(m.action)))) continue; // no chaining free actions
+      if (state.rules.checkRules && m.upgrade !== 'time_reversal' && m.action !== 'rewind') {
         if (leavesKingInCheck(state, m, side)) continue;
       }
       out.push(m);
@@ -807,6 +835,7 @@ function resolveOrdinary(s: GameState, m: Move, entry?: Bonus) {
 function resolve(s: GameState, m: Move, entry?: Bonus) {
   const p = getPiece(s, m.pieceId);
   if (!p) return;
+  if (resolveBoss(s, m)) return;
   if (resolveSpecial(s, m)) return;
   switch (m.action) {
     case 'pass':
@@ -907,6 +936,21 @@ function snapshotOf(state: GameState): GameState {
  */
 export function applyMoveRaw(state: GameState, m: Move): GameState {
   const side = state.turn;
+  if (m.action === 'rewind') {
+    // Chronarch: undo the opponent's most recent move (it becomes their turn again).
+    const snap = state.snapshot[opponent(side)];
+    if (snap) {
+      const restored = cloneState(snap);
+      restored.snapshot = {};
+      restored.positionHistory = state.positionHistory;
+      restored.runFlags = [...state.runFlags];
+      const user = getPiece(restored, m.pieceId);
+      if (user) markUsed(user, 'rewind');
+      restored.log = ['Rewind! The enemy’s last move is undone.'];
+      freeze(restored);
+      return restored;
+    }
+  }
   if (m.action === 'upgrade' && m.upgrade === 'time_reversal') {
     const snap = state.snapshot[side];
     if (snap) {
@@ -923,13 +967,25 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   }
   const s = cloneState(state);
   const mainMove = s.bonus.length === 0;
-  if (mainMove && state.pieces.some((p) => p.side === side && ready(p, 'time_reversal'))) {
+  const rewinder = state.pieces.some((p) => p.side !== side && p.type === 'chronarch' && !hasUsed(p, 'rewind'));
+  if (mainMove && (rewinder || state.pieces.some((p) => p.side === side && ready(p, 'time_reversal')))) {
     s.snapshot = { ...s.snapshot, [side]: snapshotOf(state) };
   }
   const entry = s.bonus.shift();
   const mover = getPiece(s, m.pieceId);
   const from = mover ? { ...mover.pos } : undefined;
   resolve(s, m, entry);
+
+  // Doppelganger: a borrowed ability starts the Stolen Talent cooldown.
+  if (m.param === 'stolen') {
+    const d = getPiece(s, m.pieceId);
+    if (d) d.counters.stealCd = BOSS_COOLDOWNS.stealCd;
+  }
+  // Stormbringer: Charged Ground — the square it leaves stays charged until its next turn.
+  const storm = getPiece(s, m.pieceId);
+  if (storm?.type === 'stormbringer' && from && !m.action && !sameCoord(from, storm.pos)) {
+    s.overwatch.push({ sentinelId: `${storm.id}:charge`, side: storm.side, cells: [from] });
+  }
 
   // Overwatch: the first enemy to end a move on a watched line takes 1 damage.
   const moved = getPiece(s, m.pieceId);
@@ -1032,6 +1088,8 @@ function endTurn(s: GameState) {
     }
   }
 
+  bossTurnEnd(s, side);
+
   // Expiry at the end of this ply.
   const ply = s.ply;
   for (const p of s.pieces) {
@@ -1064,6 +1122,7 @@ function startTurn(s: GameState) {
   const side = s.turn;
   // A Sentinel's watch ends when its next turn starts.
   s.overwatch = s.overwatch.filter((o) => o.side !== side);
+  bossTurnStart(s, side);
   // Phoenixes rise again on a free deployment square (or are lost if there is none).
   for (const ph of s.reborn.filter((p) => p.side === side)) {
     s.reborn = s.reborn.filter((p) => p !== ph);
@@ -1128,6 +1187,13 @@ export function evaluateResult(state: GameState): GameResult {
 
   // Losing the player's King always ends the run.
   if (!playerKing) return { kind: 'kingCaptured', winner: 'enemy' };
+
+  // Boss battles: felling every enemy Boss Piece wins.
+  if (state.rules.bossKill) {
+    const bossesLeft = state.pieces.some((p) => p.side === 'enemy' && isBoss(p));
+    const hadBoss = state.captured.some((p) => p.side === 'enemy' && isBoss(p));
+    if (hadBoss && !bossesLeft) return { kind: 'bossDefeated', winner: 'player' };
+  }
 
   if (!state.rules.checkRules) {
     const enemyLeft = state.pieces.some((p) => p.side === 'enemy') || state.reborn.some((p) => p.side === 'enemy');

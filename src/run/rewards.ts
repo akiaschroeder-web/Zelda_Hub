@@ -1,10 +1,10 @@
-import { PIECE_STATS } from '../engine/pieces';
+import { BOSS_TYPES, PIECE_STATS } from '../engine/pieces';
 import { PieceType } from '../engine/types';
 import { UPGRADES, UPGRADE_BY_ID, UpgradeRarity } from '../engine/upgrades/catalog';
 import { canTake } from '../engine/upgrades/eligibility';
 import { Rng } from './rng';
 
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic';
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'boss';
 
 /** Which pieces can be recruited, by rarity. Kings are never offered. */
 export const RECRUIT_POOLS: Record<Rarity, PieceType[]> = {
@@ -15,16 +15,19 @@ export const RECRUIT_POOLS: Record<Rarity, PieceType[]> = {
   ],
   rare: ['queen', 'mage', 'chancellor', 'mimic', 'reaper', 'splitter', 'jailer', 'bastion', 'summoner', 'oracle', 'clone', 'warden', 'slayer'],
   epic: ['juggernaut', 'phoenix', 'converter'],
+  // Boss Pieces are never rolled at random; they're offered only after being defeated.
+  boss: [],
 };
 
 export const rarityOf = (t: PieceType): Rarity =>
-  (Object.keys(RECRUIT_POOLS) as Rarity[]).find((r) => RECRUIT_POOLS[r].includes(t)) ?? 'common';
+  BOSS_TYPES.has(t) ? 'boss' : ((Object.keys(RECRUIT_POOLS) as Rarity[]).find((r) => RECRUIT_POOLS[r].includes(t)) ?? 'common');
 
 export const RARITY_COLORS: Record<Rarity, string> = {
   common: '#b9b2a6',
   uncommon: '#6fbf73',
   rare: '#5aa0e6',
   epic: '#b57ae0',
+  boss: '#f0c040',
 };
 
 export type RewardSource = 'battle' | 'elite' | 'boss' | 'treasure' | 'recruit' | 'draw';
@@ -178,7 +181,7 @@ export interface ShopItem {
   sold: boolean;
 }
 
-const RARITY_PREMIUM: Record<Rarity, number> = { common: 0, uncommon: 10, rare: 25, epic: 45 };
+const RARITY_PREMIUM: Record<Rarity, number> = { common: 0, uncommon: 10, rare: 25, epic: 45, boss: 120 };
 
 export function piecePrice(t: PieceType): number {
   return 8 + PIECE_STATS[t].cost * 7 + RARITY_PREMIUM[rarityOf(t)];

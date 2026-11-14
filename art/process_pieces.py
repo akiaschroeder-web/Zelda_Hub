@@ -17,6 +17,11 @@ OUT = os.path.join("assets", "pieces")
 SIZE = 256
 PIECES = ["pawn", "knight", "bishop", "rook", "queen", "king"]
 
+# Boss illustrations (full colour; the same art is used for both sides).
+BOSSES = ["colossus", "empress", "necromancer", "stormbringer", "watcher", "worldbreaker",
+          "phantom_king", "doppelganger", "hive_mother", "chronarch"]
+BOSS_BANNER_TOP = 1005
+
 # Sprite sheets: two rows of pieces, each with a name label underneath.
 SHEETS = {
     "sheet_specials_1.png": [
@@ -157,6 +162,13 @@ def main() -> None:
         img = cutout(os.path.join(SRC, f"{name}.png"))
         img.save(os.path.join(OUT, f"{name}_player.png"), optimize=True)
         enemy_variant(img).save(os.path.join(OUT, f"{name}_enemy.png"), optimize=True)
+        print("wrote", name)
+    # Boss illustrations: crop off the name banner along the bottom.
+    for name in BOSSES:
+        src = Image.open(os.path.join(SRC, f"boss_{name}.png"))
+        img = cutout(src.crop((0, 0, src.width, BOSS_BANNER_TOP)))
+        img.save(os.path.join(OUT, f"{name}_player.png"), optimize=True)
+        img.save(os.path.join(OUT, f"{name}_enemy.png"), optimize=True)
         print("wrote", name)
     for sheet, names in SHEETS.items():
         cells = sheet_cells(Image.open(os.path.join(SRC, sheet)), len(names))

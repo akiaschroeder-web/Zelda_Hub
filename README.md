@@ -33,6 +33,28 @@ A turn-based chess roguelike for mobile (Expo / React Native, TypeScript).
 The run is saved after every action (including each battle move), and is reproducible from its seed.
 Bosses are placeholder armies of existing pieces until the Boss Pieces are implemented.
 
+## Boss Pieces
+
+| Boss | Size / HP | Pts | Movement | Abilities |
+|---|---|---|---|---|
+| The Colossus | 3×3 · 6 | 28 | 1 orthogonal | Crushing Advance: 2 damage to every enemy under its new footprint. Siege Breaker: smashes cracked walls in its path. |
+| The Empress | 1×1 · 3 | 25 | Queen + Knight | Royal Command: an ally makes an immediate extra move (every 3 turns). Imperial Guard: the first attack on her is absorbed by an adjacent ally. |
+| The Necromancer | 1×1 · 3 | 23 | Up to 2 diagonal | Raise Fallen: every 3 turns a captured ally rises on a deployment square. Death Harvest: heals 1 whenever an enemy is captured. |
+| The Stormbringer | 1×1 · 4 | 24 | Up to 3 orthogonal | Chain Lightning (every 4 turns): 1 damage to an enemy within 3, arcing to up to 2 neighbours. Charged Ground: the square it leaves hurts the first enemy to stop there. |
+| The Watcher | 2×2 · 4 | 26 | 1 diagonal | All-Seeing / Judgment: marks every open line from its footprint; the first enemy to stop on one takes 1. Walls and gaps block its sight. |
+| The Worldbreaker | 2×2 · 5 | 27 | 1 orthogonal | Earthquake (every 4 turns): shatters cracked walls within 2. Rupture: turns an adjacent empty square into a gap. Cannot cross gaps. |
+| The Phantom King | 1×1 · 3 | 24 | Up to 3 any direction through walls and pieces, not gaps | Ethereal Escape: dodges the first attack by teleporting. Haunting Presence: adjacent enemies can't use abilities. |
+| The Doppelganger | 1×1 · 4 | 25 | 1 any direction + every enemy 1×1 piece's movement | Stolen Talent (every 4 turns): uses an enemy piece's ability once. |
+| The Hive Mother | 2×2 · 5 | 26 | 1 orthogonal | Spawn: a temporary Pawn every 3 turns. Swarm Command: adjacent friendly Pawns may advance an extra square. |
+| The Chronarch | 1×1 · 4 | 30 | Up to 2 any direction | Rewind (once): undoes the enemy's last move. Temporal Acceleration (every 4 turns): two Chronarch actions in a row. |
+
+Bosses are immune to pushes, pulls, status effects, conversion and cloning. Each act's boss is drawn
+from a pool (act 1: Necromancer, Stormbringer, Phantom King; act 2: Empress, Doppelganger, Watcher,
+Hive Mother; act 3: Worldbreaker, Colossus, Chronarch) and fought in its own arena; checkmating the
+King or defeating the boss wins. A defeated boss is unlocked for the run: it may be offered as a
+reward (30% from its own fight, occasionally from later elites) and can turn up in later elite
+battles with a smaller escort. All ten arenas are playable from the sandbox.
+
 ## Upgrades
 
 All 240 upgrades from the compendium are in `src/engine/upgrades/catalog.ts`; 234 are in play.

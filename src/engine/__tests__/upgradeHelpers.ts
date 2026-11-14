@@ -40,12 +40,18 @@ export const covers = (...ids: string[]) => ids.forEach((id) => COVERED.add(id))
 export function make(
   rows: string[],
   ups: Record<string, string[]> = {},
-  opts: { terrain?: string[]; checkRules?: boolean; runFlags?: string[]; legend?: Record<string, [PieceType, Side]> } = {},
+  opts: {
+    terrain?: string[];
+    checkRules?: boolean;
+    bossKill?: boolean;
+    runFlags?: string[];
+    legend?: Record<string, [PieceType, Side]>;
+  } = {},
 ): GameState {
   const w = rows[0].length;
   const terrain = opts.terrain ?? rows.map(() => '.'.repeat(w));
   const placements = parsePlacements(rows, { ...SPECIAL_LEGEND, ...opts.legend }).map((p) => ({ ...p, upgrades: ups[`${p.x},${p.y}`] ?? [] }));
-  const s = createGame(parseBoard(terrain), placements, { checkRules: opts.checkRules ?? false }, opts.runFlags ?? []);
+  const s = createGame(parseBoard(terrain), placements, { checkRules: opts.checkRules ?? false, bossKill: opts.bossKill }, opts.runFlags ?? []);
   // Pawns away from their start rows have already moved.
   return {
     ...s,

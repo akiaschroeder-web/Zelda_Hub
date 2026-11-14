@@ -14,6 +14,7 @@ import {
   enemiesOf,
   has,
   hasStatus,
+  isBoss,
   isEmpty,
   kingOf,
   movementType,
@@ -26,6 +27,7 @@ import {
   suppressed,
 } from './core';
 import { footprint, sizeOf } from './pieces';
+import { haunted, heavyDirs, phantomSteps } from './bosses';
 import { Coord, GameState, Piece, PieceType, forward, sameCoord } from './types';
 
 export const KNIGHT_JUMPS: Coord[] = [
@@ -155,6 +157,19 @@ function basePatterns(type: PieceType): Pattern[] {
       ];
     case 'illusion':
       return [{ kind: 'slide', dirs: ALL_DIRS, max: 1, capture: false }];
+    case 'empress':
+      return [
+        { kind: 'slide', dirs: ALL_DIRS, max: Infinity },
+        { kind: 'leap', offsets: KNIGHT_JUMPS, rule: 'rect' },
+      ];
+    case 'necromancer':
+      return [{ kind: 'slide', dirs: DIAG, max: 2 }];
+    case 'stormbringer':
+      return [{ kind: 'slide', dirs: ORTHO, max: 3 }];
+    case 'chronarch':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
+    case 'doppelganger':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 1 }];
     default:
       return []; // pawn and large pieces have their own rules
   }
@@ -283,7 +298,7 @@ function leapClear(s: GameState, from: Coord, off: Coord, rule: 'rect' | 'line',
 // ---------------------------------------------------------------------------
 
 /** Can this piece use once-per-battle movement abilities right now? */
-export const canUseMoveAbilities = (s: GameState, p: Piece) => !silenced(p) && !suppressed(s, p);
+export const canUseMoveAbilities = (s: GameState, p: Piece) => !silenced(p) && !suppressed(s, p) && !haunted(s, p);
 
 /**
  * Mimic: the movement of every adjacent friendly 1x1 piece (movement only;
@@ -308,9 +323,23 @@ function mimicPatterns(s: GameState, p: Piece): Pattern[] {
   return out;
 }
 
+/** Doppelganger: its own step plus the movement of every enemy 1x1 (non-boss) piece type. */
+function doppelgangerPatterns(s: GameState, p: Piece): Pattern[] {
+  const f = forward(p.side);
+  const out: Pattern[] = basePatterns('doppelganger');
+  const types = new Set(s.pieces.filter((e) => e.side !== p.side && sizeOf(e) === 1 && !isBoss(e)).map((e) => movementType(s, e)));
+  for (const t of types) {
+    if (t === 'pawn') {
+      out.push({ kind: 'slide', dirs: [{ x: 0, y: f }], max: 1, capture: false });
+      out.push({ kind: 'slide', dirs: [{ x: -1, y: f }, { x: 1, y: f }], max: 1, quiet: false });
+    } else if (t !== 'mimic' && t !== 'decoy' && t !== 'illusion') out.push(...basePatterns(t));
+  }
+  return out;
+}
+
 function patternsFor(s: GameState, p: Piece): Pattern[] {
   const type = movementType(s, p);
-  const pats = type === 'mimic' ? mimicPatterns(s, p) : basePatterns(type);
+  const pats = type === 'mimic' ? mimicPatterns(s, p) : type === 'doppelganger' ? doppelgangerPatterns(s, p) : basePatterns(type);
   if (p.upgrades.length === 0) return p.type === 'decoy' ? pats.map((pt) => ({ ...pt, capture: false })) : pats;
   const abilities = canUseMoveAbilities(s, p);
   if (has(p, 'diagonal_step')) pats.push({ kind: 'slide', dirs: DIAG, max: 1 });
@@ -390,6 +419,7 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
     }
   }
 
+  if (p.type === 'phantom_king' && !crippled) out.push(...phantomSteps(s, p));
   if (abilities && p.upgrades.length) out.push(...specialMoves(s, p));
   return p.upgrades.length ? dedupe(out) : out;
 }
@@ -500,7 +530,8 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
     let shove: string | undefined;
     for (const c of footprint(p, to)) {
       const t = terrainAt(s.board, c);
-      if (t === 'cracked' && has(p, 'crushing_entry')) walls.push(c);
+      // The Colossus (Siege Breaker) and Crushing Entry flatten cracked walls in the way.
+      if (t === 'cracked' && (has(p, 'crushing_entry') || p.type === 'colossus')) walls.push(c);
       else if (t !== 'normal') return null;
       const o = pieceAt(s, c);
       if (!o || o.id === p.id) continue;
@@ -511,7 +542,7 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
     }
     return { targets: [...targets], shove, walls: walls.length ? walls : undefined };
   };
-  for (const d of ORTHO) {
+  for (const d of heavyDirs(p) ?? ORTHO) {
     const to = add(p.pos, d);
     const r = check(to);
     if (r) out.push({ to, ...r });

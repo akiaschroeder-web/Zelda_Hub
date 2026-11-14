@@ -34,6 +34,7 @@ import {
   suppressed,
 } from './core';
 import { sizeOf } from './pieces';
+import { haunted } from './bosses';
 import { Coord, GameState, Move, Piece, PieceType, forward, sameCoord } from './types';
 
 /** Cooldown lengths in the owner's turns. */
@@ -56,7 +57,7 @@ const untouchable = (t: Piece) => t.type === 'king' || sizeOf(t) > 1 || isBoss(t
 export const behindOf = (t: Piece): Coord => ({ x: t.pos.x, y: t.pos.y - forward(t.side) });
 
 export function specialMoves(s: GameState, p: Piece): Move[] {
-  if (silenced(p)) return [];
+  if (silenced(p) || haunted(s, p)) return [];
   const moves: Move[] = [];
   const base = { pieceId: p.id, from: p.pos };
   const around = ALL_DIRS.map((d) => add(p.pos, d));

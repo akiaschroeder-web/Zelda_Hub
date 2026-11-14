@@ -1,3 +1,4 @@
+import { PieceType } from '../engine/types';
 import { Rng } from './rng';
 
 export type NodeType = 'battle' | 'elite' | 'boss' | 'shop' | 'event' | 'treasure' | 'recruit';
@@ -10,6 +11,8 @@ export interface MapNode {
   x: number;
   /** ids of nodes on the next floor reachable from here. */
   next: string[];
+  /** Boss nodes: which Boss Piece waits there. */
+  boss?: PieceType;
 }
 
 export interface ActMap {
@@ -43,7 +46,7 @@ function floorType(rng: Rng, floor: number): NodeType {
   });
 }
 
-export function generateAct(rng: Rng, act: number): ActMap {
+export function generateAct(rng: Rng, act: number, bossPool: PieceType[] = []): ActMap {
   const floors: MapNode[][] = [];
   for (let f = 0; f < FLOORS_PER_ACT; f++) {
     const count = f === 0 ? 3 : rng.int(2, 4);
@@ -54,7 +57,9 @@ export function generateAct(rng: Rng, act: number): ActMap {
     }
     floors.push(row);
   }
-  floors.push([{ id: `a${act}boss`, type: 'boss', floor: FLOORS_PER_ACT, x: 0.5, next: [] }]);
+  floors.push([
+    { id: `a${act}boss`, type: 'boss', floor: FLOORS_PER_ACT, x: 0.5, next: [], boss: bossPool.length ? rng.pick(bossPool) : undefined },
+  ]);
 
   // Connect each floor to the next without crossings: node i maps to the
   // proportionally-placed node on the next floor, sometimes also a neighbour.

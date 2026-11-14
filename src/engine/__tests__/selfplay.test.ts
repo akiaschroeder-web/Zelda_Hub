@@ -27,6 +27,25 @@ function checkInvariants(s: GameState) {
   }
 }
 
+describe('AI self-play in boss arenas', () => {
+  it('every boss battle plays out without breaking any board invariant', async () => {
+    const { BOSS_POOLS, bossBattle } = await import('../../run/battlegen');
+    const { autoDeploy, newRun, startBattle } = await import('../../run/run');
+    for (const [act, pool] of BOSS_POOLS.entries()) {
+      for (const type of pool) {
+        const battle = bossBattle(act, 'b', undefined, type);
+        const run = { ...newRun(1), phase: 'deploy' as const, battle };
+        let s = startBattle(run, autoDeploy(run, battle)).activeBattle!;
+        const r = rng(act * 10 + type.length);
+        for (let ply = 0; ply < 60 && s.result.kind === 'ongoing'; ply++) {
+          s = applyMove(s, chooseMove(s, 1, r)!);
+          checkInvariants(s);
+        }
+      }
+    }
+  }, 120000);
+});
+
 describe('AI self-play', () => {
   for (const e of ENCOUNTERS) {
     it(`plays ${e.name} without breaking any board invariant`, () => {

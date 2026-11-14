@@ -3,7 +3,7 @@ import { chooseMove } from '../../engine/ai';
 import { applyMove } from '../../engine/moves';
 import { GameState } from '../../engine/types';
 import { covers } from '../../engine/__tests__/upgradeHelpers';
-import { bossBattle, enemyUpgradeCount, generateBattle } from '../battlegen';
+import { BOSS_POOLS, bossBattle, enemyUpgradeCount, generateBattle } from '../battlegen';
 import { RUN_CONFIG } from '../config';
 import { EVENTS } from '../events';
 import { FLOORS_PER_ACT, generateAct } from '../map';
@@ -86,13 +86,34 @@ describe('battle generation', () => {
     }
   });
 
-  it('has a valid boss for every act', () => {
+  it('every boss arena is a valid battle the default deployment can start', () => {
     const run = newRun(5);
-    for (let act = 0; act < ACTS; act++) {
-      const boss = bossBattle(act, 'boss');
-      expect(boss.kind).toBe('boss');
-      expect(deploymentErrors(run, boss, autoDeploy(run, boss))).toEqual([]);
-    }
+    BOSS_POOLS.forEach((pool, act) => {
+      for (const type of pool) {
+        const boss = bossBattle(act, 'boss', new Rng(act + 1), type);
+        expect(boss.kind).toBe('boss');
+        expect(boss.boss).toBe(type);
+        expect(boss.enemies.filter((e) => e.type === type)).toHaveLength(1);
+        expect(boss.enemies.filter((e) => e.type === 'king')).toHaveLength(1);
+        expect(deploymentErrors(run, boss, autoDeploy(run, boss))).toEqual([]);
+        expect(() => startBattle({ ...run, phase: 'deploy', battle: boss }, autoDeploy(run, boss))).not.toThrow();
+      }
+    });
+  });
+
+  it('each act map ends in a boss from that act’s pool', () => {
+    const run = newRun(8);
+    run.maps.forEach((m, i) => expect(BOSS_POOLS[i]).toContain(m.floors[m.floors.length - 1][0].boss));
+  });
+
+  it('defeating a boss unlocks it', () => {
+    let run = newRun(9);
+    const boss = bossBattle(0, 'a0boss', new Rng(1), 'necromancer');
+    run = { ...run, phase: 'deploy', battle: boss };
+    run = startBattle(run, autoDeploy(run, boss));
+    const after = finishBattle(run, { ...run.activeBattle!, result: { kind: 'bossDefeated', winner: 'player' } });
+    expect(after.unlockedBosses).toEqual(['necromancer']);
+    expect(after.phase).toBe('reward');
   });
 });
 
@@ -272,7 +293,7 @@ describe('upgrades in a run', () => {
     const pawn = run.roster.find((p) => p.type === 'pawn')!;
     run = { ...run, roster: run.roster.map((p) => (p.uid === pawn.uid ? { ...p, upgrades: ['second_life'] } : p)) };
     run = enterNode(run, availableNodes(run)[0].id);
-    run = startBattle(run, [{ uid: run.roster.find((r) => r.type === 'king')!.uid, x: 3, y: 7 }, ...autoDeploy(run, run.battle!).filter((d) => d.uid !== run.roster.find((r) => r.type === 'king')!.uid)]);
+    run = startBattle(run, autoDeploy(run, run.battle!));
     const fielded = run.activeBattle!.pieces.find((p) => p.id === pawn.uid);
     if (!fielded) return; // not deployed by the auto setup on this map
     const final: GameState = {
