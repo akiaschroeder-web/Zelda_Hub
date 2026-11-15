@@ -5,7 +5,7 @@ import { occupancy } from '../engine/board';
 import { actionLabel, describeMove } from '../engine/describe';
 import { UPGRADE_BY_ID } from '../engine/upgrades/catalog';
 import { applyMove, distance, findKing, inCheck, legalMoves } from '../engine/moves';
-import { PIECE_STATS, footprint, ganonPhase, sizeOf } from '../engine/pieces';
+import { PIECE_STATS, deathEggPhase, footprint, ganonPhase, sizeOf } from '../engine/pieces';
 import { attackSquares, twilightCharged } from '../engine/movement';
 import {
   AbilityId,
@@ -66,6 +66,12 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   darkWarp: 'rgba(120, 40, 60, 0.95)',
   unlock: 'rgba(230, 190, 70, 0.95)',
   spit: 'rgba(214, 60, 60, 0.95)',
+  carry: 'rgba(240, 190, 60, 0.95)',
+  chaosControl: 'rgba(200, 40, 40, 0.95)',
+  chaosSpear: 'rgba(240, 220, 80, 0.95)',
+  psychokinesis: 'rgba(90, 220, 220, 0.95)',
+  energyShot: 'rgba(214, 60, 60, 0.95)',
+  missiles: 'rgba(230, 110, 60, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -106,6 +112,15 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   skulltula: { label: 'Wall Crawler (passive)' },
   deku_scrub: { id: 'burrow', label: 'Deku Spit (red), Burrow' },
   stalfos: { id: 'reassembly', label: 'Reassembly' },
+  knuckles: { label: 'Wall Breaker (orange)' },
+  tails: { label: 'Carry an ally (gold)' },
+  amy: { id: 'determination', label: 'Unshakable Determination' },
+  shadow: { label: 'Chaos Control (red), Chaos Spear (yellow)' },
+  rouge: { id: 'stealth', label: 'Stealth' },
+  silver: { label: 'Psychokinesis (cyan)' },
+  eggman: { id: 'escape', label: 'Emergency Escape' },
+  buzz_bomber: { label: 'Energy Shot (red)' },
+  crabmeat: { id: 'carapace', label: 'Armored Carapace' },
 };
 
 const STATUS_NAMES: Partial<Record<string, string>> = {
@@ -141,6 +156,8 @@ const SOURCE_NAMES: Record<string, string> = {
   slingshot: 'Stunned (slingshot)',
   nayrus_love: "Nayru's Love",
   triforce_wisdom: 'Protected by Wisdom',
+  pincer: 'Gripped',
+  pyrokinesis: 'Burned',
   song_of_storms: 'In the storm',
 };
 
@@ -175,6 +192,16 @@ function zeldaNotes(p: Piece): string {
       return p.counters.armorBroken ? ' Armor broken: moves up to 3.' : ' Armor intact.';
     case 'epona':
       return p.counters.malonBoost ? ' Next to Malon: 3-by-2 jumps this turn.' : '';
+    case 'sonic':
+      return (p.counters.blurCd ?? 0) > 0 ? ` Blue Blur ready in ${p.counters.blurCd} turn(s).` : ' Blue Blur ready.';
+    case 'shadow':
+      return ` Chaos Control ${(p.counters.chaosControlCd ?? 0) > 0 ? `in ${p.counters.chaosControlCd}` : 'ready'}; Chaos Spear ${(p.counters.chaosSpearCd ?? 0) > 0 ? `in ${p.counters.chaosSpearCd}` : 'ready'}.`;
+    case 'metal_sonic': {
+      const c = p.statuses.find((st) => st.kind === 'copying')?.source;
+      return c ? ` Copying the ${PIECE_STATS[c as PieceType]?.name ?? c}'s moves.` : '';
+    }
+    case 'death_egg':
+      return [' Phase 1: Iron Giant.', ' Phase 2: Missile Barrage.', ' Phase 3: Critical Overload.'][deathEggPhase(p) - 1];
     case 'lizalfos':
       return (p.counters.acroCd ?? 0) > 0 ? ` Acrobatic Retreat ready in ${p.counters.acroCd} turn(s).` : ' Acrobatic Retreat ready.';
     case 'zelda':

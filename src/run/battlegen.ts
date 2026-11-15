@@ -6,7 +6,7 @@ import { canTake } from '../engine/upgrades/eligibility';
 import { rollUpgrade } from './rewards';
 import { Rng } from './rng';
 import { generateBoard } from './boardgen';
-import { ZELDA_LEGEND, enabledPacks } from '../content/packs';
+import { SONIC_LEGEND, ZELDA_LEGEND, enabledPacks } from '../content/packs';
 
 /** How many upgrades an enemy army gets. */
 export function enemyUpgradeCount(act: number, kind: 'battle' | 'elite' | 'boss'): number {
@@ -273,6 +273,13 @@ const ARENAS: Partial<Record<PieceType, { name: string; description: string; ene
     description: 'The King of Evil grows more dangerous with every wound: sorcery at 2 HP, and the beast Ganon at 1 HP. Leave him room and he will use it.',
     enemies: ['9.8kβ.8.9.', '.6.7..7.6.', 'p.p....p.p', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
   },
+  death_egg: {
+    name: 'Death Egg Zone',
+    description:
+      "Dr. Eggman's giant robot fills a quarter of the field. It stomps everything next to it, fires missiles at 2 HP, and goes critical at 1 HP — and explodes when it falls.",
+    // King, Dr. Eggman, Metal Sonic, then three each of Motobug, Buzz Bomber and Crabmeat (see SONIC_LEGEND).
+    enemies: ['kклмммнннппп'],
+  },
   chronarch: {
     name: 'The Clockwork Court',
     description: 'A master tactician that can undo your best move — but only once.',
@@ -290,6 +297,7 @@ const ARENA_THEMES: Partial<Record<PieceType, 'open' | 'fortress' | 'ruins' | 'c
   colossus: 'ruins',
   hive_mother: 'chasm',
   ganondorf: 'chasm',
+  death_egg: 'open',
 };
 
 export const bossArenaName = (boss: PieceType) => ARENAS[boss]?.name ?? PIECE_STATS[boss].name;
@@ -304,7 +312,7 @@ export function bossBattle(act: number, id: string, rng?: Rng, boss?: PieceType,
   const terrain = placeKeys(r, board).terrain;
   const bossAt = board.bossAt!;
   // The escort fills the rest of the enemy zone (the boss's squares are taken).
-  const escort = parsePlacements(arena.enemies, ZELDA_LEGEND)
+  const escort = parsePlacements(arena.enemies, { ...ZELDA_LEGEND, ...SONIC_LEGEND })
     .filter((p) => p.side === 'enemy')
     .map((p) => p.type);
   const withoutBoss = terrain.map((row, y) =>

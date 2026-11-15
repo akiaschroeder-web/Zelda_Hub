@@ -67,11 +67,14 @@ export function generateBoard(rng: Rng, spec: BoardSpec = {}): GeneratedBoard {
 
 function attempt(rng: Rng, spec: BoardSpec, simple: boolean, plain = false): GeneratedBoard | null {
   const boss = spec.boss;
-  const n = boss ? 10 : rng.int(8, 10);
+  // A 4×4 boss (the Death Egg Robot) gets a 12×12 arena so it has room to move.
+  const n = boss ? (boss.size >= 4 ? 12 : 10) : rng.int(8, 10);
   const shape: Shape = plain
     ? 'full'
     : boss
-      ? rng.weighted<Shape>({ full: 3, octagon: 3, waist: 2, notched: 2 })
+      ? boss.size >= 4
+        ? rng.weighted<Shape>({ full: 3, octagon: 2 })
+        : rng.weighted<Shape>({ full: 3, octagon: 3, waist: 2, notched: 2 })
       : rng.weighted<Shape>({ full: 2, narrow: 3, wide: 2, octagon: 3, waist: 3, notched: 3, cross: 2 });
   const theme: Theme = boss?.theme ?? (plain ? 'open' : rng.weighted<Theme>({ open: 2, fortress: 3, ruins: 3, chasm: 3, mixed: 4 }));
   const g: string[][] = Array.from({ length: n }, () => Array<string>(n).fill('.'));
@@ -97,7 +100,7 @@ function attempt(rng: Rng, spec: BoardSpec, simple: boolean, plain = false): Gen
     }
     return ys;
   };
-  const enemyRows = take(rows, boss ? 3 : 2);
+  const enemyRows = take(rows, boss ? Math.max(3, boss.size) : 2);
   const playerRows = take([...rows].reverse(), 2);
   const middle = rows.map((r) => r.y).filter((y) => !enemyRows.includes(y) && !playerRows.includes(y));
   if (middle.length < 3) return null;

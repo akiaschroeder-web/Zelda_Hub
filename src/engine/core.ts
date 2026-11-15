@@ -6,7 +6,8 @@
  * clones the incoming state once, then resolves the move on the clone.
  */
 import { inBounds, isHole, isStandable, terrainAt } from './board';
-import { BOSS_TYPES, PIECE_STATS, footprint, sizeOf } from './pieces';
+import { BOSS_TYPES, PIECE_STATS, deathEggPhase, footprint, sizeOf } from './pieces';
+import { eggmanEscapeSquare } from './sonic';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { etherealEscape, haunted } from './bosses';
 import {
@@ -182,6 +183,8 @@ export function addStatus(p: Piece, st: Status) {
   if ((p.type === 'ganondorf' || p.type === 'ganon') && GANON_IMMUNE.includes(st.kind)) return;
   // Triforce of Courage: no negative status effect can take hold.
   if (p.upgrades.includes('triforce_courage') && (NEGATIVE.includes(st.kind) || COURAGE_ALSO.includes(st.kind))) return;
+  // Blaze: Flame Immunity.
+  if (p.type === 'blaze' && st.kind === 'burned') return;
   const existing = statusOf(p, st.kind);
   if (existing && (st.kind === 'rangeBuff' || st.kind === 'damageBuff')) {
     existing.amount = (existing.amount ?? 0) + (st.amount ?? 0);
@@ -348,6 +351,18 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   // Phantom King: Ethereal Escape dodges the first attack by teleporting away.
   if (direct(ctx.kind) && !ctx.lethal && !ctx.trueSight && etherealEscape(s, target, source)) return { kind: 'survived', dealt: 0 };
 
+  // Death Egg Robot (Phase 1, Heavy Armor): ranged attacks can't hurt it.
+  if (ctx.kind === 'ranged' && deathEggPhase(target) === 1) {
+    log(s, 'The Death Egg Robot shrugs off the shot.');
+    return { kind: 'immune' };
+  }
+  // Rouge: Stealth — the first attack on her misses, as long as she hasn't captured anything.
+  if (direct(ctx.kind) && target.type === 'rouge' && !hasUsed(target, 'stealth') && !target.counters.captures && !ctx.trueSight && amount > 0) {
+    markUsed(target, 'stealth');
+    log(s, 'Rouge slips out of the way!');
+    return { kind: 'survived', dealt: 0 };
+  }
+
   // Mirror Shield: once per battle, a ranged or magical attack is reflected back at its source.
   if ((ctx.kind === 'ranged' || ctx.kind === 'ability') && source && source.side !== target.side && ready(target, 'mirror_shield')) {
     markUsed(target, 'mirror_shield');
@@ -431,6 +446,11 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   // Warden's Defensive Aura: adjacent allies take one less from hits of 2 or more.
   if (dmg >= 2 && direct(ctx.kind) && allies(s, target).some((a) => a.type === 'warden' && adjacent(a, target))) dmg -= 1;
   // Reductions.
+  // Crabmeat: Armored Carapace stops the first point of ranged damage.
+  if (dmg > 0 && ctx.kind === 'ranged' && target.type === 'crabmeat' && !hasUsed(target, 'carapace')) {
+    markUsed(target, 'carapace');
+    dmg -= 1;
+  }
   if (dmg > 0 && ready(target, 'iron_shell')) {
     markUsed(target, 'iron_shell');
     dmg -= 1;
@@ -488,6 +508,11 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
  * Acrobatic Retreat (every 3 turns, after being hurt): hop to the safest open square.
  */
 function escapeAfterHit(s: GameState, t: Piece, hpBefore: number, ctx: DamageCtx, source?: Piece) {
+  // Metal Sonic: Copycat — for 2 turns he also moves like the enemy that hurt him.
+  if (t.type === 'metal_sonic' && source && source.side !== t.side && t.hp < hpBefore && getPiece(s, t.id)) {
+    removeStatus(t, 'copying');
+    addStatus(t, { kind: 'copying', until: endOfTurn(s.ply, t.side, 2), source: source.type });
+  }
   let spots: Coord[] = [];
   if (t.type === 'deku_scrub' && direct(ctx.kind) && !hasUsed(t, 'burrow')) spots = ALL_DIRS.map((d) => add(t.pos, d));
   else if (t.type === 'lizalfos' && t.hp < hpBefore && (t.counters.acroCd ?? 0) <= 0) spots = DIAG.map((d) => add(t.pos, scale(d, 2)));
@@ -502,6 +527,24 @@ function escapeAfterHit(s: GameState, t: Piece, hpBefore: number, ctx: DamageCtx
 }
 
 function preventDeath(s: GameState, p: Piece): boolean {
+  // Amy Rose: Unshakable Determination.
+  if (p.type === 'amy' && !hasUsed(p, 'determination')) {
+    markUsed(p, 'determination');
+    p.hp = 1;
+    log(s, "Amy won't give up — she survives with 1 HP!");
+    return true;
+  }
+  // Dr. Eggman: Emergency Escape to somewhere safer on his own side.
+  if (p.type === 'eggman' && !hasUsed(p, 'escape')) {
+    const spot = eggmanEscapeSquare(s, p);
+    if (spot) {
+      markUsed(p, 'escape');
+      p.hp = 1;
+      p.pos = spot;
+      log(s, 'Dr. Eggman escapes in his Egg Mobile!');
+      return true;
+    }
+  }
   if (ready(p, 'bottled_fairy')) {
     markUsed(p, 'bottled_fairy');
     p.hp = 1;
@@ -604,6 +647,11 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
     s.bones = [...(s.bones ?? []), { piece: p, at: { ...p.pos }, ready: endOfTurn(s.ply, p.side, 2) }];
     log(s, `${nameOf(p)} collapses into a pile of bones…`);
     return;
+  }
+  // Death Egg Robot: Final Explosion — 1 damage to everything within 2 of its footprint.
+  if (p.type === 'death_egg') {
+    log(s, 'The Death Egg Robot explodes!');
+    for (const o of s.pieces.filter((o) => pieceDistance(o, p) <= 2)) dealDamage(s, o.id, 1, { kind: 'splash' });
   }
   // A fallen Like Like lets its victim go (placed back once the move finishes).
   if (p.type === 'like_like') for (const e of s.engulfed ?? []) if (e.holderId === p.id) e.freed = true;

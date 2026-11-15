@@ -215,7 +215,8 @@ export function resolveZeldaUpgrade(s: GameState, m: Move) {
       for (const e of s.pieces.filter((e) => e.side !== p.side && controllable(e) && pieceDistance(e, p) === 1)) stun(e, 'stunned', 'deku_nut');
       break;
     case 'dins_fire':
-      for (const e of s.pieces.filter((e) => e.side !== p.side && dinsReach(s, p, e))) hit(s, p, e, abilityDamage(p, e), 'ability');
+      // Blaze is immune to fire.
+      for (const e of s.pieces.filter((e) => e.side !== p.side && e.type !== 'blaze' && dinsReach(s, p, e))) hit(s, p, e, abilityDamage(p, e), 'ability');
       break;
     case 'farores_wind':
       p.pos = { ...m.to };
@@ -306,7 +307,9 @@ function hit(s: GameState, p: Piece, t: Piece, amount: number, kind: 'ranged' | 
 export function arrowEffects(s: GameState, p: Piece, targetId: string) {
   const t = getPiece(s, targetId);
   if (!t || t.side === p.side) return;
-  if (has(p, 'fire_arrows')) addStatus(t, { kind: 'burned', until: endOfTurn(s.ply, t.side), source: 'fire_arrows' });
+  if (has(p, 'fire_arrows') || p.type === 'blaze') addStatus(t, { kind: 'burned', until: endOfTurn(s.ply, t.side), source: p.type === 'blaze' ? 'pyrokinesis' : 'fire_arrows' });
+  // Crabmeat: Pincer Grip — the enemy can't move on its next turn.
+  if (p.type === 'crabmeat') addStatus(t, { kind: 'bound', until: endOfTurn(s.ply, t.side), source: 'pincer' });
   if (has(p, 'ice_arrows')) addStatus(t, { kind: 'bound', until: endOfTurn(s.ply, t.side), source: 'ice_arrows' });
 }
 

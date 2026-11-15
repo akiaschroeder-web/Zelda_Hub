@@ -1,4 +1,4 @@
-import { ZELDA_LEGEND } from '../content/packs';
+import { SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
 import { EncounterDef } from './setup';
 
 /**
@@ -360,5 +360,15 @@ export const ENCOUNTERS: EncounterDef[] = [
     terrain: ['........', '........', '..#..#..', '._....._', '_.....__', '..#..#..', '........', '........'],
     pieces: ['σεμλkλδσ', 'pppδpppp', '........', '........', '........', '........', 'PPPPΔPPP', 'ΣΔΛKΛΜΕΣ'],
     legend: ZELDA_LEGEND,
+  },
+  {
+    id: 'green_hill',
+    name: 'Green Hill',
+    description:
+      'Sonic Pack: Sonic, Tails, Knuckles, Amy, Shadow, Rouge, Silver, Blaze, Dr. Eggman, Metal Sonic and Badniks on both sides. Sonic spins through cracked walls; Tails and Buzz Bombers fly over gaps.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', '..+..+..', '._....._', '_......_', '..+..+..', '........', '........'],
+    pieces: ['гжваkдзи', 'бмнпклнм', '........', '........', '........', '........', 'БМНПКЛНМ', 'ГЖВАKДЗИ'],
+    legend: SONIC_LEGEND,
   },
 ];

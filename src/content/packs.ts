@@ -5,7 +5,7 @@
  */
 import { PieceType, Side } from '../engine/types';
 
-export type PackId = 'zelda';
+export type PackId = 'zelda' | 'sonic';
 
 /** Rarity buckets match the base recruit pools. */
 type PackRarity = 'common' | 'uncommon' | 'rare' | 'epic';
@@ -55,6 +55,57 @@ export const PACKS: ContentPack[] = [
   },
 ];
 
+PACKS.push({
+  id: 'sonic',
+  name: 'Sonic Pack',
+  description:
+    'Sonic, Tails, Knuckles, Amy, Shadow, Rouge, Silver and Blaze against Dr. Eggman, Metal Sonic, Badniks and Chaos — and the 4×4 Death Egg Robot.',
+  recruits: {
+    common: ['motobug', 'buzz_bomber', 'crabmeat'],
+    uncommon: ['tails', 'amy', 'rouge', 'blaze', 'eggman'],
+    rare: ['sonic', 'knuckles', 'shadow', 'silver', 'metal_sonic'],
+    epic: ['chaos'],
+  },
+  bosses: [{ type: 'death_egg', act: 2 }],
+  archetypes: [
+    {
+      name: 'Badnik Swarm',
+      blurb: "Dr. Eggman's robots: Motobugs, Buzz Bombers and Crabmeats.",
+      weights: { motobug: 5, buzz_bomber: 4, crabmeat: 4, eggman: 1, pawn: 3, metal_sonic: 1 },
+    },
+    {
+      name: 'Freedom Fighters',
+      blurb: 'Sonic and friends.',
+      weights: { sonic: 1, tails: 2, knuckles: 1, amy: 2, pawn: 3, knight: 1 },
+    },
+    {
+      name: 'Rival Squad',
+      blurb: 'Shadow, Rouge, Silver, Blaze and Metal Sonic.',
+      weights: { shadow: 1, rouge: 2, silver: 1, blaze: 2, metal_sonic: 1, pawn: 3, chaos: 1 },
+    },
+  ],
+  pieces: [
+    'sonic', 'tails', 'knuckles', 'amy', 'shadow', 'rouge', 'silver', 'blaze',
+    'eggman', 'metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'chaos', 'death_egg',
+  ],
+});
+
+/**
+ * Placement symbols for Sonic pieces: Cyrillic lower case for the enemy,
+ * upper case for the player.
+ */
+const SONIC_ORDER: PieceType[] = [
+  'sonic', 'tails', 'knuckles', 'amy', 'shadow', 'rouge', 'silver', 'blaze',
+  'eggman', 'metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'chaos',
+];
+const CYRILLIC = 'абвгджзиклмнпр';
+export const SONIC_LEGEND: Record<string, [PieceType, Side]> = Object.fromEntries(
+  SONIC_ORDER.flatMap((t, i) => [
+    [CYRILLIC[i], [t, 'enemy']],
+    [CYRILLIC[i].toUpperCase(), [t, 'player']],
+  ]),
+);
+
 export const PACK_BY_ID: Record<PackId, ContentPack> = Object.fromEntries(PACKS.map((p) => [p.id, p])) as Record<PackId, ContentPack>;
 
 const OWNER = new Map<PieceType, PackId>(PACKS.flatMap((p) => p.pieces.map((t) => [t, p.id] as [PieceType, PackId])));
@@ -68,7 +119,7 @@ export const pieceAllowed = (t: PieceType, packs: readonly string[]) => {
 export const enabledPacks = (packs: readonly string[]) => PACKS.filter((p) => packs.includes(p.id));
 
 /** Packs that are on unless the player switches them off. */
-export const DEFAULT_PACKS: PackId[] = ['zelda'];
+export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic'];
 
 /**
  * Placement symbols for Zelda pieces in board layouts: digits are enemy

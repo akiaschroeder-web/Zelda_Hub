@@ -256,6 +256,67 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Stalfos',
     blurb: 'Up to two squares any direction. Reassembly: the first time it falls it becomes a pile of bones, rising again with 1 HP after 2 of its turns — unless an enemy steps on the bones first.',
   },
+  // Sonic Content Pack
+  sonic: {
+    size: 1, maxHp: 2, damage: 1, cost: 7, value: 640, name: 'Sonic',
+    blurb: 'Up to four squares orthogonally or two diagonally, spinning through one cracked wall on the way. Blue Blur: every 3 turns, a second (non-capturing) move.',
+  },
+  tails: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 360, name: 'Tails',
+    blurb: 'Flies up to three squares diagonally over anything, and can land on gaps. Can carry an adjacent ally along instead of capturing.',
+  },
+  knuckles: {
+    size: 1, maxHp: 3, damage: 2, cost: 7, value: 640, name: 'Knuckles',
+    blurb: 'Up to two squares orthogonally, or jumps exactly two diagonally. Power Punch: 2 damage. Wall Breaker: smashes an adjacent cracked wall instead of moving.',
+  },
+  amy: {
+    size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Amy Rose',
+    blurb: 'Up to two squares any direction. Survives being captured once, with 1 HP. Allies next to her cannot be stunned or paralyzed.',
+  },
+  shadow: {
+    size: 1, maxHp: 2, damage: 1, cost: 8, value: 700, name: 'Shadow',
+    blurb: 'Up to three squares any direction. Chaos Control (every 4 turns): teleport anywhere within 4. Chaos Spear (every 3 turns): 1 damage to the first enemy within 3 in a line.',
+  },
+  rouge: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 360, name: 'Rouge',
+    blurb: "Up to four squares diagonally, hopping over one obstacle. Collects keys within 1 square. The first attack on her misses, until she's captured something.",
+  },
+  silver: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 520, name: 'Silver',
+    blurb: 'Up to two squares any direction, floating over gaps. Psychokinesis: instead of moving, moves an enemy within 3 to an empty square next to it.',
+  },
+  blaze: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 520, name: 'Blaze',
+    blurb: 'Up to three squares diagonally or one orthogonally. Enemies she damages are Burned. Immune to fire.',
+  },
+  eggman: {
+    size: 1, maxHp: 1, damage: 1, cost: 3, value: 300, name: 'Dr. Eggman',
+    blurb: 'One square any direction. Friendly robots within 3 get +1 max HP (up to 3). Once per battle, escapes capture to a random square on his side.',
+  },
+  metal_sonic: {
+    size: 1, maxHp: 3, damage: 1, cost: 8, value: 720, name: 'Metal Sonic',
+    blurb: "Up to three squares orthogonally, or a Knight jump. Copycat: when an enemy damages him, he also moves like it for 2 turns. Overdrive: +1 range at 1 HP.",
+  },
+  motobug: {
+    size: 1, maxHp: 1, damage: 1, cost: 2, value: 200, name: 'Motobug',
+    blurb: 'Up to four squares sideways or one forward/back. +1 damage after rolling 3+ squares; after a sideways capture, may roll one more square.',
+  },
+  buzz_bomber: {
+    size: 1, maxHp: 1, damage: 1, cost: 3, value: 280, name: 'Buzz Bomber',
+    blurb: 'Flies up to three squares diagonally over anything and can hover over gaps. Energy Shot (every 2 turns): 1 damage to the first enemy within 3 orthogonally.',
+  },
+  crabmeat: {
+    size: 1, maxHp: 2, damage: 1, cost: 3, value: 300, name: 'Crabmeat',
+    blurb: 'Up to two squares sideways or one forward/back. Enemies it damages cannot move next turn. Its shell stops the first point of ranged damage.',
+  },
+  chaos: {
+    size: 2, maxHp: 3, damage: 1, cost: 10, value: 900, name: 'Chaos',
+    blurb: '2×2. Up to two squares any direction, flowing through walls and pieces. Every 4 turns, heals 1 at the end of a turn it dealt no damage.',
+  },
+  death_egg: {
+    size: 4, maxHp: 3, damage: 1, cost: 30, value: 3200, name: 'Death Egg Robot',
+    blurb: '4×4. One square orthogonally, crushing cracked walls; stomps every adjacent enemy when it moves. Gains a missile barrage at 2 HP and goes critical at 1 HP.',
+  },
   ganon: {
     size: 3, maxHp: 3, damage: 1, cost: 26, value: 2700, name: 'Ganon',
     blurb: "3×3. Ganondorf's demon form. One square any direction, damaging every adjacent enemy whenever he moves.",
@@ -275,7 +336,7 @@ export const sizeOf = (p: Piece): number => PIECE_STATS[p.type].size;
 export const BOSS_TYPES = new Set<PieceType>([
   'colossus', 'empress', 'necromancer', 'stormbringer', 'watcher',
   'worldbreaker', 'phantom_king', 'doppelganger', 'hive_mother', 'chronarch',
-  'ganondorf', 'ganon',
+  'ganondorf', 'ganon', 'death_egg',
 ]);
 
 /** Ganondorf's current phase (3 HP = 1, 2 HP = 2, 1 HP or Ganon = 3); 0 for anything else. */
@@ -285,10 +346,24 @@ export function ganonPhase(p: Piece): number {
   return p.hp >= 3 ? 1 : p.hp === 2 ? 2 : 3;
 }
 
+/** Sonic Content Pack piece types. */
+export const SONIC_TYPES = new Set<PieceType>([
+  'sonic', 'tails', 'knuckles', 'amy', 'shadow', 'rouge', 'silver', 'blaze',
+  'eggman', 'metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'chaos', 'death_egg',
+]);
+
+/** Robots that Dr. Eggman's Mechanical Genius reinforces. */
+export const ROBOTS = new Set<PieceType>(['metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'death_egg']);
+
+/** Death Egg Robot phase (3 HP = 1, 2 HP = 2, 1 HP = 3); 0 for anything else. */
+export const deathEggPhase = (p: Piece) => (p.type !== 'death_egg' ? 0 : p.hp >= 3 ? 1 : p.hp === 2 ? 2 : 3);
+
 /** Zelda Content Pack piece types (handled outside some engine fast paths). */
 export const ZELDA_TYPES = new Set<PieceType>([
   'link', 'zelda', 'midna', 'goron', 'zora', 'redead', 'like_like', 'darknut', 'skulltula', 'ganondorf', 'ganon',
   'malon', 'epona', 'deku_scrub', 'lizalfos', 'stalfos',
+  // Sonic pieces share the same slow paths.
+  ...SONIC_TYPES,
 ]);
 
 /** Every square a piece occupies. */

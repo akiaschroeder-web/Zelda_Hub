@@ -26,7 +26,7 @@ import {
   statusOf,
   suppressed,
 } from './core';
-import { ZELDA_TYPES, footprint, ganonPhase, sizeOf } from './pieces';
+import { PIECE_STATS, ZELDA_TYPES, deathEggPhase, footprint, ganonPhase, sizeOf } from './pieces';
 import { haunted, heavyDirs, phantomSteps } from './bosses';
 import { Coord, GameState, Piece, PieceType, forward, sameCoord } from './types';
 
@@ -225,6 +225,44 @@ function basePatterns(type: PieceType): Pattern[] {
       ];
     case 'stalfos':
       return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
+    // Sonic Content Pack (Tails, Rouge and Buzz Bomber move by their own rules in stepsFor).
+    case 'sonic':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 4 },
+        { kind: 'slide', dirs: DIAG, max: 2 },
+      ];
+    case 'knuckles':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 2 },
+        { kind: 'leap', offsets: DIAG.map((d) => scale(d, 2)), rule: 'line' },
+      ];
+    case 'amy':
+    case 'silver':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
+    case 'shadow':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 3 }];
+    case 'blaze':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 3 },
+        { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
+    case 'eggman':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 1 }];
+    case 'metal_sonic':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+        { kind: 'leap', offsets: KNIGHT_JUMPS, rule: 'rect' },
+      ];
+    case 'motobug':
+      return [
+        { kind: 'slide', dirs: SIDEWAYS, max: 4 },
+        { kind: 'slide', dirs: [{ x: 0, y: 1 }, { x: 0, y: -1 }], max: 1 },
+      ];
+    case 'crabmeat':
+      return [
+        { kind: 'slide', dirs: SIDEWAYS, max: 2 },
+        { kind: 'slide', dirs: [{ x: 0, y: 1 }, { x: 0, y: -1 }], max: 1 },
+      ];
     default:
       return []; // pawn and large pieces have their own rules
   }
@@ -279,7 +317,8 @@ interface Crossing {
 
 function crossingFor(p: Piece): Crossing {
   return {
-    gaps: has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
+    // Silver levitates over any run of gaps.
+    gaps: p.type === 'silver' ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
     walls: has(p, 'extended_phasing') ? 2 : has(p, 'phasing') ? 1 : 0,
   };
 }
@@ -383,6 +422,69 @@ function rollingCharge(s: GameState, p: Piece): Step[] {
   return out;
 }
 
+/** Tails and Buzz Bomber fly diagonally over anything and may land on a gap. */
+function flightSteps(s: GameState, p: Piece, reach: number): Step[] {
+  if (hasStatus(p, 'bound')) return [];
+  const out: Step[] = [];
+  for (const d of DIAG)
+    for (let k = 1; k <= reach; k++) {
+      const c = add(p.pos, scale(d, k));
+      const t = terrainAt(s.board, c);
+      if (!inBounds(s.board, c) || (t !== 'normal' && t !== 'gap')) continue;
+      out.push({ to: c, capture: true, quiet: true, leap: true });
+    }
+  return out;
+}
+
+/** Rouge: up to four squares diagonally, hopping over one obstacle (a piece or a wall) on the way. */
+function rougeSteps(s: GameState, p: Piece): Step[] {
+  if (hasStatus(p, 'bound')) return [];
+  const out: Step[] = [];
+  for (const d of DIAG) {
+    let hopped = false;
+    for (let k = 1; k <= 4; k++) {
+      const c = add(p.pos, scale(d, k));
+      // Off the board's shape ends the line; a gap or wall is just one more obstacle to hop.
+      if (!inBounds(s.board, c) || terrainAt(s.board, c) === 'void') break;
+      const o = pieceAt(s, c);
+      const blocked = !isStandable(s.board, c) || !!o;
+      if (!blocked) {
+        out.push({ to: c, capture: true, quiet: true, leap: hopped });
+        continue;
+      }
+      if (o && o.side !== p.side && isStandable(s.board, c)) out.push({ to: c, capture: true, quiet: false, leap: hopped });
+      if (hopped) break;
+      hopped = true;
+    }
+  }
+  return out;
+}
+
+/** Sonic's Spin Attack: a slide may break through one cracked wall and keep going. */
+function spinSteps(s: GameState, p: Piece): Step[] {
+  if (hasStatus(p, 'bound')) return [];
+  const out: Step[] = [];
+  for (const pat of basePatterns('sonic'))
+    if (pat.kind === 'slide')
+      for (const d of pat.dirs) {
+        let broke = false;
+        for (let k = 1; k <= pat.max; k++) {
+          const c = add(p.pos, scale(d, k));
+          const t = terrainAt(s.board, c);
+          if (t === 'cracked' && !broke) {
+            broke = true;
+            continue;
+          }
+          if (!isStandable(s.board, c)) break;
+          const o = pieceAt(s, c);
+          // Only squares past the broken wall are new; the ordinary slide covers the rest.
+          if (broke) out.push({ to: c, capture: true, quiet: !o, leap: false });
+          if (o) break;
+        }
+      }
+  return out;
+}
+
 function leapClear(s: GameState, from: Coord, off: Coord, rule: 'rect' | 'line' | 'free', wallsAllowed: number) {
   const to = add(from, off);
   if (!isStandable(s.board, to)) return null;
@@ -462,6 +564,12 @@ function patternsFor(s: GameState, p: Piece): Pattern[] {
   // Hero's Courage (Link at 1 HP) and a Darknut whose armor is broken reach one square further.
   if ((p.type === 'link' && p.hp === 1) || (p.type === 'darknut' && p.counters.armorBroken))
     pats = pats.map((pt) => (pt.kind === 'slide' && pt.max === 2 ? { ...pt, max: 3 } : pt));
+  // Metal Sonic: Overdrive at 1 HP (+1 range) and Copycat (also moves like the last enemy that hurt him).
+  if (p.type === 'metal_sonic') {
+    if (p.hp === 1) pats = pats.map((pt) => (pt.kind === 'slide' && Number.isFinite(pt.max) ? { ...pt, max: pt.max + 1 } : pt));
+    const copied = statusOf(p, 'copying')?.source as PieceType | undefined;
+    if (copied && copied !== 'pawn' && PIECE_STATS[copied]?.size === 1) pats = [...pats, ...basePatterns(copied)];
+  }
   // Epona started her turn next to Malon: the 3-by-2 jump too.
   if (p.type === 'epona' && p.counters.malonBoost) pats = [...pats, { kind: 'leap', offsets: WIDE_KNIGHT, rule: 'free' }];
   if (p.upgrades.length === 0) return p.type === 'decoy' ? pats.map((pt) => ({ ...pt, capture: false })) : pats;
@@ -546,6 +654,9 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
   if (p.type === 'phantom_king' && !crippled) out.push(...phantomSteps(s, p));
   if (p.type === 'midna' && twilightCharged(p)) out.push(...twilightSteps(s, p));
   if (p.type === 'goron' && !confused) out.push(...rollingCharge(s, p));
+  if ((p.type === 'tails' || p.type === 'buzz_bomber') && !crippled) out.push(...flightSteps(s, p, confused ? 1 : 3));
+  if (p.type === 'rouge' && !confused) out.push(...rougeSteps(s, p));
+  if (p.type === 'sonic' && !confused) out.push(...spinSteps(s, p));
   if (abilities && p.upgrades.length) out.push(...specialMoves(s, p));
   return p.upgrades.length ? dedupe(out) : out;
 }
@@ -649,7 +760,9 @@ export interface HeavyStep {
 
 /** Destinations a multi-square piece can step to (orthogonal, one square; two with Living Avalanche). */
 export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
+  if (p.type === 'chaos') return chaosSteps(s, p);
   const out: HeavyStep[] = [];
+  const egg = deathEggPhase(p);
   const check = (to: Coord): Omit<HeavyStep, 'to'> | null => {
     const targets = new Set<string>();
     const walls: Coord[] = [];
@@ -657,7 +770,9 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
     for (const c of footprint(p, to)) {
       const t = terrainAt(s.board, c);
       // The Colossus (Siege Breaker) and Crushing Entry flatten cracked walls in the way.
-      if (t === 'cracked' && (has(p, 'crushing_entry') || p.type === 'colossus')) walls.push(c);
+      if (t === 'cracked' && (has(p, 'crushing_entry') || p.type === 'colossus' || p.type === 'death_egg')) walls.push(c);
+      // Death Egg Robot (Phase 2+): Crushing Advance flattens solid walls too.
+      else if (t === 'wall' && egg >= 2) walls.push(c);
       else if (t !== 'normal') return null;
       const o = pieceAt(s, c);
       if (!o || o.id === p.id) continue;
@@ -672,8 +787,8 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
     const to = add(p.pos, d);
     const r = check(to);
     if (r) out.push({ to, ...r });
-    // Ganondorf (Phases 1-2) moves up to two squares; the first step must be clear.
-    if (p.type === 'ganondorf' && ganonPhase(p) < 3 && r && !r.targets.length && !r.shove && !r.walls) {
+    // Ganondorf (Phases 1-2) and the critical Death Egg Robot move up to two squares; the first step must be clear.
+    if (((p.type === 'ganondorf' && ganonPhase(p) < 3) || egg === 3) && r && !r.targets.length && !r.shove && !r.walls) {
       const to2 = add(to, d);
       const r2 = check(to2);
       if (r2 && !r2.shove && !r2.walls) out.push({ to: to2, ...r2 });
@@ -692,6 +807,32 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
       }
     }
   }
+  return out;
+}
+
+/**
+ * Chaos (2×2): up to two squares any direction, flowing through walls and
+ * pieces on the way. It must end on open ground clear of allies; enemies under
+ * its new footprint are attacked.
+ */
+function chaosSteps(s: GameState, p: Piece): HeavyStep[] {
+  if (hasStatus(p, 'bound')) return [];
+  const out: HeavyStep[] = [];
+  for (const d of ALL_DIRS)
+    for (let k = 1; k <= 2; k++) {
+      const to = add(p.pos, scale(d, k));
+      const targets = new Set<string>();
+      let ok = true;
+      for (const c of footprint(p, to)) {
+        if (!isStandable(s.board, c)) ok = false;
+        const o = pieceAt(s, c);
+        if (o && o.id !== p.id) {
+          if (o.side === p.side) ok = false;
+          else targets.add(o.id);
+        }
+      }
+      if (ok) out.push({ to, targets: [...targets] });
+    }
   return out;
 }
 

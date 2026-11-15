@@ -69,6 +69,18 @@ export function actionLabel(state: GameState, m: Move): string {
       return 'Dark Warp (teleport)';
     case 'spit':
       return 'Deku Spit';
+    case 'carry':
+      return `Fly, carrying the ${target ? pieceName(target) : 'ally'}`;
+    case 'chaosControl':
+      return 'Chaos Control (teleport)';
+    case 'chaosSpear':
+      return 'Chaos Spear';
+    case 'psychokinesis':
+      return `Psychokinesis: move the ${target ? pieceName(target) : 'enemy'} here`;
+    case 'energyShot':
+      return 'Energy Shot';
+    case 'missiles':
+      return 'Homing Missiles';
     case 'unlock':
       return 'Unlock the door (uses a Small Key)';
     case 'upgrade': {

@@ -50,6 +50,7 @@ import { harvestSoul, resolveSpecial, specialMoves } from './specials';
 import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd, zeldaTurnStart } from './zelda';
 import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
+import { resolveSonic, sonicAfterMove, sonicBeforeMove, sonicMoves, sonicTurnEnd, sonicTurnStart } from './sonic';
 import { FREE_BOSS_ACTIONS, BOSS_COOLDOWNS, bossMoves, bossTurnEnd, bossTurnStart, haunted, resolveBoss, swarmCommanded } from './bosses';
 import { PIECE_STATS, ZELDA_TYPES, footprint, sizeOf } from './pieces';
 import {
@@ -374,6 +375,7 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...upgradeActions(state, p),
     ...temporalEchoMoves(state, p, ordinary),
     ...(bound ? [] : tileMoves(state, p)),
+    ...sonicMoves(state, p),
   ];
   // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
   if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
@@ -424,6 +426,7 @@ function castleMoves(state: GameState, king: Piece): Move[] {
 function fitsBonus(m: Move, b: Bonus): boolean {
   if (b.pieceId && m.pieceId !== b.pieceId) return false;
   if (b.maxDistance !== undefined && (m.action || distance(m.from, m.to) > b.maxDistance)) return false;
+  if (b.to && (m.action || !sameCoord(m.to, b.to))) return false;
   if (b.filter === 'nonCapturing') return !m.targets?.length && (!m.action || m.action === 'teleport');
   if (b.filter === 'captureOnly') return !!m.targets?.length;
   return true;
@@ -570,6 +573,8 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (has(p, 'kingbreaker') && t.type === 'king') dmg += 1;
   if (has(p, 'master_sword') && isBoss(t)) dmg += 1;
   if (has(p, 'triforce_power')) dmg += 1;
+  // Motobug Full Speed Ahead: +1 after rolling three or more squares sideways.
+  if (p.type === 'motobug' && m.from.y === m.to.y && Math.abs(m.to.x - m.from.x) >= 3) dmg += 1;
   if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
   // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
   if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
@@ -739,6 +744,7 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
   if (captured > 0) {
     for (let i = 0; i < captured; i++) harvestSoul(s, p);
     if (p.type === 'zora') p.counters.evadeSpent = 0; // Graceful Evasion recharges
+    if (p.type === 'rouge') p.counters.captures = (p.counters.captures ?? 0) + captured; // Stealth ends
     // Epona Gallop: an optional Knight jump to an empty square after a capture.
     if (p.type === 'epona' && m.action !== 'shoot' && alive(s, p.id) && entry?.source !== 'gallop')
       s.bonus.unshift({ pieceId: p.id, filter: 'nonCapturing', optional: true, source: 'gallop', maxDistance: 2 });
@@ -863,6 +869,7 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
   if (!p) return;
   if (resolveBoss(s, m)) return;
   if (resolveSpecial(s, m)) return;
+  if (resolveSonic(s, m)) return;
   switch (m.action) {
     case 'pass':
       return;
@@ -1004,8 +1011,10 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   const mover = getPiece(s, m.pieceId);
   const from = mover ? { ...mover.pos } : undefined;
   zeldaBeforeMove(s, m);
+  sonicBeforeMove(s, m);
   resolve(s, m, entry);
   zeldaAfterMove(s, m, from);
+  sonicAfterMove(s, m, from, entry);
   tilesAfterMove(s, m, from);
 
   // Doppelganger: a borrowed ability starts the Stolen Talent cooldown.
@@ -1122,6 +1131,7 @@ function endTurn(s: GameState) {
 
   bossTurnEnd(s, side);
   zeldaTurnEnd(s, side);
+  sonicTurnEnd(s, side);
 
   // Expiry at the end of this ply.
   const ply = s.ply;
@@ -1157,6 +1167,7 @@ function startTurn(s: GameState) {
   s.overwatch = s.overwatch.filter((o) => o.side !== side);
   bossTurnStart(s, side);
   zeldaTurnStart(s, side);
+  sonicTurnStart(s);
   // Phoenixes rise again on a free deployment square (or are lost if there is none).
   for (const ph of s.reborn.filter((p) => p.side === side)) {
     s.reborn = s.reborn.filter((p) => p !== ph);

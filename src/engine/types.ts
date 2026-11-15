@@ -96,6 +96,22 @@ export type PieceType =
   | 'deku_scrub'
   | 'lizalfos'
   | 'stalfos'
+  // Sonic Content Pack
+  | 'sonic'
+  | 'tails'
+  | 'knuckles'
+  | 'amy'
+  | 'shadow'
+  | 'rouge'
+  | 'silver'
+  | 'blaze'
+  | 'eggman'
+  | 'metal_sonic'
+  | 'motobug'
+  | 'buzz_bomber'
+  | 'crabmeat'
+  | 'chaos'
+  | 'death_egg'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -146,6 +162,12 @@ export type ActionKind =
   | 'darkWarp' // Ganondorf (Phase 2): teleport up to 3
   | 'unlock' // step into a Locked Door, spending a Small Key
   | 'spit' // Deku Scrub: Deku Spit
+  | 'carry' // Tails: fly with an adjacent ally
+  | 'chaosControl' // Shadow: teleport within 4
+  | 'chaosSpear' // Shadow: ranged bolt
+  | 'psychokinesis' // Silver: move an enemy
+  | 'energyShot' // Buzz Bomber
+  | 'missiles' // Death Egg Robot (Phase 2)
   | 'upgrade'
   | 'pass';
 
@@ -178,7 +200,8 @@ export type StatusKind =
   | 'springLoaded' // bonus non-capturing move at the start of next turn
   | 'fortified' // Fortified Position bonus HP applied
   | 'prophecy' // the next direct attack against this piece is negated
-  | 'burned'; // Fire Arrows: loses 1 HP at the end of its next turn
+  | 'burned' // Fire Arrows: loses 1 HP at the end of its next turn
+  | 'copying'; // Metal Sonic: also moves like `source` (a piece type)
 
 export interface Status {
   kind: StatusKind;
@@ -288,6 +311,8 @@ export interface Bonus {
   source: string;
   /** Limit on how far the bonus move may go (King-style distance). */
   maxDistance?: number;
+  /** The bonus move must end exactly here (Motobug Momentum). */
+  to?: Coord;
 }
 
 export interface CastleInfo {

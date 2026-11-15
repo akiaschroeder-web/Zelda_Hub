@@ -33,8 +33,14 @@ export function RunProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(SETTINGS_KEY)
       .then((raw) => {
-        const saved = raw ? (JSON.parse(raw) as { packs?: unknown }) : null;
-        if (Array.isArray(saved?.packs)) setPacks(saved.packs.filter((id): id is string => PACKS.some((p) => p.id === id)));
+        const saved = raw ? (JSON.parse(raw) as { packs?: unknown; known?: unknown }) : null;
+        if (Array.isArray(saved?.packs)) {
+          const kept = saved.packs.filter((id): id is string => PACKS.some((p) => p.id === id));
+          // Packs added since the settings were saved start switched on.
+          const known = Array.isArray(saved.known) ? (saved.known as string[]) : ['zelda'];
+          const added = DEFAULT_PACKS.filter((id) => !known.includes(id));
+          setPacks([...new Set([...kept, ...added])]);
+        }
       })
       .catch(() => {
         /* Unreadable settings fall back to the defaults. */
@@ -44,7 +50,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!settingsLoaded) return;
-    AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ packs })).catch(() => {
+    AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ packs, known: PACKS.map((p) => p.id) })).catch(() => {
       /* Best-effort. */
     });
   }, [packs, settingsLoaded]);
