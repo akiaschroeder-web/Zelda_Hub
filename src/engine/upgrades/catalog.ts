@@ -3,7 +3,8 @@
  * engine; this file holds the names, rarity, category and rules text.
  */
 
-export type UpgradeRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+/** Mythical (the Triforce) sits above Legendary: one of each per run, offered only after the biggest fights. */
+export type UpgradeRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythical';
 
 export type UpgradeCategory =
   | 'movement'
@@ -336,12 +337,16 @@ const ZELDA_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity,
   [263, 'ice_arrows', 'Ice Arrows', 'rare', 'status', 'Enemies this piece damages are Frozen and cannot move on their next turn.'],
   [264, 'light_arrows', 'Light Arrows', 'epic', 'offense', "This piece's attacks ignore shields, damage reduction, armor and temporary invulnerability."],
   // Ocarina Songs & Magical Relics
-  [265, 'song_of_time', 'Song of Time', 'epic', 'movement', 'Once per battle, instead of moving, return to where this piece began its previous turn, restoring HP lost since.'],
+  [265, 'song_of_time', 'Song of Time', 'legendary', 'movement', 'Once per battle, instead of moving, return to where this piece began its previous turn, restoring HP lost since.'],
   [266, 'suns_song', "Sun's Song", 'rare', 'status', 'Every 5 turns, instead of moving, stun every enemy undead (ReDead) for 1 turn — or, instead, stun one adjacent enemy.'],
   [267, 'song_of_storms', 'Song of Storms', 'rare', 'status', 'Every 4 turns, instead of moving, call a 3×3 storm within 3 squares: every piece in it moves 1 square less next turn (minimum 1).'],
   [268, 'golden_gauntlets', 'Golden Gauntlets', 'rare', 'bounce', 'Instead of moving, shove an adjacent enemy 1 square away. A wall deals it 1 damage (a cracked wall breaks); a gap captures it.'],
   [269, 'bottled_fairy', 'Bottled Fairy', 'rare', 'defense', 'The first time this piece would be captured, it survives with 1 HP instead.'],
   [270, 'stone_of_agony', 'Stone of Agony', 'common', 'status', 'Ending a move next to a disguised enemy reveals it, and squares watched by hidden hazards are flagged when you select this piece.'],
+  // Mythical: the three pieces of the Triforce. One of each per run.
+  [271, 'triforce_courage', 'Triforce of Courage', 'mythical', 'legendary', 'Immune to every negative status effect and to forced movement. Deals +1 damage to any enemy with more maximum HP than itself.'],
+  [272, 'triforce_power', 'Triforce of Power', 'mythical', 'legendary', '+1 damage on every attack and +1 maximum HP (beyond the usual cap of 3).'],
+  [273, 'triforce_wisdom', 'Triforce of Wisdom', 'mythical', 'legendary', "You always see the enemy's intended move and every illusion. Once per battle, instead of moving, every ally within 2 squares becomes immune to damage until your next turn."],
 ];
 
 /** Upgrades that depend on systems the game doesn't have yet. Never offered. */
@@ -370,7 +375,9 @@ export interface UpgradeInfo {
   pack?: string;
 }
 
-const COST: Record<UpgradeRarity, number> = { common: 0, uncommon: 1, rare: 1, epic: 2, legendary: 3 };
+const COST: Record<UpgradeRarity, number> = { common: 0, uncommon: 1, rare: 1, epic: 2, legendary: 3, mythical: 4 };
+/** Legendary and Mythical upgrades take two of a piece's three slots. */
+const slotsFor = (r: UpgradeRarity) => (r === 'legendary' || r === 'mythical' ? 2 : 1);
 
 export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, Row[]][])
   .flatMap(([category, rows]): UpgradeInfo[] =>
@@ -381,7 +388,7 @@ export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, R
       rarity,
       category,
       text,
-      slots: rarity === 'legendary' ? 2 : 1,
+      slots: slotsFor(rarity),
       cost: COST[rarity],
       excluded: EXCLUDED[id],
     })),
@@ -394,7 +401,7 @@ export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, R
       rarity,
       category,
       text,
-      slots: rarity === 'legendary' ? 2 : 1,
+      slots: slotsFor(rarity),
       cost: COST[rarity],
       pack: 'zelda',
     })),

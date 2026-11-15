@@ -62,8 +62,8 @@ export type RosterView = { type: PieceType; upgrades: string[] }[];
 const UPGRADE_ODDS: Record<'battle' | 'elite' | 'boss' | 'treasure' | 'shop' | 'enemy', Partial<Record<UpgradeRarity, number>>> = {
   battle: { common: 40, uncommon: 38, rare: 18, epic: 4 },
   elite: { uncommon: 30, rare: 42, epic: 22, legendary: 6 },
-  boss: { rare: 35, epic: 45, legendary: 20 },
-  treasure: { rare: 45, epic: 40, legendary: 15 },
+  boss: { rare: 35, epic: 45, legendary: 20, mythical: 4 },
+  treasure: { rare: 45, epic: 40, legendary: 15, mythical: 1 },
   shop: { common: 25, uncommon: 35, rare: 28, epic: 10, legendary: 2 },
   enemy: { common: 30, uncommon: 35, rare: 25, epic: 9, legendary: 1 },
 };
@@ -85,7 +85,12 @@ export function rollUpgrade(
   }
   const usable = UPGRADES.filter(
     (u) =>
-      !u.excluded && (!u.pack || packs.includes(u.pack)) && !exclude.includes(u.id) && roster.some((r) => canTake(u.id, r.type, r.upgrades)),
+      !u.excluded &&
+      (!u.pack || packs.includes(u.pack)) &&
+      !exclude.includes(u.id) &&
+      // Each Mythical upgrade exists once per run.
+      !(u.rarity === 'mythical' && roster.some((r) => r.upgrades.includes(u.id))) &&
+      roster.some((r) => canTake(u.id, r.type, r.upgrades)),
   );
   if (usable.length === 0) return null;
   for (let tries = 0; tries < 12; tries++) {
@@ -208,7 +213,7 @@ export function piecePrice(t: PieceType): number {
   return 8 + PIECE_STATS[t].cost * 7 + RARITY_PREMIUM[rarityOf(t)];
 }
 
-const UPGRADE_PRICE: Record<UpgradeRarity, number> = { common: 30, uncommon: 45, rare: 65, epic: 95, legendary: 140 };
+const UPGRADE_PRICE: Record<UpgradeRarity, number> = { common: 30, uncommon: 45, rare: 65, epic: 95, legendary: 140, mythical: 250 };
 
 export function generateShop(rng: Rng, act: number, roster: RosterView = [], packs: readonly string[] = []): ShopItem[] {
   const pieces: PieceType[] = [];

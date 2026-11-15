@@ -50,7 +50,7 @@ export const ZELDA_COOLDOWNS: Record<string, number> = {
   song_of_storms: 4,
 };
 /** Once-per-battle abilities. */
-const ONCE = new Set(['deku_nut', 'farores_wind', 'nayrus_love', 'song_of_time']);
+const ONCE = new Set(['deku_nut', 'farores_wind', 'nayrus_love', 'song_of_time', 'triforce_wisdom']);
 /** Abilities that move the user (not allowed while Bound). */
 const MOVING = new Set(['hookshot', 'longshot', 'farores_wind', 'song_of_time']);
 /** Abilities that hurt enemies (not allowed while Disarmed / Pacified). */
@@ -140,6 +140,7 @@ export function zeldaUpgradeActions(s: GameState, p: Piece): Move[] {
     for (let y = 0; y < s.board.height; y++)
       for (let x = 0; x < s.board.width; x++) if (isEmpty(s, { x, y }) && distance(p.pos, { x, y }) > 1) act('farores_wind', { x, y });
   if (charged(p, 'nayrus_love')) act('nayrus_love', p.pos);
+  if (charged(p, 'triforce_wisdom')) act('triforce_wisdom', p.pos);
   if (small && charged(p, 'song_of_time') && p.prevPos) {
     const back = p.prevPos;
     const hurt = (p.counters.prevHp ?? p.hp) > p.hp;
@@ -218,6 +219,11 @@ export function resolveZeldaUpgrade(s: GameState, m: Move) {
       break;
     case 'farores_wind':
       p.pos = { ...m.to };
+      break;
+    case 'triforce_wisdom':
+      log(s, 'The Triforce of Wisdom shines: nearby allies are protected.');
+      for (const a of s.pieces.filter((a) => a.side === p.side && pieceDistance(a, p) <= 2))
+        addStatus(a, { kind: 'immune', until: endOfTurn(s.ply, opponent(p.side)), source: 'triforce_wisdom' });
       break;
     case 'nayrus_love':
       addStatus(p, { kind: 'immune', until: endOfTurn(s.ply, opponent(p.side)), source: 'nayrus_love' });

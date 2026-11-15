@@ -28,6 +28,7 @@ export function maxHpFor(type: PieceType, upgrades: string[] = [], bonus = 0): n
   if (upgrades.includes('reinforced_body')) hp += 1;
   if (upgrades.includes('reinforced_frame') && PIECE_STATS[type].size > 1) hp += 1;
   if (upgrades.includes('colossal_endurance')) hp += 2;
+  if (upgrades.includes('triforce_power')) hp += 1;
   return hp;
 }
 

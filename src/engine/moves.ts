@@ -566,6 +566,8 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (has(p, 'revenge_strike') && t.id === p.lastAttackerId) dmg += 1;
   if (has(p, 'kingbreaker') && t.type === 'king') dmg += 1;
   if (has(p, 'master_sword') && isBoss(t)) dmg += 1;
+  if (has(p, 'triforce_power')) dmg += 1;
+  if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
   // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
   if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
     dmg += 1;

@@ -6,7 +6,7 @@ import { PIECE_IMAGES } from './pieceImages';
 import { COLORS } from './theme';
 
 /** Colours for upgrade rarities (piece rarities plus Legendary). */
-export const UPGRADE_RARITY_COLORS = { ...RARITY_COLORS, legendary: '#f0a030' };
+export const UPGRADE_RARITY_COLORS = { ...RARITY_COLORS, legendary: '#f0a030', mythical: '#ffe066' };
 
 interface Props {
   option: RewardOption;

@@ -78,7 +78,8 @@ const RARITY_COLORS: Record<string, string> = {
   uncommon: '#6fbf73',
   rare: '#5aa0e6',
   epic: '#b57ae0',
-  legendary: '#f0c040',
+  legendary: '#f0a030',
+  mythical: '#ffe066',
 };
 
 const styles = StyleSheet.create({

@@ -175,8 +175,13 @@ export const hasStatus = (p: Piece, kind: StatusKind) => p.statuses.some((st) =>
 /** Ganondorf (Gerudo King) shrugs off paralysis and anything that restricts movement. */
 const GANON_IMMUNE: StatusKind[] = ['bound', 'stunned', 'slowed', 'crippled', 'confused'];
 
+/** Negative effects Cleansing can't lift, which the Triforce of Courage still shrugs off. */
+const COURAGE_ALSO: StatusKind[] = ['cursed', 'permMarked', 'prey'];
+
 export function addStatus(p: Piece, st: Status) {
   if ((p.type === 'ganondorf' || p.type === 'ganon') && GANON_IMMUNE.includes(st.kind)) return;
+  // Triforce of Courage: no negative status effect can take hold.
+  if (p.upgrades.includes('triforce_courage') && (NEGATIVE.includes(st.kind) || COURAGE_ALSO.includes(st.kind))) return;
   const existing = statusOf(p, st.kind);
   if (existing && (st.kind === 'rangeBuff' || st.kind === 'damageBuff')) {
     existing.amount = (existing.amount ?? 0) + (st.amount ?? 0);
@@ -210,6 +215,7 @@ export const NEGATIVE: StatusKind[] = [
   'marked',
   'vulnerable',
   'weakened',
+  'burned',
 ];
 
 /** Can't attack this turn. */
@@ -664,7 +670,7 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
 /** `peek` checks without spending a once-per-battle Brace (used when listing moves). */
 export function immuneToForcedMove(s: GameState, p: Piece, source?: Piece, peek = false): boolean {
   if (p.type === 'king' || isBoss(p) || p.type === 'warden') return true;
-  if (hasStatus(p, 'rooted') || has(p, 'steadfast') || has(p, 'iron_boots')) return true;
+  if (hasStatus(p, 'rooted') || has(p, 'steadfast') || has(p, 'iron_boots') || has(p, 'triforce_courage')) return true;
   if (has(p, 'heavy_stabilizer') && source && sizeOf(source) < sizeOf(p)) return true;
   if (
     allies(s, p).some(

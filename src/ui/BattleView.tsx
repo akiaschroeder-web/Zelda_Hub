@@ -140,6 +140,7 @@ const SOURCE_NAMES: Record<string, string> = {
   ice_arrows: 'Frozen',
   slingshot: 'Stunned (slingshot)',
   nayrus_love: "Nayru's Love",
+  triforce_wisdom: 'Protected by Wisdom',
   song_of_storms: 'In the storm',
 };
 
@@ -307,8 +308,10 @@ export default function BattleView({ state, onMove, title, description, finishLa
   const displayPieces = useMemo(() => {
     // A Lens of Truth also sees through illusions within 3; the Stone of Agony reveals them for good.
     const seers = state.pieces.filter((p) => p.side === 'player' && (p.type === 'oracle' || p.upgrades.includes('lens_of_truth')));
+    // The Triforce of Wisdom sees every illusion on the board.
+    const wise = state.pieces.some((p) => p.side === 'player' && p.upgrades.includes('triforce_wisdom'));
     return state.pieces.map((p) =>
-      p.side === 'enemy' && p.type === 'illusion' && !p.counters.revealed && !seers.some((o) => distance(o.pos, p.pos) <= 3)
+      p.side === 'enemy' && p.type === 'illusion' && !wise && !p.counters.revealed && !seers.some((o) => distance(o.pos, p.pos) <= 3)
         ? { ...p, type: 'illusionist' as const, temp: undefined }
         : p,
     );
@@ -327,7 +330,7 @@ export default function BattleView({ state, onMove, title, description, finishLa
   // Foresight: with an Oracle on the field, show the move the enemy currently rates best.
   const foresight = useMemo(() => {
     if (over || state.turn !== 'player' || state.bonus.length) return null;
-    if (!state.pieces.some((p) => p.side === 'player' && p.type === 'oracle')) return null;
+    if (!state.pieces.some((p) => p.side === 'player' && (p.type === 'oracle' || p.upgrades.includes('triforce_wisdom')))) return null;
     return chooseMove({ ...state, turn: 'enemy', bonus: [] }, 1, () => 0);
   }, [state, over]);
   const playerMoves = useMemo(() => (state.turn === 'player' && !over ? legalMoves(state) : []), [state, over]);
@@ -529,7 +532,7 @@ export default function BattleView({ state, onMove, title, description, finishLa
 
       {foresight && (
         <Text style={styles.foresight}>
-          🔮 The Oracle foresees: enemy {PIECE_STATS[displayPieces.find((p) => p.id === foresight.pieceId)?.type ?? 'pawn'].name}
+          🔮 {state.pieces.some((p) => p.side === 'player' && p.type === 'oracle') ? 'The Oracle foresees' : 'The Triforce of Wisdom reveals'}: enemy {PIECE_STATS[displayPieces.find((p) => p.id === foresight.pieceId)?.type ?? 'pawn'].name}
           {' — '}
           {actionLabel(state, foresight)} (purple squares)
         </Text>

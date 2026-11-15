@@ -418,6 +418,12 @@ describe('content packs', () => {
     expect(ups([]).some((id) => UPGRADE_BY_ID[id].pack)).toBe(false);
     expect(ups(['zelda']).some((id) => UPGRADE_BY_ID[id].pack === 'zelda')).toBe(true);
 
+    // A Mythical upgrade already in the army is never offered again.
+    const owned = [{ type: 'rook' as const, upgrades: ['triforce_power'] }, { type: 'knight' as const, upgrades: [] }];
+    const bossUps = Array.from({ length: 600 }, () => rollUpgrade(rng, 'boss', 2, owned, [], ['zelda']));
+    expect(bossUps).not.toContain('triforce_power');
+    expect(bossUps.some((id) => id && UPGRADE_BY_ID[id].rarity === 'mythical')).toBe(true);
+
     expect(freshRun(1, ['zelda']).packs).toEqual(['zelda']);
     expect(freshRun(1).packs).toEqual([]);
   });

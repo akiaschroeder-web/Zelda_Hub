@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { terrainAt } from '../board';
-import { hasStatus } from '../core';
+import { addStatus, hasStatus } from '../core';
 import { legalMoves, applyMove } from '../moves';
 import { PieceType, Side } from '../types';
 import { act, at, covers, dests, hasAction, make, movesAt, play, shields, wait } from './upgradeHelpers';
@@ -266,5 +266,37 @@ describe('Zelda Pack upgrades: songs & relics', () => {
     let s = make(['k.......', '........', '...ι....', '........', '...N....', '........', '........', '.......K'], { '3,4': ['stone_of_agony'] }, opts());
     s = play(s, 3, 4, 4, 2 + 0);
     expect(s.pieces.find((p) => p.type === 'illusion')!.counters.revealed).toBe(1);
+  });
+});
+
+describe('Mythical: the Triforce', () => {
+  it('Triforce of Courage: no stuns or shoves, and +1 damage against bigger foes', () => {
+    covers('triforce_courage');
+    let s = make(['k.......', '........', '..r.....', '........', '..N.....', '........', '........', '.......K'], { '2,4': ['triforce_courage'] }, opts());
+    const knight = at(s, 2, 4)!;
+    addStatus(knight, { kind: 'stunned', until: null });
+    addStatus(knight, { kind: 'burned', until: null });
+    expect(knight.statuses).toHaveLength(0);
+    const rows = ['k.......', '........', '...λ....', '........', '..N.....', '........', '........', '.......K'];
+    s = play(make(rows, { '2,4': ['triforce_courage'] }, opts()), 2, 4, 3, 2);
+    expect(s.pieces.some((p) => p.type === 'link')).toBe(false); // 2 damage to a 2 HP Link
+  });
+
+  it('Triforce of Power: +1 damage on every attack and +1 max HP', () => {
+    covers('triforce_power');
+    let s = make(['k.......', '........', '...λ....', '........', '........', '...R....', '........', '.......K'], { '3,5': ['triforce_power'] }, opts());
+    expect(at(s, 3, 5)!.maxHp).toBe(2);
+    s = play(s, 3, 5, 3, 2);
+    expect(s.pieces.some((p) => p.type === 'link')).toBe(false);
+  });
+
+  it('Triforce of Wisdom: once per battle, allies within 2 become immune until your next turn', () => {
+    covers('triforce_wisdom');
+    let s = make(['k..r....', '........', '........', '........', '........', '...N....', '...B....', '.......K'], { '3,6': ['triforce_wisdom'] }, opts());
+    s = act(s, 3, 6, 'triforce_wisdom');
+    s = play(s, 3, 0, 3, 5);
+    expect(at(s, 3, 5)?.type).toBe('knight');
+    s = wait(s);
+    expect(hasAction(s, 3, 6, 'triforce_wisdom')).toBe(false);
   });
 });
