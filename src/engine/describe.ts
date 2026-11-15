@@ -67,6 +67,8 @@ export function actionLabel(state: GameState, m: Move): string {
       return `Sacred Light: heal ${target ? pieceName(target) : 'ally'}`;
     case 'darkWarp':
       return 'Dark Warp (teleport)';
+    case 'spit':
+      return 'Deku Spit';
     case 'unlock':
       return 'Unlock the door (uses a Small Key)';
     case 'upgrade': {

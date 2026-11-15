@@ -109,6 +109,7 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
     tiles: (board.tiles ?? []).map((t) => ({ ...t, pos: { ...t.pos } })),
     keys: { player: 0, enemy: 0 },
     rotations: 0,
+    bones: [],
   };
   state.runFlags = [...runFlags];
   battleStart(state);

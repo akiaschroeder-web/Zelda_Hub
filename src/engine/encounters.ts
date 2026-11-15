@@ -351,4 +351,14 @@ export const ENCOUNTERS: EncounterDef[] = [
     terrain: ['........', '........', 'W.#LL#.V', '...K..F.', '.H.....S', 'V.#..#KW', '........', '........'],
     pieces: ['rnbqkbnr', 'pppppppp', '........', '........', '........', '........', 'PPPPPPPP', 'RNBQKBNR'],
   },
+  {
+    id: 'lon_lon',
+    name: 'Lon Lon Ranch',
+    description:
+      'Zelda Pack pieces 11–15: Malon, Epona, Deku Scrubs, Lizalfos and Stalfos on both sides. Epona leaps walls and gaps; Stalfos get back up once.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', '..#..#..', '._....._', '_.....__', '..#..#..', '........', '........'],
+    pieces: ['σεμλkλδσ', 'pppδpppp', '........', '........', '........', '........', 'PPPPΔPPP', 'ΣΔΛKΛΜΕΣ'],
+    legend: ZELDA_LEGEND,
+  },
 ];

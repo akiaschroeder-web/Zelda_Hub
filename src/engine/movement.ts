@@ -40,6 +40,17 @@ export const KNIGHT_JUMPS: Coord[] = [
   { x: -1, y: -2 },
   { x: -2, y: -1 },
 ];
+/** Epona's long L (3 by 2), granted next to Malon. */
+const WIDE_KNIGHT: Coord[] = [
+  { x: 2, y: 3 },
+  { x: 3, y: 2 },
+  { x: -2, y: 3 },
+  { x: -3, y: 2 },
+  { x: 2, y: -3 },
+  { x: 3, y: -2 },
+  { x: -2, y: -3 },
+  { x: -3, y: -2 },
+];
 const LONG_KNIGHT: Coord[] = [
   { x: 1, y: 3 },
   { x: 3, y: 1 },
@@ -73,7 +84,7 @@ export interface Step {
 
 type Pattern =
   | { kind: 'slide'; dirs: Coord[]; max: number; capture?: boolean; quiet?: boolean; uses?: string[] }
-  | { kind: 'leap'; offsets: Coord[]; rule: 'rect' | 'line'; capture?: boolean; uses?: string[] };
+  | { kind: 'leap'; offsets: Coord[]; rule: 'rect' | 'line' | 'free'; capture?: boolean; uses?: string[] };
 
 function basePatterns(type: PieceType): Pattern[] {
   switch (type) {
@@ -194,6 +205,26 @@ function basePatterns(type: PieceType): Pattern[] {
       return [{ kind: 'slide', dirs: ORTHO, max: 2 }];
     case 'skulltula':
       return [{ kind: 'slide', dirs: DIAG, max: 3 }];
+    case 'malon':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 2 },
+        { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
+    case 'epona':
+      // Epona clears anything in her path: walls and gaps too.
+      return [
+        { kind: 'leap', offsets: KNIGHT_JUMPS, rule: 'free' },
+        { kind: 'leap', offsets: LONG_KNIGHT, rule: 'free' },
+      ];
+    case 'deku_scrub':
+      return [{ kind: 'slide', dirs: DIAG, max: 1 }];
+    case 'lizalfos':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 2 },
+        { kind: 'leap', offsets: KNIGHT_JUMPS, rule: 'rect' },
+      ];
+    case 'stalfos':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
     default:
       return []; // pawn and large pieces have their own rules
   }
@@ -352,9 +383,10 @@ function rollingCharge(s: GameState, p: Piece): Step[] {
   return out;
 }
 
-function leapClear(s: GameState, from: Coord, off: Coord, rule: 'rect' | 'line', wallsAllowed: number) {
+function leapClear(s: GameState, from: Coord, off: Coord, rule: 'rect' | 'line' | 'free', wallsAllowed: number) {
   const to = add(from, off);
   if (!isStandable(s.board, to)) return null;
+  if (rule === 'free') return { to, gap: false };
   let walls = 0;
   let gap = false;
   if (rule === 'rect') {
@@ -430,6 +462,8 @@ function patternsFor(s: GameState, p: Piece): Pattern[] {
   // Hero's Courage (Link at 1 HP) and a Darknut whose armor is broken reach one square further.
   if ((p.type === 'link' && p.hp === 1) || (p.type === 'darknut' && p.counters.armorBroken))
     pats = pats.map((pt) => (pt.kind === 'slide' && pt.max === 2 ? { ...pt, max: 3 } : pt));
+  // Epona started her turn next to Malon: the 3-by-2 jump too.
+  if (p.type === 'epona' && p.counters.malonBoost) pats = [...pats, { kind: 'leap', offsets: WIDE_KNIGHT, rule: 'free' }];
   if (p.upgrades.length === 0) return p.type === 'decoy' ? pats.map((pt) => ({ ...pt, capture: false })) : pats;
   const abilities = canUseMoveAbilities(s, p);
   if (has(p, 'diagonal_step')) pats.push({ kind: 'slide', dirs: DIAG, max: 1 });

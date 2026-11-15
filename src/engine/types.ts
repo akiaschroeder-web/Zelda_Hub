@@ -87,6 +87,11 @@ export type PieceType =
   | 'ganondorf'
   /** Ganondorf's Phase 3 form (3x3). */
   | 'ganon'
+  | 'malon'
+  | 'epona'
+  | 'deku_scrub'
+  | 'lizalfos'
+  | 'stalfos'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -136,6 +141,7 @@ export type ActionKind =
   | 'sacredLight' // Zelda: heal an ally within 2
   | 'darkWarp' // Ganondorf (Phase 2): teleport up to 3
   | 'unlock' // step into a Locked Door, spending a Small Key
+  | 'spit' // Deku Scrub: Deku Spit
   | 'upgrade'
   | 'pass';
 
@@ -394,6 +400,16 @@ export interface GameState {
   keys: { player: number; enemy: number };
   /** Times the terrain has rotated (Rotation Switch). */
   rotations: number;
+  /** Collapsed Stalfos waiting to reassemble. */
+  bones: Bones[];
+}
+
+/** A Stalfos that has collapsed into a pile of bones (Reassembly). */
+export interface Bones {
+  piece: Piece;
+  at: Coord;
+  /** Revives at the end of this ply (if its square is free); otherwise as soon as it is. */
+  ready: number;
 }
 
 /** A piece held inside a Like Like until `release` (then it's captured) or the Like Like falls (then it returns). */

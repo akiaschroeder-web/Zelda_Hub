@@ -12,6 +12,7 @@ import {
   destroyCracked,
   getPiece,
   hasStatus,
+  heal,
   isEmpty,
   log,
   nameOf,
@@ -93,14 +94,49 @@ export function zeldaAfterMove(s: GameState, m: Move, from: Coord | undefined) {
       }
     }
   }
+  // An enemy stepping onto a pile of Stalfos bones destroys it for good.
+  const stepper = getPiece(s, m.pieceId);
+  if (stepper && s.bones?.length) {
+    const cells = footprint(stepper);
+    for (const b of s.bones.filter((b) => b.piece.side !== stepper.side && cells.some((c) => sameCoord(c, b.at)))) {
+      s.bones = s.bones.filter((o) => o !== b);
+      s.captured.push(b.piece);
+      log(s, `${nameOf(stepper)} scatters the Stalfos bones for good.`);
+    }
+  }
   freeEngulfed(s);
   agonyReveal(s, m.pieceId);
   ganonTransform(s);
 }
 
 /** End of `side`'s turn: Dark Sorcerer blasts, Like Likes digest, Ganondorf transforms. */
+/** Start of `side`'s turn: Lon Lon Ranch healing and Epona's Malon boost. */
+export function zeldaTurnStart(s: GameState, side: Side) {
+  const malons = s.pieces.filter((m) => m.side === side && m.type === 'malon');
+  for (const p of s.pieces.filter((p) => p.side === side)) {
+    const nearMalon = malons.some((m) => m.id !== p.id && pieceDistance(m, p) === 1);
+    if (p.type === 'epona') p.counters.malonBoost = nearMalon ? 1 : 0;
+    if (nearMalon && p.hp < p.maxHp && (p.counters.ranchCd ?? 0) <= 0) {
+      p.counters.ranchCd = 3;
+      heal(s, p, 1);
+      log(s, `Lon Lon Ranch: ${nameOf(p)} recovers 1 HP.`);
+    }
+  }
+}
+
 export function zeldaTurnEnd(s: GameState, side: Side) {
   burnTick(s, side);
+  // Stalfos Reassembly: bones rise again once their time is up and the square is free.
+  for (const b of [...(s.bones ?? [])]) {
+    if (b.piece.side !== side || b.ready > s.ply || !isEmpty(s, b.at)) continue;
+    s.bones = s.bones.filter((o) => o !== b);
+    const v = b.piece;
+    v.pos = { ...b.at };
+    v.turnPos = { ...b.at };
+    v.hp = 1;
+    s.pieces.push(v);
+    log(s, `${nameOf(v)} reassembles!`);
+  }
   for (const g of s.pieces.filter((g) => g.side === side && ganonPhase(g) >= 2)) {
     const victim = s.pieces
       .filter((e) => e.side !== side && e.type !== 'king' && pieceDistance(e, g) === 1)

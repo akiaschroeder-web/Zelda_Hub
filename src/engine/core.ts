@@ -161,6 +161,7 @@ export function cloneState(s: GameState): GameState {
     tiles: (s.tiles ?? []).map((t) => ({ ...t, pos: { ...t.pos } })),
     keys: { ...(s.keys ?? { player: 0, enemy: 0 }) },
     rotations: s.rotations ?? 0,
+    bones: (s.bones ?? []).map((b) => ({ ...b, piece: clonePiece(b.piece), at: { ...b.at } })),
   };
 }
 
@@ -471,10 +472,29 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   }
 
   if (target.hp < hpBefore || shieldTotal(target) < shieldBefore) onSurvivedHit(s, target, hpBefore, ctx, source);
+  escapeAfterHit(s, target, hpBefore, ctx, source);
   return { kind: 'survived', dealt: hpBefore - target.hp };
 }
 
 /** Critical Survival, Royal Resilience, Royal Resurrection. Returns true if the piece lives. */
+/**
+ * Deku Scrub Burrow (once per battle, after surviving an attack) and Lizalfos
+ * Acrobatic Retreat (every 3 turns, after being hurt): hop to the safest open square.
+ */
+function escapeAfterHit(s: GameState, t: Piece, hpBefore: number, ctx: DamageCtx, source?: Piece) {
+  let spots: Coord[] = [];
+  if (t.type === 'deku_scrub' && direct(ctx.kind) && !hasUsed(t, 'burrow')) spots = ALL_DIRS.map((d) => add(t.pos, d));
+  else if (t.type === 'lizalfos' && t.hp < hpBefore && (t.counters.acroCd ?? 0) <= 0) spots = DIAG.map((d) => add(t.pos, scale(d, 2)));
+  const enemies = s.pieces.filter((e) => e.side !== t.side);
+  const score = (c: Coord) => (source ? distanceTo(source, c) * 10 : 0) - enemies.filter((e) => distanceTo(e, c) <= 1).length;
+  const spot = spots.filter((c) => isEmpty(s, c)).sort((a, b) => score(b) - score(a))[0];
+  if (!spot) return;
+  if (t.type === 'deku_scrub') markUsed(t, 'burrow');
+  else t.counters.acroCd = 3;
+  t.pos = { ...spot };
+  log(s, t.type === 'deku_scrub' ? `${nameOf(t)} burrows away!` : `${nameOf(t)} flips away acrobatically!`);
+}
+
 function preventDeath(s: GameState, p: Piece): boolean {
   if (ready(p, 'bottled_fairy')) {
     markUsed(p, 'bottled_fairy');
@@ -568,6 +588,15 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
   ) {
     s.engulfed = [...(s.engulfed ?? []), { victim: p, holderId: holder.id, release: endOfTurn(s.ply, holder.side, 2), at: { ...p.pos } }];
     log(s, `${nameOf(holder)} engulfs ${nameOf(p)}!`);
+    return;
+  }
+  // Stalfos: Reassembly — the first time it falls, it collapses into bones instead.
+  if (p.type === 'stalfos' && !hasUsed(p, 'reassembly') && ctx.kind !== 'fall' && !p.temp) {
+    markUsed(p, 'reassembly');
+    p.statuses = [];
+    p.shields = [];
+    s.bones = [...(s.bones ?? []), { piece: p, at: { ...p.pos }, ready: endOfTurn(s.ply, p.side, 2) }];
+    log(s, `${nameOf(p)} collapses into a pile of bones…`);
     return;
   }
   // A fallen Like Like lets its victim go (placed back once the move finishes).

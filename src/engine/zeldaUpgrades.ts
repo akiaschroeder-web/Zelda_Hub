@@ -56,7 +56,7 @@ const MOVING = new Set(['hookshot', 'longshot', 'farores_wind', 'song_of_time'])
 /** Abilities that hurt enemies (not allowed while Disarmed / Pacified). */
 const HARMFUL = new Set(['fairy_bow', 'boomerang', 'megaton_hammer', 'bombs', 'bombchu', 'dins_fire', 'golden_gauntlets']);
 /** Pieces Sun's Song treats as undead. */
-const UNDEAD = new Set(['redead']);
+const UNDEAD = new Set(['redead', 'stalfos']);
 
 const cdKey = (id: string) => `${id}Cd`;
 const charged = (p: Piece, id: string) =>

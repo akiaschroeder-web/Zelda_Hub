@@ -236,6 +236,26 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 2, maxHp: 3, damage: 1, cost: 26, value: 2700, name: 'Ganondorf',
     blurb: '2×2. Up to two squares any direction. Grows stronger as he weakens: Gerudo King (3 HP), Dark Sorcerer (2 HP), then Demon King Ganon (1 HP, 3×3).',
   },
+  malon: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 360, name: 'Malon',
+    blurb: 'Up to two squares diagonally or one orthogonally. Lon Lon Ranch: allies starting their turn next to her heal 1 (each once every 3 turns). Epona next to her gallops further.',
+  },
+  epona: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 540, name: 'Epona',
+    blurb: 'Jumps 2-by-1 or 3-by-1 in an L, over anything — walls and gaps included. Gallop: after a capture, may make a Knight jump to an empty square. Starting next to Malon, she can also jump 3-by-2.',
+  },
+  deku_scrub: {
+    size: 1, maxHp: 1, damage: 1, cost: 3, value: 280, name: 'Deku Scrub',
+    blurb: 'One square diagonally. Deku Spit: instead of moving, 1 damage to the first enemy within 3 in a straight orthogonal line. Burrow: once per battle, slips to an adjacent square after surviving an attack.',
+  },
+  lizalfos: {
+    size: 1, maxHp: 2, damage: 1, cost: 5, value: 460, name: 'Lizalfos',
+    blurb: 'Up to two squares orthogonally, or a Knight jump. Acrobatic Retreat: when hurt but not defeated, leaps 2 squares diagonally (every 3 turns). Pack Hunter: 2 damage to an enemy next to another Lizalfos.',
+  },
+  stalfos: {
+    size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Stalfos',
+    blurb: 'Up to two squares any direction. Reassembly: the first time it falls it becomes a pile of bones, rising again with 1 HP after 2 of its turns — unless an enemy steps on the bones first.',
+  },
   ganon: {
     size: 3, maxHp: 3, damage: 1, cost: 26, value: 2700, name: 'Ganon',
     blurb: "3×3. Ganondorf's demon form. One square any direction, damaging every adjacent enemy whenever he moves.",
@@ -268,6 +288,7 @@ export function ganonPhase(p: Piece): number {
 /** Zelda Content Pack piece types (handled outside some engine fast paths). */
 export const ZELDA_TYPES = new Set<PieceType>([
   'link', 'zelda', 'midna', 'goron', 'zora', 'redead', 'like_like', 'darknut', 'skulltula', 'ganondorf', 'ganon',
+  'malon', 'epona', 'deku_scrub', 'lizalfos', 'stalfos',
 ]);
 
 /** Every square a piece occupies. */

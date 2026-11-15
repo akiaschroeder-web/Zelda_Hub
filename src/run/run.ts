@@ -361,8 +361,14 @@ export function finishBattle(run: RunState, final: GameState): RunState {
   // fallen into a gap, or converted by an enemy Converter. A Phoenix awaiting rebirth survives.
   const onField = new Map(final.pieces.filter((p) => p.side === 'player').map((p) => [p.id, p]));
   for (const p of final.reborn.filter((p) => p.side === 'player')) onField.set(p.id, p);
+  // A Stalfos lying in bones when the battle ends gets back up afterwards.
+  for (const b of (final.bones ?? []).filter((b) => b.piece.side === 'player')) onField.set(b.piece.id, b.piece);
   // A piece still inside a Like Like when the battle ends is lost.
-  const deployedIds = new Set([...final.pieces, ...final.captured, ...final.reborn, ...(final.engulfed ?? []).map((e) => e.victim)].map((p) => p.id));
+  const deployedIds = new Set(
+    [...final.pieces, ...final.captured, ...final.reborn, ...(final.engulfed ?? []).map((e) => e.victim), ...(final.bones ?? []).map((b) => b.piece)].map(
+      (p) => p.id,
+    ),
+  );
   const missing = run.roster.filter((r) => deployedIds.has(r.uid) && !onField.has(r.uid)).map((r) => r.uid);
   // Second Life: the first time a piece would be lost, it comes back (and the upgrade is spent).
   const savedIds = new Set(final.saved.filter((id) => missing.includes(id)));

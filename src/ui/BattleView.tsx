@@ -65,6 +65,7 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   sacredLight: 'rgba(250, 230, 140, 0.95)',
   darkWarp: 'rgba(120, 40, 60, 0.95)',
   unlock: 'rgba(230, 190, 70, 0.95)',
+  spit: 'rgba(214, 60, 60, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -103,6 +104,8 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   redead: { label: 'Paralyzing Scream (passive)' },
   like_like: { label: 'Engulf (passive)' },
   skulltula: { label: 'Wall Crawler (passive)' },
+  deku_scrub: { id: 'burrow', label: 'Deku Spit (red), Burrow' },
+  stalfos: { id: 'reassembly', label: 'Reassembly' },
 };
 
 const STATUS_NAMES: Partial<Record<string, string>> = {
@@ -169,6 +172,10 @@ function zeldaNotes(p: Piece): string {
       return p.counters.evadeSpent ? ' Evasion spent (capture to recharge).' : ' Evasion ready.';
     case 'darknut':
       return p.counters.armorBroken ? ' Armor broken: moves up to 3.' : ' Armor intact.';
+    case 'epona':
+      return p.counters.malonBoost ? ' Next to Malon: 3-by-2 jumps this turn.' : '';
+    case 'lizalfos':
+      return (p.counters.acroCd ?? 0) > 0 ? ` Acrobatic Retreat ready in ${p.counters.acroCd} turn(s).` : ' Acrobatic Retreat ready.';
     case 'zelda':
       return (p.counters.lightCd ?? 0) > 0 ? ` Sacred Light ready in ${p.counters.lightCd} turn(s).` : '';
     case 'ganondorf':
@@ -182,6 +189,12 @@ function zeldaNotes(p: Piece): string {
 /** What a special space does, for the info panel. */
 function describeSpace(state: GameState, c: Coord): { title: string; text: string } | null {
   const tile = state.tiles?.find((t) => sameCoord(t.pos, c));
+  const bones = state.bones?.find((b) => sameCoord(b.at, c));
+  if (bones)
+    return {
+      title: `💀 ${bones.piece.side === 'player' ? 'Your' : 'Enemy'} Stalfos bones`,
+      text: `It reassembles with 1 HP at the end of its owner's turn once its time is up${bones.ready > state.ply ? '' : ' (waiting for the square to clear)'}. An enemy piece stepping here destroys it for good.`,
+    };
   if (state.board.terrain[c.y]?.[c.x] === 'door')
     return { title: '🔒 Locked Door', text: 'Blocks like a wall. A piece next to it can step in and open it for good by spending one of your Small Keys (find them on the board).' };
   if (!tile) return null;
@@ -531,6 +544,7 @@ export default function BattleView({ state, onMove, title, description, finishLa
         onSquare={onSquare}
         tiles={state.tiles}
         rotations={state.rotations}
+        bones={state.bones?.map((b) => b.at)}
         ply={state.ply}
       />
       {hasKeys && (

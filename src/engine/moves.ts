@@ -47,7 +47,7 @@ import {
 } from './core';
 import { attacksSquare, heavySteps, lPaths, shotSquares, sideStepVariants, stepsFor } from './movement';
 import { harvestSoul, resolveSpecial, specialMoves } from './specials';
-import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd } from './zelda';
+import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd, zeldaTurnStart } from './zelda';
 import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { FREE_BOSS_ACTIONS, BOSS_COOLDOWNS, bossMoves, bossTurnEnd, bossTurnStart, haunted, resolveBoss, swarmCommanded } from './bosses';
@@ -440,7 +440,7 @@ export function quickApply(state: GameState, m: Move): GameState | undefined {
   const mover = getPiece(state, m.pieceId);
   if (!mover || mover.upgrades.length || mover.statuses.length) return undefined;
   if (state.pieces.some((p) => p.type === 'necromancer' || p.type === 'stormbringer' || p.type === 'redead')) return undefined;
-  if (ZELDA_TYPES.has(mover.type) || state.engulfed?.length || state.tiles?.length) return undefined;
+  if (ZELDA_TYPES.has(mover.type) || state.engulfed?.length || state.tiles?.length || state.bones?.length) return undefined;
   const removed = new Set<string>();
   let pieces = state.pieces;
   if (m.action === 'heal') {
@@ -566,6 +566,9 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (has(p, 'revenge_strike') && t.id === p.lastAttackerId) dmg += 1;
   if (has(p, 'kingbreaker') && t.type === 'king') dmg += 1;
   if (has(p, 'master_sword') && isBoss(t)) dmg += 1;
+  // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
+  if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
+    dmg += 1;
   if (sizeOf(p) > 1 && !m.action) {
     if (has(p, 'wide_sweep') && nTargets >= 2) dmg += 1;
     if (has(p, 'crushing_weight')) dmg += 1;
@@ -677,7 +680,9 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
   p.attacks += 1;
 
   const survivors = targets.filter((t) => alive(s, t.id));
-  const blocked = survivors.length > 0 || guardSurvived;
+  // A Stalfos that just collapsed leaves its bones in the way: the attacker bounces back.
+  const collapsed = targets.some((t) => s.bones?.some((b) => b.piece.id === t.id));
+  const blocked = survivors.length > 0 || guardSurvived || collapsed;
 
   if (!ranged) {
     if (guardFellAt && sizeOf(p) === 1) {
@@ -729,6 +734,9 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
   if (captured > 0) {
     for (let i = 0; i < captured; i++) harvestSoul(s, p);
     if (p.type === 'zora') p.counters.evadeSpent = 0; // Graceful Evasion recharges
+    // Epona Gallop: an optional Knight jump to an empty square after a capture.
+    if (p.type === 'epona' && m.action !== 'shoot' && alive(s, p.id) && entry?.source !== 'gallop')
+      s.bonus.unshift({ pieceId: p.id, filter: 'nonCapturing', optional: true, source: 'gallop', maxDistance: 2 });
     // Kokiri Sword: an optional one-square step after a capture.
     if (has(p, 'kokiri_sword') && m.action !== 'shoot' && alive(s, p.id) && sizeOf(p) === 1 && entry?.source !== 'kokiri_sword')
       s.bonus.unshift({ pieceId: p.id, filter: 'nonCapturing', optional: true, source: 'kokiri_sword', maxDistance: 1 });
@@ -1143,6 +1151,7 @@ function startTurn(s: GameState) {
   // A Sentinel's watch ends when its next turn starts.
   s.overwatch = s.overwatch.filter((o) => o.side !== side);
   bossTurnStart(s, side);
+  zeldaTurnStart(s, side);
   // Phoenixes rise again on a free deployment square (or are lost if there is none).
   for (const ph of s.reborn.filter((p) => p.side === side)) {
     s.reborn = s.reborn.filter((p) => p !== ph);
@@ -1223,7 +1232,10 @@ export function evaluateResult(state: GameState): GameResult {
   }
 
   if (!state.rules.checkRules) {
-    const enemyLeft = state.pieces.some((p) => p.side === 'enemy') || state.reborn.some((p) => p.side === 'enemy');
+    const enemyLeft =
+      state.pieces.some((p) => p.side === 'enemy') ||
+      state.reborn.some((p) => p.side === 'enemy') ||
+      (state.bones ?? []).some((b) => b.piece.side === 'enemy');
     if (!enemyLeft) return { kind: 'eliminated', winner: 'player' };
   } else if (!enemyKing) {
     return { kind: 'kingCaptured', winner: 'player' };

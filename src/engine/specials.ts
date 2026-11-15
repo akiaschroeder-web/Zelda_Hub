@@ -134,6 +134,20 @@ export function specialMoves(s: GameState, p: Piece): Move[] {
           .filter((a) => a.side === p.side && a.id !== p.id && a.hp < a.maxHp && pieceDistance(a, p) <= 2)
           .forEach((a) => moves.push({ ...base, to: a.pos, action: 'sacredLight', allyId: a.id }));
       break;
+    case 'deku_scrub':
+      // Deku Spit: the first piece within 3 in a straight orthogonal line; walls and pieces block.
+      for (const d of [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]) {
+        for (let k = 1; k <= 3; k++) {
+          const c = add(p.pos, { x: d.x * k, y: d.y * k });
+          if (!inBounds(s.board, c) || isWall(s.board, c) || terrainAt(s.board, c) === 'door') break;
+          const o = pieceAt(s, c);
+          if (o) {
+            if (o.side !== p.side) moves.push({ ...base, to: o.pos, action: 'spit', allyId: o.id });
+            break;
+          }
+        }
+      }
+      break;
     case 'harvester': {
       const souls = p.counters.souls ?? 0;
       if (souls >= 2 && p.hp < p.maxHp) moves.push({ ...base, to: p.pos, action: 'soulHeal' });
@@ -220,6 +234,9 @@ export function resolveSpecial(s: GameState, m: Move): boolean {
       for (const v of victims) dealDamage(s, v.id, 2, { kind: 'splash' });
       return true;
     }
+    case 'spit':
+      if (target) dealDamage(s, target.id, 1, { sourceId: p.id, kind: 'ranged' });
+      return true;
     case 'sacredLight':
       p.counters.lightCd = COOLDOWNS.lightCd;
       if (target) {

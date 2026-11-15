@@ -33,6 +33,8 @@ interface Props {
   rotations?: number;
   /** Current ply (to show a resting Floor Master). */
   ply?: number;
+  /** Squares holding a collapsed Stalfos. */
+  bones?: Coord[];
 }
 
 /** How long the terrain takes to swing round when a Rotation Switch fires. */
@@ -44,7 +46,7 @@ const FADE_MS = 280;
 const nativeDriver = Platform.OS !== 'web';
 
 /** Draws terrain, pieces (any size), HP pips, shields and move markers. */
-export default function BoardView({ board, pieces, cell, tints, markers, outlines, onSquare, tiles = board.tiles, rotations = 0, ply = 0 }: Props) {
+export default function BoardView({ board, pieces, cell, tints, markers, outlines, onSquare, tiles = board.tiles, rotations = 0, ply = 0, bones }: Props) {
   // Rotation Switch: the new terrain starts drawn a quarter-turn back (so it looks exactly like
   // the old terrain) and swings clockwise into place. Pieces live in another layer and stay still.
   const [spin] = useState(() => new Animated.Value(0));
@@ -180,6 +182,11 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
       </Animated.View>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         {tintCells}
+        {bones?.map((c) => (
+          <View key={`bones-${coordKey(c)}`} style={[styles.tile, { position: 'absolute', left: c.x * cell, top: c.y * cell, width: cell, height: cell }]}>
+            <Text style={{ fontSize: cell * 0.5 }}>💀</Text>
+          </View>
+        ))}
       </View>
       {ghostLayer}
       {pieceLayer}

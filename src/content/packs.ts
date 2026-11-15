@@ -33,26 +33,30 @@ export const PACKS: ContentPack[] = [
   {
     id: 'zelda',
     name: 'Zelda Pack',
-    description: 'Heroes and monsters of Hyrule: Link, Zelda, Midna, Gorons, Zoras, ReDeads, Like Likes, Darknuts, Skulltulas — and Ganondorf.',
+    description:
+      'Heroes and monsters of Hyrule: Link, Zelda, Midna, Malon and Epona, Gorons, Zoras, Deku Scrubs, ReDeads, Like Likes, Darknuts, Skulltulas, Lizalfos, Stalfos — and Ganondorf.',
     recruits: {
-      common: ['zora', 'skulltula'],
-      uncommon: ['midna', 'goron', 'redead'],
-      rare: ['link', 'zelda', 'like_like', 'darknut'],
+      common: ['zora', 'skulltula', 'deku_scrub'],
+      uncommon: ['midna', 'goron', 'redead', 'malon', 'lizalfos', 'stalfos'],
+      rare: ['link', 'zelda', 'like_like', 'darknut', 'epona'],
     },
     bosses: [{ type: 'ganondorf', act: 2 }],
     archetypes: [
       {
         name: 'Hyrule Monsters',
         blurb: 'ReDeads, Like Likes, Darknuts and Skulltulas.',
-        weights: { skulltula: 4, redead: 3, like_like: 2, darknut: 2, pawn: 3 },
+        weights: { skulltula: 4, redead: 3, like_like: 2, darknut: 2, pawn: 3, deku_scrub: 3, lizalfos: 3, stalfos: 3 },
       },
       {
         name: 'Hylian Company',
         blurb: 'Heroes and folk of Hyrule.',
-        weights: { link: 1, zelda: 1, midna: 2, goron: 3, zora: 3, pawn: 3, knight: 1 },
+        weights: { link: 1, zelda: 1, midna: 2, goron: 3, zora: 3, pawn: 3, knight: 1, malon: 2, epona: 1 },
       },
     ],
-    pieces: ['link', 'zelda', 'midna', 'goron', 'zora', 'redead', 'like_like', 'darknut', 'skulltula', 'ganondorf', 'ganon'],
+    pieces: [
+      'link', 'zelda', 'midna', 'goron', 'zora', 'redead', 'like_like', 'darknut', 'skulltula',
+      'malon', 'epona', 'deku_scrub', 'lizalfos', 'stalfos', 'ganondorf', 'ganon',
+    ],
     boards: [
       {
         name: 'Locked Passage',
@@ -94,9 +98,22 @@ export const DEFAULT_PACKS: PackId[] = ['zelda'];
  * pieces, the symbols on the same keys are player pieces.
  */
 const ZELDA_ORDER: PieceType[] = ['link', 'zelda', 'midna', 'goron', 'zora', 'redead', 'like_like', 'darknut', 'skulltula'];
-export const ZELDA_LEGEND: Record<string, [PieceType, Side]> = Object.fromEntries(
-  ZELDA_ORDER.flatMap((t, i) => [
-    [String(i + 1), [t, 'enemy']],
-    ['!@#$%^&*('[i], [t, 'player']],
-  ]),
-);
+export const ZELDA_LEGEND: Record<string, [PieceType, Side]> = {
+  ...Object.fromEntries(
+    ZELDA_ORDER.flatMap((t, i) => [
+      [String(i + 1), [t, 'enemy']],
+      ['!@#$%^&*('[i], [t, 'player']],
+    ]),
+  ),
+  // Pieces 11-15: Greek lower case for the enemy, upper case for the player.
+  μ: ['malon', 'enemy'],
+  Μ: ['malon', 'player'],
+  ε: ['epona', 'enemy'],
+  Ε: ['epona', 'player'],
+  δ: ['deku_scrub', 'enemy'],
+  Δ: ['deku_scrub', 'player'],
+  λ: ['lizalfos', 'enemy'],
+  Λ: ['lizalfos', 'player'],
+  σ: ['stalfos', 'enemy'],
+  Σ: ['stalfos', 'player'],
+};

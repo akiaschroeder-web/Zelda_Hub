@@ -9,7 +9,7 @@ import glob
 import os
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 SRC = os.path.join("art", "source", "zelda")
 OUT = os.path.join("assets", "pieces")
@@ -20,7 +20,10 @@ OUTLINE = {"player": (242, 228, 196), "enemy": (200, 40, 56)}
 
 def load(name: str) -> Image.Image:
     path = glob.glob(os.path.join(SRC, f"{name}.*"))[0]
-    img = Image.open(path).convert("RGBA")
+    img = Image.open(path)
+    if "A" not in img.getbands():
+        img = remove_flat_background(img.convert("RGB"))
+    img = img.convert("RGBA")
     if name == "ganondorf":
         # The smoke above his raised hand is semi-transparent; his body is solid.
         arr = np.array(img)
@@ -32,6 +35,29 @@ def load(name: str) -> Image.Image:
         arr[..., 3] = np.where(main_figure(arr[..., 3] > 0), arr[..., 3], 0)
         img = Image.fromarray(arr, "RGBA")
     return img
+
+
+def remove_flat_background(rgb: Image.Image) -> Image.Image:
+    """For art without transparency (e.g. a baked-in checkerboard): flood-fill the light,
+    colourless background inward from the edges and make it transparent."""
+    arr = np.array(rgb).astype(np.int32)
+    mx, mn = arr.max(axis=2), arr.min(axis=2)
+    light = (mn > 205) & (mx - mn < 18)
+    mask = Image.fromarray((light * 255).astype(np.uint8)).copy()  # floodfill needs its own buffer
+    w, h = mask.size
+    for x in range(0, w, 3):
+        for y in (0, h - 1):
+            if mask.getpixel((x, y)) == 255:
+                ImageDraw.floodfill(mask, (x, y), 128)
+    for y in range(0, h, 3):
+        for x in (0, w - 1):
+            if mask.getpixel((x, y)) == 255:
+                ImageDraw.floodfill(mask, (x, y), 128)
+    bg = np.array(mask) == 128
+    alpha = Image.fromarray(np.where(bg, 0, 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(1))
+    out = rgb.convert("RGBA")
+    out.putalpha(alpha)
+    return out
 
 
 def main_figure(mask: np.ndarray, scale: int = 4) -> np.ndarray:
@@ -91,7 +117,10 @@ def demon(fig: Image.Image) -> Image.Image:
 
 
 def main():
-    names = ["link", "zelda", "midna", "goron", "zora", "redead", "like_like", "darknut", "skulltula", "ganondorf"]
+    names = [
+        "link", "zelda", "midna", "goron", "zora", "redead", "like_like", "darknut", "skulltula", "ganondorf",
+        "malon", "epona", "deku_scrub", "lizalfos", "stalfos",
+    ]
     for name in names:
         fig = square(load(name))
         variants = {name: fig, **({"ganon": demon(fig)} if name == "ganondorf" else {})}
