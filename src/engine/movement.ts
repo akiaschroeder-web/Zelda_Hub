@@ -26,7 +26,7 @@ import {
   statusOf,
   suppressed,
 } from './core';
-import { footprint, sizeOf } from './pieces';
+import { ZELDA_TYPES, footprint, ganonPhase, sizeOf } from './pieces';
 import { haunted, heavyDirs, phantomSteps } from './bosses';
 import { Coord, GameState, Piece, PieceType, forward, sameCoord } from './types';
 
@@ -170,6 +170,30 @@ function basePatterns(type: PieceType): Pattern[] {
       return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
     case 'doppelganger':
       return [{ kind: 'slide', dirs: ALL_DIRS, max: 1 }];
+    // Zelda Content Pack
+    case 'link':
+    case 'darknut':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
+    case 'zelda':
+      return [{ kind: 'slide', dirs: DIAG, max: Infinity }];
+    case 'midna':
+      return [
+        { kind: 'leap', offsets: KNIGHT_JUMPS, rule: 'rect' },
+        { kind: 'slide', dirs: SIDEWAYS, max: 1 },
+      ];
+    case 'goron':
+      return [{ kind: 'slide', dirs: ORTHO, max: 3 }];
+    case 'zora':
+      return [
+        { kind: 'slide', dirs: SIDEWAYS, max: Infinity },
+        { kind: 'slide', dirs: DIAG, max: 2 },
+      ];
+    case 'redead':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 1 }];
+    case 'like_like':
+      return [{ kind: 'slide', dirs: ORTHO, max: 2 }];
+    case 'skulltula':
+      return [{ kind: 'slide', dirs: DIAG, max: 3 }];
     default:
       return []; // pawn and large pieces have their own rules
   }
@@ -279,6 +303,55 @@ export function lPaths(from: Coord, to: Coord): Coord[][] {
   return [xFirst, yFirst];
 }
 
+/** Skulltula (Wall Crawler): walls and cracked walls are ordinary squares; gaps and pieces stop it. */
+function crawl(s: GameState, from: Coord, dir: Coord, max: number): { to: Coord; crossedGap: boolean; blocked: boolean }[] {
+  const out: { to: Coord; crossedGap: boolean; blocked: boolean }[] = [];
+  let c = from;
+  for (let n = 0; n < max; n++) {
+    c = add(c, dir);
+    if (!inBounds(s.board, c) || terrainAt(s.board, c) === 'gap') break;
+    const occupied = !!pieceAt(s, c);
+    out.push({ to: c, crossedGap: false, blocked: occupied });
+    if (occupied) break;
+  }
+  return out;
+}
+
+/** Midna: her third, sixth, ninth... move is a Twilight Shift. */
+export const twilightCharged = (p: Piece) => ((p.counters.moves ?? 0) + 1) % 3 === 0;
+
+/** Twilight Shift: the sideways step passes through an occupied square to the square beyond. */
+function twilightSteps(s: GameState, p: Piece): Step[] {
+  const out: Step[] = [];
+  for (const d of SIDEWAYS) {
+    const mid = add(p.pos, d);
+    const to = add(mid, d);
+    if (!pieceAt(s, mid) || !isStandable(s.board, to)) continue;
+    const o = pieceAt(s, to);
+    if (o && o.side === p.side) continue; // can't end on an ally
+    out.push({ to, capture: true, quiet: true, leap: true, via: mid });
+  }
+  return out;
+}
+
+/** Goron Rolling Charge: exactly three squares straight, rolling through cracked walls (otherwise clear path). */
+function rollingCharge(s: GameState, p: Piece): Step[] {
+  if (hasStatus(p, 'bound')) return [];
+  const out: Step[] = [];
+  for (const d of ORTHO) {
+    const path = [add(p.pos, d), add(p.pos, scale(d, 2))];
+    const to = add(p.pos, scale(d, 3));
+    const cracked = path.filter((c) => inBounds(s.board, c) && terrainAt(s.board, c) === 'cracked').length;
+    if (cracked === 0) continue; // an ordinary slide already covers it
+    const clear = path.every((c) => inBounds(s.board, c) && ['normal', 'cracked'].includes(terrainAt(s.board, c)) && !pieceAt(s, c));
+    if (!clear || !isStandable(s.board, to)) continue;
+    const o = pieceAt(s, to);
+    if (o && o.side === p.side) continue;
+    out.push({ to, capture: true, quiet: true, leap: false });
+  }
+  return out;
+}
+
 function leapClear(s: GameState, from: Coord, off: Coord, rule: 'rect' | 'line', wallsAllowed: number) {
   const to = add(from, off);
   if (!isStandable(s.board, to)) return null;
@@ -353,7 +426,10 @@ function doppelgangerPatterns(s: GameState, p: Piece): Pattern[] {
 
 function patternsFor(s: GameState, p: Piece): Pattern[] {
   const type = movementType(s, p);
-  const pats = type === 'mimic' ? mimicPatterns(s, p) : type === 'doppelganger' ? doppelgangerPatterns(s, p) : basePatterns(type);
+  let pats = type === 'mimic' ? mimicPatterns(s, p) : type === 'doppelganger' ? doppelgangerPatterns(s, p) : basePatterns(type);
+  // Hero's Courage (Link at 1 HP) and a Darknut whose armor is broken reach one square further.
+  if ((p.type === 'link' && p.hp === 1) || (p.type === 'darknut' && p.counters.armorBroken))
+    pats = pats.map((pt) => (pt.kind === 'slide' && pt.max === 2 ? { ...pt, max: 3 } : pt));
   if (p.upgrades.length === 0) return p.type === 'decoy' ? pats.map((pt) => ({ ...pt, capture: false })) : pats;
   const abilities = canUseMoveAbilities(s, p);
   if (has(p, 'diagonal_step')) pats.push({ kind: 'slide', dirs: DIAG, max: 1 });
@@ -396,7 +472,7 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
       const bonus = finite ? rangeBonus(s, p, dir) : 0;
       let max = finite ? Math.max(1, pat.max + bonus) : Infinity;
       if (confused) max = 1;
-      const squares = walk(s, p.pos, dir, max, cross);
+      const squares = p.type === 'skulltula' ? crawl(s, p.pos, dir, max) : walk(s, p.pos, dir, max, cross);
       const quiet = pat.quiet !== false;
       for (const q of squares) out.push({ to: q.to, capture, quiet, leap: false, uses: pat.uses, crossedGap: q.crossedGap });
       // Wall Climber / Master of the Void: once per battle, cross obstacles further.
@@ -434,6 +510,8 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
   }
 
   if (p.type === 'phantom_king' && !crippled) out.push(...phantomSteps(s, p));
+  if (p.type === 'midna' && twilightCharged(p)) out.push(...twilightSteps(s, p));
+  if (p.type === 'goron' && !confused) out.push(...rollingCharge(s, p));
   if (abilities && p.upgrades.length) out.push(...specialMoves(s, p));
   return p.upgrades.length ? dedupe(out) : out;
 }
@@ -560,6 +638,12 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
     const to = add(p.pos, d);
     const r = check(to);
     if (r) out.push({ to, ...r });
+    // Ganondorf (Phases 1-2) moves up to two squares; the first step must be clear.
+    if (p.type === 'ganondorf' && ganonPhase(p) < 3 && r && !r.targets.length && !r.shove && !r.walls) {
+      const to2 = add(to, d);
+      const r2 = check(to2);
+      if (r2 && !r2.shove && !r2.walls) out.push({ to: to2, ...r2 });
+    }
     if (ready(p, 'living_avalanche') && r && !r.shove && canUseMoveAbilities(s, p)) {
       const to2 = add(to, d);
       const r2 = check(to2);
@@ -624,7 +708,7 @@ export function attacksSquare(s: GameState, p: Piece, sq: Coord): boolean {
   const rangeAuras = anyHas(s, 'royal_rally') || anyHas(s, 'siege_presence');
   const special =
     p.upgrades.some((u) => GEOMETRY_UPGRADES.has(u)) || p.statuses.some((st) => GEOMETRY_STATUSES.has(st.kind));
-  if (special || sizeOf(p) > 1 || p.temp || rangeAuras || p.type === 'mimic' || p.type === 'decoy' || p.type === 'illusion')
+  if (special || sizeOf(p) > 1 || p.temp || rangeAuras || p.type === 'mimic' || p.type === 'decoy' || p.type === 'illusion' || ZELDA_TYPES.has(p.type))
     return attackSquares(s, p).some((c) => sameCoord(c, sq));
   if (!isStandable(s.board, sq)) return false;
   const dx = sq.x - p.pos.x;

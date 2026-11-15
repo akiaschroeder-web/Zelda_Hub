@@ -6,13 +6,20 @@ import { PIECE_STATS } from '../engine/pieces';
 import { createEncounter } from '../engine/setup';
 import { GameState, PieceType } from '../engine/types';
 import { BOSS_POOLS, bossBattle } from '../run/battlegen';
+import { PACKS } from '../content/packs';
 import { autoDeploy, newRun, startBattle } from '../run/run';
 import BattleView from '../ui/BattleView';
 import { Button } from '../ui/common';
 
+/** Every boss with an arena: the base game's and the content packs'. */
+const SANDBOX_BOSSES: { type: PieceType; act: number }[] = [
+  ...BOSS_POOLS.flatMap((pool, act) => pool.map((type) => ({ type, act }))),
+  ...PACKS.flatMap((p) => p.bosses),
+];
+
 /** A boss arena against a standard chess army (24 Army Points, auto-deployed). */
 function bossSandbox(type: PieceType): { state: GameState; name: string; description: string } {
-  const act = BOSS_POOLS.findIndex((p) => p.includes(type));
+  const act = SANDBOX_BOSSES.find((b) => b.type === type)?.act ?? 0;
   const battle = bossBattle(act, `sandbox-${type}`, undefined, type);
   const run = { ...newRun(1), phase: 'deploy' as const, battle };
   return { state: startBattle(run, autoDeploy(run, battle)).activeBattle!, name: battle.name, description: battle.description };
@@ -56,7 +63,7 @@ export default function Sandbox() {
           {ENCOUNTERS.map((e, i) => (
             <Button key={e.id} small label={e.name} primary={!boss && i === idx} onPress={() => start(i)} />
           ))}
-          {BOSS_POOLS.flat().map((t) => (
+          {SANDBOX_BOSSES.map(({ type: t }) => (
             <Button key={t} small label={`👑 ${PIECE_STATS[t].name.replace('The ', '')}`} primary={boss === t} onPress={() => startBoss(t)} />
           ))}
           <Button small label="‹ Menu" onPress={() => router.back()} />

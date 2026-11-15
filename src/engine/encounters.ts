@@ -1,3 +1,4 @@
+import { ZELDA_LEGEND } from '../content/packs';
 import { EncounterDef } from './setup';
 
 /**
@@ -278,5 +279,37 @@ export const ENCOUNTERS: EncounterDef[] = [
       '^': ['warden', 'enemy'],
       '>': ['harvester', 'enemy'],
     },
+  },
+  {
+    id: 'zelda',
+    name: 'Hyrule Skirmish',
+    description:
+      'Zelda Pack: Link, Zelda, Midna, Gorons, Zora, ReDead, Like Like, Darknut and Skulltulas on both sides. Gorons roll through the cracked walls; Skulltulas climb the walls.',
+    rules: { checkRules: true },
+    terrain: [
+      '..........',
+      '..........',
+      '..........',
+      '..+.##.+..',
+      '..........',
+      '....__....',
+      '..+.##.+..',
+      '..........',
+      '..........',
+      '..........',
+    ],
+    pieces: [
+      '9238k15769',
+      'pp4pppp4pp',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+      'PP$PPPP$PP',
+      '(@#*K!%&^(',
+    ],
+    legend: ZELDA_LEGEND,
   },
 ];

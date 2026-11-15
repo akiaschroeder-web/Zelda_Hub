@@ -5,6 +5,7 @@ import { createGame, Placement } from '../engine/setup';
 import { Coord, GameResult, GameState, Piece, PieceType, coordKey } from '../engine/types';
 import { canTake, upgradeCost } from '../engine/upgrades/eligibility';
 import { BOSS_POOLS, RunBattle, bossBattle, generateBattle } from './battlegen';
+import { enabledPacks } from '../content/packs';
 import { RUN_CONFIG } from './config';
 import { EVENTS, EventDef } from './events';
 import { ActMap, MapNode, findNode, generateAct } from './map';
@@ -70,6 +71,8 @@ export interface RunState {
   runFlags: string[];
   /** Boss Pieces defeated this run: they can now be recruited and appear in elite fights. */
   unlockedBosses: PieceType[];
+  /** Content packs that were on when the run started. */
+  packs: string[];
 }
 
 export const ACTS = 3;
@@ -89,9 +92,15 @@ function withRng<T>(run: RunState, fn: (rng: Rng) => T): [T, number] {
   return [out, rng.state];
 }
 
-export function newRun(seed = randomSeed()): RunState {
+/** Each act's boss pool with the bosses of enabled content packs added. */
+export const bossPoolFor = (act: number, packs: readonly string[]): PieceType[] => [
+  ...BOSS_POOLS[act],
+  ...enabledPacks(packs).flatMap((p) => p.bosses.filter((b) => b.act === act).map((b) => b.type)),
+];
+
+export function newRun(seed = randomSeed(), packs: readonly string[] = []): RunState {
   const rng = new Rng(seed);
-  const maps = Array.from({ length: ACTS }, (_, i) => generateAct(rng, i, BOSS_POOLS[i]));
+  const maps = Array.from({ length: ACTS }, (_, i) => generateAct(rng, i, bossPoolFor(i, packs)));
   return {
     version: 3,
     seed,
@@ -114,6 +123,7 @@ export function newRun(seed = randomSeed()): RunState {
     lastResult: null,
     runFlags: [],
     unlockedBosses: [],
+    packs: [...packs],
   };
 }
 
@@ -150,15 +160,15 @@ export function enterNode(run: RunState, nodeId: string): RunState {
     switch (node.type) {
       case 'battle':
       case 'elite':
-        return { phase: 'deploy', battle: generateBattle(rng, run.act, node.floor, node.type, node.id, run.unlockedBosses) };
+        return { phase: 'deploy', battle: generateBattle(rng, run.act, node.floor, node.type, node.id, run.unlockedBosses, run.packs) };
       case 'boss':
         return { phase: 'deploy', battle: bossBattle(run.act, node.id, rng, node.boss) };
       case 'shop':
-        return { phase: 'shop', shop: generateShop(rng, run.act, run.roster) };
+        return { phase: 'shop', shop: generateShop(rng, run.act, run.roster, run.packs) };
       case 'treasure':
-        return { phase: 'reward', reward: treasureReward(rng, run.act, run.roster) };
+        return { phase: 'reward', reward: treasureReward(rng, run.act, run.roster, run.packs) };
       case 'recruit':
-        return { phase: 'reward', reward: recruitReward(rng, run.act) };
+        return { phase: 'reward', reward: recruitReward(rng, run.act, run.packs) };
       case 'event': {
         const usable = EVENTS.filter((e) => !e.available || e.available(run));
         return { phase: 'event', event: { id: rng.pick(usable).id, outcome: null } };
@@ -351,7 +361,8 @@ export function finishBattle(run: RunState, final: GameState): RunState {
   // fallen into a gap, or converted by an enemy Converter. A Phoenix awaiting rebirth survives.
   const onField = new Map(final.pieces.filter((p) => p.side === 'player').map((p) => [p.id, p]));
   for (const p of final.reborn.filter((p) => p.side === 'player')) onField.set(p.id, p);
-  const deployedIds = new Set([...final.pieces, ...final.captured, ...final.reborn].map((p) => p.id));
+  // A piece still inside a Like Like when the battle ends is lost.
+  const deployedIds = new Set([...final.pieces, ...final.captured, ...final.reborn, ...(final.engulfed ?? []).map((e) => e.victim)].map((p) => p.id));
   const missing = run.roster.filter((r) => deployedIds.has(r.uid) && !onField.has(r.uid)).map((r) => r.uid);
   // Second Life: the first time a piece would be lost, it comes back (and the upgrade is spent).
   const savedIds = new Set(final.saved.filter((id) => missing.includes(id)));
@@ -389,7 +400,7 @@ export function finishBattle(run: RunState, final: GameState): RunState {
   const source = final.result.kind === 'draw' ? 'draw' : battle.kind;
   const unlockedBosses = battle.boss && !run.unlockedBosses.includes(battle.boss) ? [...run.unlockedBosses, battle.boss] : run.unlockedBosses;
   const [reward, rngState] = withRng(run, (rng) => {
-    const r = battleReward(rng, source, run.act, battle.name, roster);
+    const r = battleReward(rng, source, run.act, battle.name, roster, run.packs);
     // Boss Pieces are rare finds: a defeated boss sometimes offers itself, and
     // later elites occasionally offer any boss already beaten.
     const offer =

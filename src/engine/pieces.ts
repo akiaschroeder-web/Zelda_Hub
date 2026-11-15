@@ -195,6 +195,51 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 4, damage: 1, cost: 30, value: 3000, name: 'The Chronarch',
     blurb: 'Up to two squares any direction. Rewind undoes the enemy’s last move (once). Every 4 turns, takes two actions in a row.',
   },
+  // Zelda Content Pack
+  link: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 520, name: 'Link',
+    blurb: "Up to two squares any direction. Hero's Courage: at 1 HP, moves up to three squares.",
+  },
+  zelda: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 520, name: 'Princess Zelda',
+    blurb: 'Moves like a Bishop. Sacred Light (every 4 turns): instead of moving, heals an ally within 2 squares by 1.',
+  },
+  midna: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 380, name: 'Midna',
+    blurb: 'Knight jump or one square sideways. Twilight Shift: every third move, her sideways step can pass through an occupied square to the one beyond.',
+  },
+  goron: {
+    size: 1, maxHp: 3, damage: 1, cost: 6, value: 560, name: 'Goron',
+    blurb: 'Up to three squares orthogonally. Rolling Charge: a move of exactly three squares rolls through and smashes cracked walls.',
+  },
+  zora: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 450, name: 'Zora',
+    blurb: 'Any distance sideways, or up to two diagonally. Graceful Evasion: dodges the first damage to an empty adjacent square; recharges when it captures.',
+  },
+  redead: {
+    size: 1, maxHp: 2, damage: 1, cost: 4, value: 340, name: 'ReDead',
+    blurb: 'One square any direction. Paralyzing Scream: an enemy that moves next to it cannot move on its next turn (once per 3 turns each).',
+  },
+  like_like: {
+    size: 1, maxHp: 3, damage: 1, cost: 6, value: 520, name: 'Like Like',
+    blurb: 'Up to two squares orthogonally. Engulf: swallows the piece it captures; it is lost for good if the Like Like survives 2 more turns, freed if the Like Like falls.',
+  },
+  darknut: {
+    size: 1, maxHp: 3, damage: 1, cost: 7, value: 620, name: 'Darknut',
+    blurb: 'Up to two squares any direction. Armored Shell: the first attack only breaks its armor; then it moves up to three.',
+  },
+  skulltula: {
+    size: 1, maxHp: 1, damage: 1, cost: 3, value: 260, name: 'Skulltula',
+    blurb: 'Up to three squares diagonally. Wall Crawler: moves through and stands on walls and cracked walls, but never gaps.',
+  },
+  ganondorf: {
+    size: 2, maxHp: 3, damage: 1, cost: 26, value: 2700, name: 'Ganondorf',
+    blurb: '2×2. Up to two squares any direction. Grows stronger as he weakens: Gerudo King (3 HP), Dark Sorcerer (2 HP), then Demon King Ganon (1 HP, 3×3).',
+  },
+  ganon: {
+    size: 3, maxHp: 3, damage: 1, cost: 26, value: 2700, name: 'Ganon',
+    blurb: "3×3. Ganondorf's demon form. One square any direction, damaging every adjacent enemy whenever he moves.",
+  },
   illusion: {
     size: 1, maxHp: 1, damage: 0, cost: 0, value: 80, name: 'Illusion',
     blurb: 'A 1 HP illusion. Moves one square; cannot capture.',
@@ -210,6 +255,19 @@ export const sizeOf = (p: Piece): number => PIECE_STATS[p.type].size;
 export const BOSS_TYPES = new Set<PieceType>([
   'colossus', 'empress', 'necromancer', 'stormbringer', 'watcher',
   'worldbreaker', 'phantom_king', 'doppelganger', 'hive_mother', 'chronarch',
+  'ganondorf', 'ganon',
+]);
+
+/** Ganondorf's current phase (3 HP = 1, 2 HP = 2, 1 HP or Ganon = 3); 0 for anything else. */
+export function ganonPhase(p: Piece): number {
+  if (p.type === 'ganon') return 3;
+  if (p.type !== 'ganondorf') return 0;
+  return p.hp >= 3 ? 1 : p.hp === 2 ? 2 : 3;
+}
+
+/** Zelda Content Pack piece types (handled outside some engine fast paths). */
+export const ZELDA_TYPES = new Set<PieceType>([
+  'link', 'zelda', 'midna', 'goron', 'zora', 'redead', 'like_like', 'darknut', 'skulltula', 'ganondorf', 'ganon',
 ]);
 
 /** Every square a piece occupies. */

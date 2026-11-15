@@ -129,8 +129,8 @@ export const EVENTS: EventDef[] = [
         label: 'Welcome them',
         detail: 'Gain 2 random pieces.',
         apply: (run, rng) => {
-          const a = rollPiece(rng, 'battle', run.act);
-          const b = rollPiece(rng, 'battle', run.act);
+          const a = rollPiece(rng, 'battle', run.act, [], run.packs);
+          const b = rollPiece(rng, 'battle', run.act, [a], run.packs);
           return {
             run: recruit(recruit(run, a), b),
             message: `A ${PIECE_STATS[a].name} and a ${PIECE_STATS[b].name} join your army.`,

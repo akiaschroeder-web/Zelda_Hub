@@ -5,6 +5,7 @@ import { Coord, EncounterRules, Piece, PieceType, coordKey } from '../engine/typ
 import { canTake } from '../engine/upgrades/eligibility';
 import { rollUpgrade } from './rewards';
 import { Rng } from './rng';
+import { ZELDA_LEGEND, enabledPacks } from '../content/packs';
 
 /** How many upgrades an enemy army gets. */
 export function enemyUpgradeCount(act: number, kind: 'battle' | 'elite' | 'boss'): number {
@@ -125,8 +126,9 @@ const TEMPLATES: { name: string; terrain: string[] }[] = [
 ];
 
 type Archetype = 'swarm' | 'cavalry' | 'fortress' | 'royal' | 'unorthodox';
+type ArchetypeInfo = { name: string; blurb: string; weights: Partial<Record<PieceType, number>> };
 
-const ARCHETYPES: Record<Archetype, { name: string; blurb: string; weights: Partial<Record<PieceType, number>> }> = {
+const ARCHETYPES: Record<Archetype, ArchetypeInfo> = {
   swarm: {
     name: 'Swarm Raiders',
     blurb: 'Overwhelming numbers of weak pieces.',
@@ -213,10 +215,10 @@ function placeArmy(terrain: string[], army: PieceType[]): EnemyPlacement[] {
 }
 
 /** Build an army list by spending a point budget with archetype weights. */
-function buyArmy(rng: Rng, archetype: Archetype, budget: number, act: number, elite: boolean): PieceType[] {
+function buyArmy(rng: Rng, archetype: ArchetypeInfo, budget: number, act: number, elite: boolean): PieceType[] {
   const army: PieceType[] = ['king'];
   let left = budget;
-  const weights = { ...ARCHETYPES[archetype].weights };
+  const weights = { ...archetype.weights };
   if (elite && act >= 1) weights.juggernaut = 1;
   // Expensive pieces only once the budget can afford them sensibly.
   for (let guard = 0; guard < 60 && left > 0; guard++) {
@@ -239,17 +241,19 @@ export function generateBattle(
   kind: 'battle' | 'elite',
   id: string,
   unlockedBosses: PieceType[] = [],
+  packs: readonly string[] = [],
 ): RunBattle {
   const template = rng.pick(TEMPLATES);
-  const archetype = rng.pick(Object.keys(ARCHETYPES) as Archetype[]);
+  // Content packs add their own army styles alongside the base ones.
+  const styles: ArchetypeInfo[] = [...Object.values(ARCHETYPES), ...enabledPacks(packs).flatMap((p) => p.archetypes)];
+  const info = rng.pick(styles);
   const rules: EncounterRules = { checkRules: rng.chance(0.65) };
   // Elites in later acts may bring a boss you've already beaten, with a smaller escort.
   const smallBosses = unlockedBosses.filter((b) => PIECE_STATS[b].size <= 2);
   const withBoss = kind === 'elite' && act >= 1 && smallBosses.length > 0 && rng.chance(0.35);
   const budget = enemyBudget(act, floor, kind) - (withBoss ? 10 : 0);
-  const army = buyArmy(rng, archetype, budget, act, kind === 'elite');
+  const army = buyArmy(rng, info, budget, act, kind === 'elite');
   if (withBoss) army.splice(1, 0, rng.pick(smallBosses));
-  const info = ARCHETYPES[archetype];
   return {
     id,
     kind,
@@ -382,6 +386,23 @@ const ARENAS: Partial<Record<PieceType, { name: string; description: string; ter
     ],
     enemies: ['gk..β..g.r', 'pp.....p.p', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
   },
+  ganondorf: {
+    name: 'The Dark Tower',
+    description: 'The King of Evil grows more dangerous with every wound: sorcery at 2 HP, and the beast Ganon at 1 HP. Leave him room and he will use it.',
+    terrain: [
+      '..........',
+      '..........',
+      '.#......#.',
+      '..+....+..',
+      '..........',
+      '....__....',
+      '..........',
+      '.+......+.',
+      'dddddddddd',
+      'dddddddddd',
+    ],
+    enemies: ['9.8kβ.8.9.', '.6.7..7.6.', 'p.p....p.p', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
+  },
   chronarch: {
     name: 'The Clockwork Court',
     description: 'A master tactician that can undo your best move — but only once.',
@@ -406,7 +427,7 @@ export const bossArenaName = (boss: PieceType) => ARENAS[boss]?.name ?? PIECE_ST
 export function bossBattle(act: number, id: string, rng?: Rng, boss?: PieceType): RunBattle {
   const type = boss ?? BOSS_POOLS[Math.min(act, BOSS_POOLS.length - 1)][0];
   const arena = ARENAS[type]!;
-  const enemies = parsePlacements(arena.enemies, { β: [type, 'enemy'] })
+  const enemies = parsePlacements(arena.enemies, { ...ZELDA_LEGEND, β: [type, 'enemy'] })
     .filter((p) => p.side === 'enemy')
     .map(({ type: t, x, y }) => ({ type: t, x, y }));
   return {

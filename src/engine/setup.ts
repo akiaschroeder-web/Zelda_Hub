@@ -103,6 +103,7 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
     log: [],
     overwatch: [],
     reborn: [],
+    engulfed: [],
   };
   state.runFlags = [...runFlags];
   battleStart(state);

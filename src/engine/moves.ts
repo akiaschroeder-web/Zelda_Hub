@@ -47,8 +47,9 @@ import {
 } from './core';
 import { attacksSquare, heavySteps, lPaths, shotSquares, sideStepVariants, stepsFor } from './movement';
 import { harvestSoul, resolveSpecial, specialMoves } from './specials';
+import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd } from './zelda';
 import { FREE_BOSS_ACTIONS, BOSS_COOLDOWNS, bossMoves, bossTurnEnd, bossTurnStart, haunted, resolveBoss, swarmCommanded } from './bosses';
-import { PIECE_STATS, footprint, sizeOf } from './pieces';
+import { PIECE_STATS, ZELDA_TYPES, footprint, sizeOf } from './pieces';
 import {
   Bonus,
   Coord,
@@ -433,7 +434,8 @@ export function quickApply(state: GameState, m: Move): GameState | undefined {
   if (m.castle || state.timed.length || state.bonus.length || state.overwatch.length || state.reborn.length || m.uses) return undefined;
   const mover = getPiece(state, m.pieceId);
   if (!mover || mover.upgrades.length || mover.statuses.length) return undefined;
-  if (state.pieces.some((p) => p.type === 'necromancer' || p.type === 'stormbringer')) return undefined;
+  if (state.pieces.some((p) => p.type === 'necromancer' || p.type === 'stormbringer' || p.type === 'redead')) return undefined;
+  if (ZELDA_TYPES.has(mover.type) || state.engulfed?.length) return undefined;
   const removed = new Set<string>();
   let pieces = state.pieces;
   if (m.action === 'heal') {
@@ -448,7 +450,7 @@ export function quickApply(state: GameState, m: Move): GameState | undefined {
       if (m.targets.length !== 1) return undefined;
       const t = getPiece(state, m.targets[0]);
       if (!t || t.upgrades.length || t.shields.length || t.statuses.length || t.hp > PIECE_STATS[mover.type].damage) return undefined;
-      if (t.type === 'phoenix' || mover.type === 'reaper' || isBoss(t)) return undefined;
+      if (t.type === 'phoenix' || mover.type === 'reaper' || isBoss(t) || ZELDA_TYPES.has(t.type)) return undefined;
       if (state.zones.length || INTERCEPT_UPGRADES.some((u) => anyHas(state, u))) return undefined;
       if (state.pieces.some((g) => g.side === t.side && g.id !== t.id && (g.type === 'guardian' || g.temp) && adjacent(g, t)))
         return undefined;
@@ -714,6 +716,7 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
 
   if (captured > 0) {
     for (let i = 0; i < captured; i++) harvestSoul(s, p);
+    if (p.type === 'zora') p.counters.evadeSpent = 0; // Graceful Evasion recharges
     if (p.type === 'slayer' && bigKills > 0) heal(s, p, 1); // Bloodlust
     // Assassin Execution: an extra non-capturing move of up to two squares.
     if (p.type === 'assassin' && m.action !== 'shoot' && alive(s, p.id) && entry?.source !== 'execution')
@@ -969,7 +972,9 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   const entry = s.bonus.shift();
   const mover = getPiece(s, m.pieceId);
   const from = mover ? { ...mover.pos } : undefined;
+  zeldaBeforeMove(s, m);
   resolve(s, m, entry);
+  zeldaAfterMove(s, m, from);
 
   // Doppelganger: a borrowed ability starts the Stolen Talent cooldown.
   if (m.param === 'stolen') {
@@ -1084,6 +1089,7 @@ function endTurn(s: GameState) {
   }
 
   bossTurnEnd(s, side);
+  zeldaTurnEnd(s, side);
 
   // Expiry at the end of this ply.
   const ply = s.ply;

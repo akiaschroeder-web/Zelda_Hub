@@ -157,6 +157,7 @@ export function cloneState(s: GameState): GameState {
     log: [],
     overwatch: s.overwatch.map((o) => ({ ...o })),
     reborn: s.reborn.map(clonePiece),
+    engulfed: (s.engulfed ?? []).map((e) => ({ ...e, victim: clonePiece(e.victim), at: { ...e.at } })),
   };
 }
 
@@ -167,7 +168,11 @@ export function cloneState(s: GameState): GameState {
 export const statusOf = (p: Piece, kind: StatusKind) => p.statuses.find((st) => st.kind === kind);
 export const hasStatus = (p: Piece, kind: StatusKind) => p.statuses.some((st) => st.kind === kind);
 
+/** Ganondorf (Gerudo King) shrugs off paralysis and anything that restricts movement. */
+const GANON_IMMUNE: StatusKind[] = ['bound', 'stunned', 'slowed', 'crippled', 'confused'];
+
 export function addStatus(p: Piece, st: Status) {
+  if ((p.type === 'ganondorf' || p.type === 'ganon') && GANON_IMMUNE.includes(st.kind)) return;
   const existing = statusOf(p, st.kind);
   if (existing && (st.kind === 'rangeBuff' || st.kind === 'damageBuff')) {
     existing.amount = (existing.amount ?? 0) + (st.amount ?? 0);
@@ -329,6 +334,21 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   // Phantom King: Ethereal Escape dodges the first attack by teleporting away.
   if (direct(ctx.kind) && !ctx.lethal && etherealEscape(s, target, source)) return { kind: 'survived', dealt: 0 };
 
+  // Zora: Graceful Evasion slips to an empty adjacent square the first time it would take damage.
+  if (target.type === 'zora' && !target.counters.evadeSpent && amount > 0 && ctx.kind !== 'fall') {
+    const enemies = s.pieces.filter((e) => e.side !== target.side);
+    const score = (c: Coord) => (source ? distanceTo(source, c) * 10 : 0) - enemies.filter((e) => distanceTo(e, c) <= 1).length;
+    const spot = ALL_DIRS.map((d) => add(target.pos, d))
+      .filter((c) => isEmpty(s, c))
+      .sort((a, b) => score(b) - score(a))[0];
+    if (spot) {
+      target.counters.evadeSpent = 1;
+      target.pos = { ...spot };
+      log(s, `${nameOf(target)} gracefully evades!`);
+      return { kind: 'survived', dealt: 0 };
+    }
+  }
+
   // Empress: Imperial Guard — the first attack on her is absorbed by an adjacent ally.
   if (direct(ctx.kind) && target.type === 'empress' && !hasUsed(target, 'imperial_guard')) {
     const guard = allies(s, target).find((a) => a.type !== 'king' && adjacent(a, target));
@@ -356,6 +376,15 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   if (direct(ctx.kind) && hasStatus(target, 'prophecy')) {
     removeStatus(target, 'prophecy');
     log(s, `The prophecy holds: ${nameOf(target)} is untouched.`);
+    return { kind: 'survived', dealt: 0 };
+  }
+
+  // Darknut: Armored Shell — the first attack only strips its armor.
+  if (direct(ctx.kind) && target.type === 'darknut' && !target.counters.armorBroken && amount > 0) {
+    target.counters.armorBroken = 1;
+    target.hitsTaken += 1;
+    if (source) target.lastAttackerId = source.id;
+    log(s, `${nameOf(target)}'s armor shatters!`);
     return { kind: 'survived', dealt: 0 };
   }
 
@@ -493,6 +522,25 @@ export function emptyZoneSquare(s: GameState, side: Side): Coord | undefined {
 export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: DamageKind }) {
   if (!s.pieces.includes(p)) return;
   s.pieces = s.pieces.filter((o) => o !== p);
+  // Like Like: Engulf — a piece it captures is swallowed rather than removed.
+  const holder = getPiece(s, ctx.sourceId);
+  if (
+    holder?.type === 'like_like' &&
+    ctx.kind === 'attack' &&
+    holder.side !== p.side &&
+    p.type !== 'king' &&
+    !isBoss(p) &&
+    sizeOf(p) === 1 &&
+    !p.temp &&
+    !(p.type === 'phoenix' && !hasUsed(p, 'rebirth')) &&
+    !(s.engulfed ?? []).some((e) => e.holderId === holder.id)
+  ) {
+    s.engulfed = [...(s.engulfed ?? []), { victim: p, holderId: holder.id, release: endOfTurn(s.ply, holder.side, 2), at: { ...p.pos } }];
+    log(s, `${nameOf(holder)} engulfs ${nameOf(p)}!`);
+    return;
+  }
+  // A fallen Like Like lets its victim go (placed back once the move finishes).
+  if (p.type === 'like_like') for (const e of s.engulfed ?? []) if (e.holderId === p.id) e.freed = true;
   // Phoenix: the first time it would be captured, it is reborn next turn instead.
   if (p.type === 'phoenix' && !hasUsed(p, 'rebirth') && ctx.kind !== 'ability') {
     markUsed(p, 'rebirth');

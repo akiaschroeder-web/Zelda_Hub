@@ -385,3 +385,33 @@ describe('full runs', () => {
     console.log('simulated run outcomes', JSON.stringify(outcomes), 'furthest act', maxAct + 1);
   }, 120000);
 });
+
+describe('content packs', () => {
+  it('only offers pack pieces and bosses when the pack is on', async () => {
+    const { recruitPool, rollPiece } = await import('../rewards');
+    const { bossPoolFor, newRun: freshRun } = await import('../run');
+    const { generateBattle } = await import('../battlegen');
+    const { Rng } = await import('../rng');
+    const { PACK_BY_ID } = await import('../../content/packs');
+    const zelda = PACK_BY_ID.zelda.pieces;
+
+    expect(recruitPool('rare', []).some((t) => zelda.includes(t))).toBe(false);
+    expect(recruitPool('rare', ['zelda'])).toContain('link');
+    expect(bossPoolFor(2, [])).not.toContain('ganondorf');
+    expect(bossPoolFor(2, ['zelda'])).toContain('ganondorf');
+
+    const rng = new Rng(7);
+    const offPieces = Array.from({ length: 400 }, () => rollPiece(rng, 'recruit', 2, [], []));
+    expect(offPieces.some((t) => zelda.includes(t))).toBe(false);
+    const onPieces = Array.from({ length: 400 }, () => rollPiece(rng, 'recruit', 2, [], ['zelda']));
+    expect(onPieces.some((t) => zelda.includes(t))).toBe(true);
+
+    const enemiesOff = Array.from({ length: 60 }, (_, i) => generateBattle(new Rng(i), 1, 2, 'battle', `b${i}`, [], [])).flatMap((b) => b.enemies);
+    expect(enemiesOff.some((e) => zelda.includes(e.type))).toBe(false);
+    const enemiesOn = Array.from({ length: 60 }, (_, i) => generateBattle(new Rng(i), 1, 2, 'battle', `b${i}`, [], ['zelda'])).flatMap((b) => b.enemies);
+    expect(enemiesOn.some((e) => zelda.includes(e.type))).toBe(true);
+
+    expect(freshRun(1, ['zelda']).packs).toEqual(['zelda']);
+    expect(freshRun(1).packs).toEqual([]);
+  });
+});

@@ -24,6 +24,7 @@ import {
   markUsed,
   nameOf,
   pieceAt,
+  pieceDistance,
   push,
   pushDistance,
   setTerrain,
@@ -45,6 +46,7 @@ export const COOLDOWNS = {
   summonPawnCd: 3,
   displaceCd: 3,
   prophecyCd: 4,
+  lightCd: 4,
 } as const;
 
 const ready = (p: Piece, cd: keyof typeof COOLDOWNS) => (p.counters[cd] ?? 0) <= 0;
@@ -124,6 +126,13 @@ export function specialMoves(s: GameState, p: Piece): Move[] {
       break;
     case 'bomber':
       moves.push({ ...base, to: p.pos, action: 'detonate' });
+      break;
+    case 'zelda':
+      // Sacred Light: instead of moving, heal an ally within 2 squares.
+      if (ready(p, 'lightCd'))
+        s.pieces
+          .filter((a) => a.side === p.side && a.id !== p.id && a.hp < a.maxHp && pieceDistance(a, p) <= 2)
+          .forEach((a) => moves.push({ ...base, to: a.pos, action: 'sacredLight', allyId: a.id }));
       break;
     case 'harvester': {
       const souls = p.counters.souls ?? 0;
@@ -211,6 +220,13 @@ export function resolveSpecial(s: GameState, m: Move): boolean {
       for (const v of victims) dealDamage(s, v.id, 2, { kind: 'splash' });
       return true;
     }
+    case 'sacredLight':
+      p.counters.lightCd = COOLDOWNS.lightCd;
+      if (target) {
+        heal(s, target, 1);
+        log(s, `Sacred Light restores ${nameOf(target)}.`);
+      }
+      return true;
     case 'soulHeal':
       p.counters.souls = (p.counters.souls ?? 0) - 2;
       heal(s, p, 1);

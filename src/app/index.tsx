@@ -7,7 +7,7 @@ import { PIECE_IMAGES } from '../ui/pieceImages';
 import { COLORS } from '../ui/theme';
 
 export default function Home() {
-  const { loaded, run, startNewRun } = useRun();
+  const { loaded, run, startNewRun, packs } = useRun();
   const canContinue = run && run.status === 'active';
 
   const newRun = () => {
@@ -26,6 +26,7 @@ export default function Home() {
         {canContinue && <Button label="Continue run" primary onPress={() => router.push(ROUTES[run.phase])} />}
         <Button label="New run" primary={!canContinue} disabled={!loaded} onPress={newRun} />
         <Button label="Sandbox battles" onPress={() => router.push('/sandbox')} />
+        <Button label={`Content packs (${packs.length} on)`} onPress={() => router.push('/packs')} />
       </View>
     </View>
   );

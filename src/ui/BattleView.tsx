@@ -4,9 +4,9 @@ import { chooseMove } from '../engine/ai';
 import { occupancy } from '../engine/board';
 import { actionLabel, describeMove } from '../engine/describe';
 import { UPGRADE_BY_ID } from '../engine/upgrades/catalog';
-import { attackSquares } from '../engine/movement';
 import { applyMove, distance, findKing, inCheck, legalMoves } from '../engine/moves';
-import { PIECE_STATS, footprint, sizeOf } from '../engine/pieces';
+import { PIECE_STATS, footprint, ganonPhase, sizeOf } from '../engine/pieces';
+import { attackSquares, twilightCharged } from '../engine/movement';
 import {
   AbilityId,
   ActionKind,
@@ -62,6 +62,8 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   rupture: 'rgba(80, 40, 30, 0.95)',
   rewind: 'rgba(150, 90, 220, 0.95)',
   accelerate: 'rgba(240, 200, 80, 0.95)',
+  sacredLight: 'rgba(250, 230, 140, 0.95)',
+  darkWarp: 'rgba(120, 40, 60, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -95,6 +97,11 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   slayer: { label: 'Giant Killer, Relentless, Bloodlust (passive)' },
   warden: { id: 'warden_intercept', label: 'Defensive Aura, Immovable, Intercept' },
   harvester: { label: 'Soul Harvest — spend Souls to heal (2) or empower (3)' },
+  zelda: { label: 'Sacred Light (pale gold, every 4 turns)' },
+  goron: { label: 'Rolling Charge: exact 3-square moves smash cracked walls' },
+  redead: { label: 'Paralyzing Scream (passive)' },
+  like_like: { label: 'Engulf (passive)' },
+  skulltula: { label: 'Wall Crawler (passive)' },
 };
 
 const STATUS_NAMES: Partial<Record<string, string>> = {
@@ -130,13 +137,35 @@ export function describePiece(p: Piece): { title: string; text: string; upgrades
   const abilityText = ability
     ? ` ${ability.label}${ability.id ? (p.used.includes(ability.id) ? ': used' : ': ready') : ''}.`
     : '';
-  const statuses = p.statuses.map((st) => STATUS_NAMES[st.kind] ?? st.kind);
+  const statuses = p.statuses.map((st) => (st.source === 'scream' ? 'Paralyzed' : (STATUS_NAMES[st.kind] ?? st.kind)));
+  const zelda = zeldaNotes(p);
   const ups = p.upgrades.map((u) => `${UPGRADE_BY_ID[u]?.name ?? u}${p.used.includes(u) ? ' (used)' : ''}`);
   return {
     title: `${p.clonedFrom ? `Clone as ${stats.name}` : stats.name}${p.temp ? (p.temp.kind === 'converted' ? ' (converted)' : ' (summoned)') : ''} · ${p.hp}/${p.maxHp} HP${shields}${statuses.length ? ` · ${statuses.join(', ')}` : ''}${p.counters.souls ? ` · ${p.counters.souls} Souls` : ''}`,
-    text: stats.blurb + abilityText,
+    text: stats.blurb + abilityText + zelda,
     upgrades: ups.length ? `Upgrades: ${ups.join(', ')}. Gold rings mark upgrade actions; tap the piece again for actions on itself.` : '',
   };
+}
+
+/** Live state of Zelda Pack abilities for the info panel. */
+function zeldaNotes(p: Piece): string {
+  switch (p.type) {
+    case 'link':
+      return p.hp === 1 ? " Hero's Courage is active." : '';
+    case 'midna':
+      return twilightCharged(p) ? ' Twilight Shift is ready this move.' : ` Twilight Shift in ${2 - ((p.counters.moves ?? 0) % 3)} move(s).`;
+    case 'zora':
+      return p.counters.evadeSpent ? ' Evasion spent (capture to recharge).' : ' Evasion ready.';
+    case 'darknut':
+      return p.counters.armorBroken ? ' Armor broken: moves up to 3.' : ' Armor intact.';
+    case 'zelda':
+      return (p.counters.lightCd ?? 0) > 0 ? ` Sacred Light ready in ${p.counters.lightCd} turn(s).` : '';
+    case 'ganondorf':
+    case 'ganon':
+      return [' Phase 1: Gerudo King.', ' Phase 2: Dark Sorcerer.', ' Phase 3: Demon King.'][ganonPhase(p) - 1];
+    default:
+      return '';
+  }
 }
 
 export function resultText(r: GameResult): string {

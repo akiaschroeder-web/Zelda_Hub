@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseMove } from '../ai';
-import { isStandable } from '../board';
+import { inBounds, isStandable, terrainAt } from '../board';
 import { ENCOUNTERS } from '../encounters';
 import { applyMove } from '../moves';
 import { footprint } from '../pieces';
@@ -20,7 +20,9 @@ function checkInvariants(s: GameState) {
     expect(p.hp).toBeLessThanOrEqual(p.maxHp);
     for (const c of footprint(p)) {
       const k = `${c.x},${c.y}`;
-      expect(isStandable(s.board, c), `${p.type} on blocked square ${k}`).toBe(true);
+      // Skulltulas (Wall Crawler) may stand on walls, never on gaps.
+      const ok = p.type === 'skulltula' ? inBounds(s.board, c) && terrainAt(s.board, c) !== 'gap' : isStandable(s.board, c);
+      expect(ok, `${p.type} on blocked square ${k}`).toBe(true);
       expect(seen.has(k), `two pieces on ${k}`).toBe(false);
       seen.add(k);
     }
@@ -31,7 +33,9 @@ describe('AI self-play in boss arenas', () => {
   it('every boss battle plays out without breaking any board invariant', async () => {
     const { BOSS_POOLS, bossBattle } = await import('../../run/battlegen');
     const { autoDeploy, newRun, startBattle } = await import('../../run/run');
-    for (const [act, pool] of BOSS_POOLS.entries()) {
+    const { PACKS } = await import('../../content/packs');
+    const pools = BOSS_POOLS.map((pool, act) => [...pool, ...PACKS.flatMap((p) => p.bosses.filter((b) => b.act === act).map((b) => b.type))]);
+    for (const [act, pool] of pools.entries()) {
       for (const type of pool) {
         const battle = bossBattle(act, 'b', undefined, type);
         const run = { ...newRun(1), phase: 'deploy' as const, battle };

@@ -61,6 +61,19 @@ export type PieceType =
   | 'doppelganger'
   | 'hive_mother'
   | 'chronarch'
+  // Zelda Content Pack
+  | 'link'
+  | 'zelda'
+  | 'midna'
+  | 'goron'
+  | 'zora'
+  | 'redead'
+  | 'like_like'
+  | 'darknut'
+  | 'skulltula'
+  | 'ganondorf'
+  /** Ganondorf's Phase 3 form (3x3). */
+  | 'ganon'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -107,6 +120,8 @@ export type ActionKind =
   | 'rupture' // Worldbreaker
   | 'rewind' // Chronarch
   | 'accelerate' // Chronarch: Temporal Acceleration
+  | 'sacredLight' // Zelda: heal an ally within 2
+  | 'darkWarp' // Ganondorf (Phase 2): teleport up to 3
   | 'upgrade'
   | 'pass';
 
@@ -354,6 +369,20 @@ export interface GameState {
   overwatch: { sentinelId: string; side: Side; cells: Coord[] }[];
   /** Phoenixes waiting to be reborn at the start of their owner's next turn. */
   reborn: Piece[];
+  /** Pieces swallowed by a Like Like (Engulf). */
+  engulfed: Engulfed[];
+}
+
+/** A piece held inside a Like Like until `release` (then it's captured) or the Like Like falls (then it returns). */
+export interface Engulfed {
+  victim: Piece;
+  holderId: string;
+  /** Captured for good at the end of this ply if the Like Like still stands. */
+  release: number;
+  /** The square it was swallowed on. */
+  at: Coord;
+  /** The Like Like fell: put the victim back as soon as the move finishes. */
+  freed?: boolean;
 }
 
 export const opponent = (side: Side): Side => (side === 'player' ? 'enemy' : 'player');

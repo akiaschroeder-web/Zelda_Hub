@@ -63,6 +63,10 @@ export function actionLabel(state: GameState, m: Move): string {
       return 'Spend 2 Souls: heal 1';
     case 'soulPower':
       return 'Spend 3 Souls: +1 damage';
+    case 'sacredLight':
+      return `Sacred Light: heal ${target ? pieceName(target) : 'ally'}`;
+    case 'darkWarp':
+      return 'Dark Warp (teleport)';
     case 'upgrade': {
       const u = UPGRADE_BY_ID[m.upgrade!]?.name ?? m.upgrade!;
       if (m.param) return `${u}: ${m.param}`;

@@ -30,6 +30,7 @@ import {
 } from './core';
 import { PIECE_STATS, footprint, sizeOf } from './pieces';
 import { Coord, GameState, Move, Piece, Side, opponent, sameCoord } from './types';
+import { darkWarps } from './zelda';
 
 export const BOSS_COOLDOWNS = {
   royalCmdCd: 3,
@@ -80,6 +81,9 @@ export function bossMoves(s: GameState, p: Piece): Move[] {
       if (ready(p, 'quakeCd') && crackedNear(s, p, 2).length) moves.push({ ...base, to: p.pos, action: 'earthquake' });
       break;
     }
+    case 'ganondorf':
+      moves.push(...darkWarps(s, p));
+      break;
     case 'chronarch':
       if (!hasUsed(p, 'rewind') && s.snapshot[opponent(p.side)] && s.bonus.length === 0)
         moves.push({ ...base, to: p.pos, action: 'rewind' });
@@ -131,6 +135,10 @@ export function resolveBoss(s: GameState, m: Move): boolean {
       }
       return true;
     }
+    case 'darkWarp':
+      p.pos = { ...m.to };
+      log(s, 'Ganondorf vanishes in darkness and reappears!');
+      return true;
     case 'rupture':
       setTerrain(s, m.to, 'gap');
       return true;
@@ -245,6 +253,7 @@ export function swarmCommanded(s: GameState, pawn: Piece): boolean {
 }
 
 /** Diagonal steps for the Watcher; everything else large moves orthogonally. */
-export const heavyDirs = (p: Piece) => (p.type === 'watcher' ? DIAG : undefined);
+export const heavyDirs = (p: Piece) =>
+  p.type === 'watcher' ? DIAG : p.type === 'ganondorf' || p.type === 'ganon' ? ALL_DIRS : undefined;
 
 export { opponent };
