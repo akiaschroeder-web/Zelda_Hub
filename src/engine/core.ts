@@ -674,6 +674,21 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
     log(s, `${nameOf(holder)} engulfs ${nameOf(p)}!`);
     return;
   }
+  // Star Post: the piece that claimed it comes back there once, with 1 HP.
+  const post = (s.tiles ?? []).find((t) => t.kind === 'starPost' && t.claimedBy === p.id);
+  if (post) {
+    const spot = isEmpty(s, post.pos) ? post.pos : nearestEmpty(s, post.pos, 8);
+    if (spot) {
+      s.tiles = s.tiles.filter((t) => t !== post);
+      p.pos = { ...spot };
+      p.hp = 1;
+      p.statuses = [];
+      p.shields = [];
+      s.pieces.push(p);
+      log(s, `${nameOf(p)} respawns at the Star Post!`);
+      return;
+    }
+  }
   // Stalfos: Reassembly — the first time it falls, it collapses into bones instead.
   if (p.type === 'stalfos' && !hasUsed(p, 'reassembly') && ctx.kind !== 'fall' && !p.temp) {
     markUsed(p, 'reassembly');

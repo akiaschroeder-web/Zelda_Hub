@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, ImageSourcePropType, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BOSS_TYPES, footprint, sizeOf } from '../engine/pieces';
 import { Board, Coord, Piece, Terrain, Tile, coordKey, sameCoord, shieldTotal } from '../engine/types';
 import { PIECE_IMAGES } from './pieceImages';
@@ -334,30 +334,58 @@ function PieceArt({ p, cell }: { p: Piece; cell: number }) {
   );
 }
 
-const TILE_ICONS: Record<Tile['kind'], string> = { key: '🗝️', switch: '🔄', floorMaster: '✋', heart: '❤️', warp: '▲' };
+/** Spaces drawn with an emoji (the rest have art in assets/tiles). */
+const TILE_EMOJI: Partial<Record<Tile['kind'], string>> = { key: '🗝️', switch: '🔄', heart: '❤️' };
+const TILE_ART: Partial<Record<Tile['kind'], ImageSourcePropType>> = {
+  floorMaster: require('../../assets/tiles/floor_master.png'),
+  warp: require('../../assets/tiles/warp.png'),
+  spring: require('../../assets/tiles/spring.png'),
+  dash: require('../../assets/tiles/dash.png'),
+  monitor: require('../../assets/tiles/monitor.png'),
+  starPost: require('../../assets/tiles/star_post.png'),
+};
+/** Which way an arrow pointing up has to turn to face `dir`. */
+const facing = (dir?: Coord) => (!dir ? '0deg' : dir.y < 0 ? '0deg' : dir.x > 0 ? '90deg' : dir.y > 0 ? '180deg' : '270deg');
 
 /** A special space's marker, drawn on its square. */
 function TileIcon({ tile, size, resting, small }: { tile: Tile; size: number; resting: boolean; small: boolean }) {
+  // Crumbling Platforms: just cracks in the floor.
+  if (tile.kind === 'crumble')
+    return (
+      <View style={[StyleSheet.absoluteFill, styles.tile]}>
+        <View style={[styles.floorCrack, { width: size * 0.7, transform: [{ rotate: '28deg' }] }]} />
+        <View style={[styles.floorCrack, { width: size * 0.45, transform: [{ rotate: '-55deg' }, { translateX: size * 0.12 }] }]} />
+        <View style={[styles.floorCrack, { width: size * 0.3, transform: [{ rotate: '80deg' }, { translateY: size * 0.18 }] }]} />
+      </View>
+    );
+  const art = TILE_ART[tile.kind];
   const warp = tile.kind === 'warp';
+  const box = size * (small ? 0.34 : 0.8);
+  const ringColor = warp ? (tile.pair === 'V' ? '#3cbec8' : '#f0c83c') : tile.kind === 'starPost' && tile.claimedBy ? '#f0c83c' : null;
   return (
     <View
       style={[
         StyleSheet.absoluteFill,
         styles.tile,
-        warp && { backgroundColor: tile.pair === 'V' ? 'rgba(60, 190, 200, 0.28)' : 'rgba(240, 200, 60, 0.28)' },
         // Under a piece the icon shrinks into the bottom-left corner so the piece stays readable.
         small && { alignItems: 'flex-start', justifyContent: 'flex-end', padding: 1 },
       ]}
     >
-      <Text
-        style={{
-          fontSize: size * (small ? 0.24 : warp ? 0.5 : 0.42),
-          color: warp ? (tile.pair === 'V' ? '#3cbec8' : '#f0c83c') : undefined,
-          opacity: resting ? 0.45 : 0.9,
-        }}
-      >
-        {TILE_ICONS[tile.kind]}
-      </Text>
+      {ringColor && !small && <View style={[StyleSheet.absoluteFill, { borderWidth: 3, borderColor: ringColor, borderRadius: 6, margin: 2 }]} />}
+      {art ? (
+        <View style={{ width: box, height: box, opacity: resting ? 0.45 : 1 }}>
+          <Image
+            source={art}
+            resizeMode="contain"
+            style={{ width: '100%', height: '100%', transform: [{ rotate: tile.kind === 'dash' ? facing(tile.dir) : '0deg' }] }}
+          />
+          {tile.kind === 'spring' && (
+            <Text style={[styles.springArrow, { fontSize: box * 0.42, transform: [{ rotate: facing(tile.dir) }] }]}>▲</Text>
+          )}
+        </View>
+      ) : (
+        <Text style={{ fontSize: size * (small ? 0.24 : 0.42), opacity: resting ? 0.45 : 0.9 }}>{TILE_EMOJI[tile.kind]}</Text>
+      )}
     </View>
   );
 }
@@ -408,6 +436,8 @@ const styles = StyleSheet.create({
   crack: { position: 'absolute', height: 2, backgroundColor: COLORS.wallEdge },
   door: { backgroundColor: '#6b4a2a', borderColor: '#3a2614', alignItems: 'center', justifyContent: 'center' },
   tile: { alignItems: 'center', justifyContent: 'center' },
+  floorCrack: { position: 'absolute', height: 2, backgroundColor: 'rgba(40, 28, 18, 0.75)' },
+  springArrow: { position: 'absolute', alignSelf: 'center', top: '18%', color: '#fff', textShadowColor: '#000', textShadowRadius: 3 },
   hpRow: { position: 'absolute', bottom: 1, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 3 },
   hpPip: { borderRadius: 2, borderWidth: 1, borderColor: '#1a1410' },
   hpFullPlayer: { backgroundColor: '#7cc46a' },

@@ -219,6 +219,8 @@ function zeldaNotes(p: Piece): string {
   }
 }
 
+const arrowWord = (d?: { x: number; y: number }) => (!d ? '' : d.y < 0 ? 'up' : d.y > 0 ? 'down' : d.x < 0 ? 'left' : 'right');
+
 /** What a special space does, for the info panel. */
 function describeSpace(state: GameState, c: Coord): { title: string; text: string } | null {
   const tile = state.tiles?.find((t) => sameCoord(t.pos, c));
@@ -244,7 +246,24 @@ function describeSpace(state: GameState, c: Coord): { title: string; text: strin
     case 'heart':
       return { title: '❤️ Recovery Heart', text: 'The first damaged piece to land here, from either side, heals 1 HP. Pieces at full HP leave it.' };
     case 'warp':
-      return { title: `▲ Triforce Warp (${tile.pair === 'V' ? 'teal' : 'gold'})`, text: 'Landing here carries a piece to the other warp of the same colour, if that square is free.' };
+      return { title: `Triforce Warp (${tile.pair === 'V' ? 'teal' : 'gold'})`, text: 'Landing here carries a piece to the other warp of the same colour, if that square is free.' };
+    case 'spring':
+      return { title: `Spring (${arrowWord(tile.dir)})`, text: 'A 1×1 piece landing here is launched exactly 3 squares that way, over anything. An enemy there takes 1 instead; a blocked landing leaves the piece on the Spring.' };
+    case 'dash':
+      return { title: `Dash Panel (${arrowWord(tile.dir)})`, text: 'A 1×1 piece landing here slides up to 3 squares that way, stopping before walls, gaps and allies. An enemy in the way is attacked.' };
+    case 'crumble':
+      return { title: 'Crumbling Platform', text: 'Safe to stand on, but the moment it is left empty it collapses into a gap for good.' };
+    case 'monitor':
+      return { title: 'Item Monitor', text: 'The first piece to land here breaks it for a bonus: Speed Shoes (+1 range for 3 turns), a Shield, a Power Boost (+1 damage on its next attack) or Recovery (heal 1).' };
+    case 'starPost':
+      return {
+        title: 'Star Post',
+        text: tile.claimedBy
+          ? 'Claimed: if that piece is captured, it respawns here once with 1 HP.'
+          : 'The first piece to land here claims it. If that piece is later captured, it respawns here once with 1 HP.',
+      };
+    default:
+      return null;
   }
 }
 

@@ -402,4 +402,14 @@ export const ENCOUNTERS: EncounterDef[] = [
       '4,1': ['ancient_light'],
     },
   },
+  {
+    id: 'emerald_hill',
+    name: 'Emerald Hill',
+    description:
+      'Sonic Pack spaces: Springs, Dash Panels, a crumbling bridge over a gap, Item Monitors and Star Posts. Tap a special square to read it.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', '↓.M..T.⇩', '..%%%%..', '..____..', '⇧.....M↑', '........', '........'],
+    pieces: ['гжваkдзи', 'бмнпклнм', '........', '........', '........', '........', 'БМНПКЛНМ', 'ГЖВАKДЗИ'],
+    legend: SONIC_LEGEND,
+  },
 ];

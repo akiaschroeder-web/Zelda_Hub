@@ -103,3 +103,67 @@ describe('Zelda Pack special spaces', () => {
     expect(at(blocked, 0, 4)?.type).toBe('rook');
   });
 });
+
+describe('Sonic Pack special spaces', () => {
+  const rows = (extra: Record<number, string> = {}) =>
+    Array.from({ length: 8 }, (_, y) => extra[y] ?? (y === 0 ? '.......k' : y === 7 ? '.......K' : y === 6 ? 'R.......' : '........'));
+
+  it('a Spring launches a piece exactly 3 squares over anything', () => {
+    let s = make(rows(), {}, { terrain: blank({ 4: '→#......' }) });
+    s = play(s, 0, 6, 0, 4);
+    expect(at(s, 3, 4)?.type).toBe('rook');
+  });
+
+  it('a Spring aimed at an enemy hits it for 1 and leaves the piece on the Spring', () => {
+    let s = make(rows({ 4: '...p....' }), {}, { terrain: blank({ 4: '→.......' }) });
+    s = play(s, 0, 6, 0, 4);
+    expect(at(s, 0, 4)?.type).toBe('rook');
+    expect(at(s, 3, 4)).toBeUndefined();
+  });
+
+  it('a Dash Panel slides a piece until something blocks it, attacking an enemy in the way', () => {
+    let s = make(rows(), {}, { terrain: blank({ 4: '⇨.#.....' }) });
+    s = play(s, 0, 6, 0, 4);
+    expect(at(s, 1, 4)?.type).toBe('rook');
+    let t = make(rows({ 4: '..p.....' }), {}, { terrain: blank({ 4: '⇨.......' }) });
+    t = play(t, 0, 6, 0, 4);
+    expect(at(t, 2, 4)?.type).toBe('rook');
+  });
+
+  it('a Crumbling Platform collapses into a gap once it is left empty', () => {
+    let s = make(rows(), {}, { terrain: blank({ 6: '%.......' }) });
+    s = play(s, 0, 6, 0, 3);
+    expect(terrainAt(s.board, { x: 0, y: 6 })).toBe('gap');
+  });
+
+  it('an Item Monitor gives the first piece a bonus and disappears', () => {
+    let s = make(rows(), {}, { terrain: blank({ 4: 'M.......' }) });
+    const rook = s.pieces.find((p) => p.type === 'rook')!;
+    rook.maxHp = 2;
+    rook.hp = 1; // so even Recovery shows
+    s = play(s, 0, 6, 0, 4);
+    const after = s.pieces.find((p) => p.type === 'rook')!;
+    expect(s.tiles).toHaveLength(0);
+    expect(after.statuses.length + after.shields.length + (after.hp - 1)).toBeGreaterThan(0);
+  });
+
+  it('a Star Post brings its piece back once, with 1 HP', () => {
+    let s = make(rows({ 1: '.r.....k' }), {}, { terrain: blank({ 4: 'T.......' }) });
+    s = play(s, 0, 6, 0, 4);
+    expect(s.tiles[0].claimedBy).toBe(s.pieces.find((p) => p.type === 'rook' && p.side === 'player')!.id);
+    s = play(s, 1, 1, 1, 0); // enemy
+    s = play(s, 0, 4, 1, 4);
+    s = play(s, 1, 0, 1, 4); // the enemy rook takes ours
+    const mine = s.pieces.find((p) => p.type === 'rook' && p.side === 'player');
+    expect(mine?.pos).toEqual({ x: 0, y: 4 });
+    expect(mine?.hp).toBe(1);
+    expect(s.tiles).toHaveLength(0);
+  });
+
+  it('Springs and Dash Panels turn with the board', () => {
+    let s = make(rows(), {}, { terrain: blank({ 4: 'S.......', 2: '.....→..' }) });
+    s = play(s, 0, 6, 0, 4);
+    const spring = s.tiles.find((t) => t.kind === 'spring')!;
+    expect(spring.dir).toEqual({ x: 0, y: 1 }); // right turns to down
+  });
+});

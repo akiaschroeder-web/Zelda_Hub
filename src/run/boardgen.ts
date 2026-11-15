@@ -179,6 +179,34 @@ function attempt(rng: Rng, spec: BoardSpec, simple: boolean, plain = false): Gen
     }
   }
 
+  // 4b. Sonic Pack special spaces.
+  if (!simple && spec.packs?.includes('sonic') && rng.chance(boss ? 0.5 : 0.6)) {
+    const cells = () => middle.flatMap((y) => g[y].map((c, x) => ({ x, y, c }))).filter((o) => o.c === '.');
+    const kinds = rng.shuffle(['spring', 'dash', 'crumble', 'monitor', 'post']).slice(0, rng.int(1, 3));
+    for (const k of kinds) {
+      const free = cells();
+      if (!free.length) break;
+      if (k === 'spring' || k === 'dash') {
+        const arrows = k === 'spring' ? ['↑', '↓', '←', '→'] : ['⇧', '⇩', '⇦', '⇨'];
+        for (let i = 0; i < rng.int(1, 2); i++) {
+          const c = rng.pick(cells());
+          if (c) set(c.x, c.y, rng.pick(arrows));
+        }
+      } else if (k === 'crumble') {
+        // Crumbling Platforms bridge a gap where there is one, or make a short walkway.
+        const gaps = middle.flatMap((y) => g[y].map((c, x) => ({ x, y, c }))).filter((o) => o.c === '_');
+        const start = gaps.length ? rng.pick(gaps) : rng.pick(free);
+        for (let dx = 0; dx < rng.int(2, 3); dx++) {
+          const ch = at(start.x + dx, start.y);
+          if (ch === '_' || ch === '.') set(start.x + dx, start.y, '%');
+        }
+      } else {
+        const c = rng.pick(free);
+        set(c.x, c.y, k === 'monitor' ? 'M' : 'T');
+      }
+    }
+  }
+
   // 5. The armies must be able to reach each other (cracked walls and doors count as passable).
   if (!connected(g)) return null;
 
@@ -244,7 +272,7 @@ function carveShape(rng: Rng, g: string[][], shape: Shape) {
 /** Can the player's zone reach the enemy's? Walls block; cracked walls, doors and spaces don't. */
 function connected(g: string[][]): boolean {
   const n = g.length;
-  const passable = (ch: string) => ch !== '#' && ch !== '_' && ch !== '-';
+  const passable = (ch: string) => ch !== '#' && ch !== '_' && ch !== '-';  // springs, panels, platforms and doors are all passable
   const start: [number, number][] = [];
   g.forEach((r, y) => r.forEach((ch, x) => ch === 'd' && start.push([x, y])));
   if (!start.length) return false;

@@ -54,3 +54,13 @@ describe('procedural boards', () => {
     }
   });
 });
+
+describe('Sonic Pack spaces on generated boards', () => {
+  it('appear only with the Sonic Pack on', () => {
+    const rng = new Rng(21);
+    const off = Array.from({ length: 200 }, () => generateBoard(rng).terrain.join('')).join('');
+    expect(off).not.toMatch(/[↑↓←→⇧⇩⇦⇨%MT]/);
+    const on = Array.from({ length: 200 }, () => generateBoard(rng, { packs: ['sonic'] }).terrain.join('')).join('');
+    for (const re of [/[↑↓←→]/, /[⇧⇩⇦⇨]/, /%/, /M/, /T/]) expect(on).toMatch(re);
+  });
+});

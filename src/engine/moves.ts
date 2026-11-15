@@ -1041,7 +1041,7 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   resolve(s, m, entry);
   zeldaAfterMove(s, m, from);
   sonicAfterMove(s, m, from, entry);
-  tilesAfterMove(s, m, from);
+  tilesAfterMove(s, m, from, state);
 
   // Doppelganger: a borrowed ability starts the Stolen Talent cooldown.
   if (m.param === 'stolen') {

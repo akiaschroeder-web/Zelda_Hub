@@ -16,7 +16,18 @@ export type Side = 'player' | 'enemy';
 export type Terrain = 'normal' | 'gap' | 'wall' | 'cracked' | 'door' | 'void';
 
 /** Special spaces that sit on normal squares (Zelda Pack). */
-export type TileKind = 'key' | 'switch' | 'floorMaster' | 'heart' | 'warp';
+export type TileKind =
+  | 'key'
+  | 'switch'
+  | 'floorMaster'
+  | 'heart'
+  | 'warp'
+  // Sonic Pack
+  | 'spring'
+  | 'dash'
+  | 'crumble'
+  | 'monitor'
+  | 'starPost';
 
 export interface Tile {
   kind: TileKind;
@@ -25,6 +36,10 @@ export interface Tile {
   pair?: string;
   /** Floor Master: inactive until this ply has passed. */
   readyPly?: number;
+  /** Springs and Dash Panels: the way they launch (one orthogonal step). */
+  dir?: Coord;
+  /** Star Post: the piece that claimed it. */
+  claimedBy?: string;
 }
 
 export type PieceType =

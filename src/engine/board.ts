@@ -41,7 +41,20 @@ export function occupancy(pieces: Piece[]): Map<string, Piece> {
  *   -  void (not part of the board: shaped boards)
  *   L  Locked Door    K  Small Key    S  Rotation Switch    F  Floor Master
  *   H  Recovery Heart    W / V  a pair of linked Triforce Warps
+ * Sonic Pack special spaces:
+ *   ↑ ↓ ← →  Springs (launch that way)    ⇧ ⇩ ⇦ ⇨  Dash Panels
+ *   %  Crumbling Platform    M  Item Monitor    T  Star Post
  */
+const UP = { x: 0, y: -1 };
+const DOWN = { x: 0, y: 1 };
+const LEFT = { x: -1, y: 0 };
+const RIGHT = { x: 1, y: 0 };
+/** Springs and Dash Panels by character, with the way they face. */
+export const DIRECTED: Record<string, [Tile['kind'], Coord]> = {
+  '↑': ['spring', UP], '↓': ['spring', DOWN], '←': ['spring', LEFT], '→': ['spring', RIGHT],
+  '⇧': ['dash', UP], '⇩': ['dash', DOWN], '⇦': ['dash', LEFT], '⇨': ['dash', RIGHT],
+};
+
 export function parseBoard(rows: string[]): Board {
   const height = rows.length;
   const width = Math.max(...rows.map((r) => r.length));
@@ -50,7 +63,9 @@ export function parseBoard(rows: string[]): Board {
   const deployZone: Coord[] = [];
   const enemyZone: Coord[] = [];
   const tiles: Tile[] = [];
-  const TILE_CHARS: Record<string, Tile['kind']> = { K: 'key', S: 'switch', F: 'floorMaster', H: 'heart', W: 'warp', V: 'warp' };
+  const TILE_CHARS: Record<string, Tile['kind']> = {
+    K: 'key', S: 'switch', F: 'floorMaster', H: 'heart', W: 'warp', V: 'warp', '%': 'crumble', M: 'monitor', T: 'starPost',
+  };
   for (let y = 0; y < height; y++) {
     const row: Terrain[] = [];
     for (let x = 0; x < width; x++) {
@@ -63,6 +78,10 @@ export function parseBoard(rows: string[]): Board {
       else if (TILE_CHARS[ch]) {
         row.push('normal');
         tiles.push({ kind: TILE_CHARS[ch], pos: { x, y }, ...(ch === 'W' || ch === 'V' ? { pair: ch } : {}) });
+      } else if (DIRECTED[ch]) {
+        row.push('normal');
+        const [kind, dir] = DIRECTED[ch];
+        tiles.push({ kind, pos: { x, y }, dir: { ...dir } });
       } else {
         row.push('normal');
         if (ch === 'd') deployZone.push({ x, y });
