@@ -264,12 +264,25 @@ function Ghost({ p, cell, onDone }: { p: Piece; cell: number; onDone: () => void
 }
 
 function PieceArt({ p, cell }: { p: Piece; cell: number }) {
+  const big = sizeOf(p) > 1;
   return (
     <>
-      {BOSS_TYPES.has(p.type) && (
-        <View style={[StyleSheet.absoluteFill, styles.bossRing, { borderColor: p.side === 'player' ? COLORS.gold : COLORS.danger }]} />
+      {/* A multi-square piece sits on a plate covering exactly its footprint, so its size is obvious. */}
+      {big ? (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            styles.footprintPlate,
+            p.side === 'player' ? styles.platePlayer : styles.plateEnemy,
+            BOSS_TYPES.has(p.type) && { borderWidth: 3 },
+          ]}
+        />
+      ) : (
+        BOSS_TYPES.has(p.type) && (
+          <View style={[StyleSheet.absoluteFill, styles.bossRing, { borderColor: p.side === 'player' ? COLORS.gold : COLORS.danger }]} />
+        )
       )}
-      <Image source={PIECE_IMAGES[p.side][p.type]} style={styles.pieceImg} resizeMode="contain" />
+      <Image source={PIECE_IMAGES[p.side][p.type]} style={big ? styles.pieceImgBig : styles.pieceImg} resizeMode="contain" />
       {p.maxHp > 1 && (
         <View style={styles.hpRow}>
           {Array.from({ length: p.maxHp }, (_, i) => (
@@ -409,6 +422,10 @@ const styles = StyleSheet.create({
   },
   statusText: { color: 'white', fontSize: 9, fontWeight: '700' },
   bossRing: { borderWidth: 2, borderRadius: 999, margin: 2 },
+  footprintPlate: { margin: 3, borderRadius: 10, borderWidth: 2 },
+  platePlayer: { backgroundColor: 'rgba(242, 228, 196, 0.22)', borderColor: COLORS.gold },
+  plateEnemy: { backgroundColor: 'rgba(200, 40, 56, 0.18)', borderColor: COLORS.danger },
+  pieceImgBig: { position: 'absolute', left: '3%', top: '2%', width: '94%', height: '92%' },
   tempRing: { borderWidth: 1, borderColor: 'rgba(170, 220, 255, 0.8)', borderStyle: 'dashed', borderRadius: 999 },
   crossH: { position: 'absolute', left: '25%', top: '50%', height: 2, marginTop: -1 },
   crossV: { position: 'absolute', top: '25%', left: '50%', width: 2, marginLeft: -1 },

@@ -20,7 +20,7 @@ export const PIECE_IMAGES: Record<Side, Record<PieceType, ImageSourcePropType>> 
     chancellor: require('../../assets/pieces/chancellor_player.png'),
     medic: require('../../assets/pieces/medic_player.png'),
     decoy: require('../../assets/pieces/illusionist_player.png'),
-    // Zelda Content Pack (placeholder art: art/zelda_placeholders.py)
+    // Zelda Content Pack (art/process_zelda.py)
     link: require('../../assets/pieces/link_player.png'),
     zelda: require('../../assets/pieces/zelda_player.png'),
     midna: require('../../assets/pieces/midna_player.png'),
@@ -85,7 +85,7 @@ export const PIECE_IMAGES: Record<Side, Record<PieceType, ImageSourcePropType>> 
     chancellor: require('../../assets/pieces/chancellor_enemy.png'),
     medic: require('../../assets/pieces/medic_enemy.png'),
     decoy: require('../../assets/pieces/illusionist_enemy.png'),
-    // Zelda Content Pack (placeholder art: art/zelda_placeholders.py)
+    // Zelda Content Pack (art/process_zelda.py)
     link: require('../../assets/pieces/link_enemy.png'),
     zelda: require('../../assets/pieces/zelda_enemy.png'),
     midna: require('../../assets/pieces/midna_enemy.png'),
