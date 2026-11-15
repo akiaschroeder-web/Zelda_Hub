@@ -1,5 +1,5 @@
 import { footprint } from './pieces';
-import { Board, Coord, Piece, Side, Terrain } from './types';
+import { Board, Coord, Piece, Side, Terrain, Tile } from './types';
 
 export const inBounds = (board: Board, c: Coord): boolean =>
   c.x >= 0 && c.y >= 0 && c.x < board.width && c.y < board.height;
@@ -15,6 +15,9 @@ export const isWall = (board: Board, c: Coord): boolean => {
   return t === 'wall' || t === 'cracked';
 };
 
+/** Anything that stops a jump or a line: walls, cracked walls and Locked Doors. */
+export const isBarrier = (board: Board, c: Coord): boolean => isWall(board, c) || terrainAt(board, c) === 'door';
+
 /** Index pieces by every square they occupy, for fast lookups. */
 export function occupancy(pieces: Piece[]): Map<string, Piece> {
   const map = new Map<string, Piece>();
@@ -28,6 +31,9 @@ export function occupancy(pieces: Piece[]): Map<string, Piece> {
  *   *  normal square that promotes pawns of either side
  *   d  normal square in the player's deployment zone
  *   e  normal square in the enemy's deployment zone
+ * Zelda Pack special spaces:
+ *   L  Locked Door    K  Small Key    S  Rotation Switch    F  Floor Master
+ *   H  Recovery Heart    W / V  a pair of linked Triforce Warps
  */
 export function parseBoard(rows: string[]): Board {
   const height = rows.length;
@@ -36,6 +42,8 @@ export function parseBoard(rows: string[]): Board {
   const promotionSquares: { side: Side; pos: Coord }[] = [];
   const deployZone: Coord[] = [];
   const enemyZone: Coord[] = [];
+  const tiles: Tile[] = [];
+  const TILE_CHARS: Record<string, Tile['kind']> = { K: 'key', S: 'switch', F: 'floorMaster', H: 'heart', W: 'warp', V: 'warp' };
   for (let y = 0; y < height; y++) {
     const row: Terrain[] = [];
     for (let x = 0; x < width; x++) {
@@ -43,7 +51,11 @@ export function parseBoard(rows: string[]): Board {
       if (ch === '#') row.push('wall');
       else if (ch === '+') row.push('cracked');
       else if (ch === ' ' || ch === '_') row.push('gap');
-      else {
+      else if (ch === 'L') row.push('door');
+      else if (TILE_CHARS[ch]) {
+        row.push('normal');
+        tiles.push({ kind: TILE_CHARS[ch], pos: { x, y }, ...(ch === 'W' || ch === 'V' ? { pair: ch } : {}) });
+      } else {
         row.push('normal');
         if (ch === 'd') deployZone.push({ x, y });
         if (ch === 'e') enemyZone.push({ x, y });
@@ -55,5 +67,5 @@ export function parseBoard(rows: string[]): Board {
     }
     terrain.push(row);
   }
-  return { width, height, terrain, promotionSquares, deployZone, enemyZone };
+  return { width, height, terrain, promotionSquares, deployZone, enemyZone, ...(tiles.length ? { tiles } : {}) };
 }

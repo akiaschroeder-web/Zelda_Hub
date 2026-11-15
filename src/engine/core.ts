@@ -158,6 +158,9 @@ export function cloneState(s: GameState): GameState {
     overwatch: s.overwatch.map((o) => ({ ...o })),
     reborn: s.reborn.map(clonePiece),
     engulfed: (s.engulfed ?? []).map((e) => ({ ...e, victim: clonePiece(e.victim), at: { ...e.at } })),
+    tiles: (s.tiles ?? []).map((t) => ({ ...t, pos: { ...t.pos } })),
+    keys: { ...(s.keys ?? { player: 0, enemy: 0 }) },
+    rotations: s.rotations ?? 0,
   };
 }
 

@@ -249,8 +249,8 @@ export function generateBattle(
   unlockedBosses: PieceType[] = [],
   packs: readonly string[] = [],
 ): RunBattle {
-  const template = rng.pick(TEMPLATES);
-  // Content packs add their own army styles alongside the base ones.
+  // Content packs add their own boards and army styles alongside the base ones.
+  const template = placeKeys(rng, rng.pick([...TEMPLATES, ...enabledPacks(packs).flatMap((p) => p.boards)]));
   const styles: ArchetypeInfo[] = [...Object.values(ARCHETYPES), ...enabledPacks(packs).flatMap((p) => p.archetypes)];
   const info = rng.pick(styles);
   const rules: EncounterRules = { checkRules: rng.chance(0.65) };
@@ -269,6 +269,20 @@ export function generateBattle(
     terrain: template.terrain,
     enemies: upgradeEnemies(rng, placeArmy(template.terrain, army), act, enemyUpgradeCount(act, kind), packs),
   };
+}
+
+/** Put one Small Key (K) on a random open square for every Locked Door (L) on a board. */
+function placeKeys(rng: Rng, board: { name: string; terrain: string[] }): { name: string; terrain: string[] } {
+  const doors = board.terrain.join('').split('L').length - 1;
+  if (!doors) return board;
+  const rows = board.terrain.map((r) => [...r]);
+  const open: Coord[] = [];
+  rows.forEach((r, y) => r.forEach((ch, x) => ch === '.' && open.push({ x, y })));
+  for (let i = 0; i < doors && open.length; i++) {
+    const c = open.splice(rng.int(0, open.length - 1), 1)[0];
+    rows[c.y][c.x] = 'K';
+  }
+  return { ...board, terrain: rows.map((r) => r.join('')) };
 }
 
 /** Boss pools by act (ordered by deployment cost). */

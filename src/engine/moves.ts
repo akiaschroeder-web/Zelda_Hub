@@ -1,4 +1,4 @@
-import { inBounds, isStandable, isWall, terrainAt } from './board';
+import { inBounds, isBarrier, isStandable, isWall, terrainAt } from './board';
 import { FREE_ACTIONS, resolveUpgradeAction, upgradeActions } from './actions';
 import {
   ALL_DIRS,
@@ -49,6 +49,7 @@ import { attacksSquare, heavySteps, lPaths, shotSquares, sideStepVariants, steps
 import { harvestSoul, resolveSpecial, specialMoves } from './specials';
 import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd } from './zelda';
 import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
+import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { FREE_BOSS_ACTIONS, BOSS_COOLDOWNS, bossMoves, bossTurnEnd, bossTurnStart, haunted, resolveBoss, swarmCommanded } from './bosses';
 import { PIECE_STATS, ZELDA_TYPES, footprint, sizeOf } from './pieces';
 import {
@@ -81,7 +82,7 @@ export const hasUsedAbility = hasUsed;
  * and is blocked only when both routes pass over a wall (solid or cracked). Gaps never block.
  */
 export function knightPathClear(state: GameState, from: Coord, to: Coord): boolean {
-  return lPaths(from, to).some((path) => !path.some((c) => isWall(state.board, c)));
+  return lPaths(from, to).some((path) => !path.some((c) => isBarrier(state.board, c)));
 }
 
 /**
@@ -369,6 +370,7 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...stolenTalents(state, p),
     ...upgradeActions(state, p),
     ...temporalEchoMoves(state, p, ordinary),
+    ...(bound ? [] : tileMoves(state, p)),
   ];
   // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
   if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
@@ -438,7 +440,7 @@ export function quickApply(state: GameState, m: Move): GameState | undefined {
   const mover = getPiece(state, m.pieceId);
   if (!mover || mover.upgrades.length || mover.statuses.length) return undefined;
   if (state.pieces.some((p) => p.type === 'necromancer' || p.type === 'stormbringer' || p.type === 'redead')) return undefined;
-  if (ZELDA_TYPES.has(mover.type) || state.engulfed?.length) return undefined;
+  if (ZELDA_TYPES.has(mover.type) || state.engulfed?.length || state.tiles?.length) return undefined;
   const removed = new Set<string>();
   let pieces = state.pieces;
   if (m.action === 'heal') {
@@ -851,6 +853,9 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
   switch (m.action) {
     case 'pass':
       return;
+    case 'unlock':
+      resolveUnlock(s, m);
+      return;
     case 'shoot':
       resolveAttack(s, m, entry);
       return;
@@ -988,6 +993,7 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   zeldaBeforeMove(s, m);
   resolve(s, m, entry);
   zeldaAfterMove(s, m, from);
+  tilesAfterMove(s, m, from);
 
   // Doppelganger: a borrowed ability starts the Stolen Talent cooldown.
   if (m.param === 'stolen') {
@@ -1190,7 +1196,9 @@ export function positionKey(state: GameState): string {
   const ep = state.enPassant ? coordKey(state.enPassant.target) : '-';
   let terrain = '';
   state.board.terrain.forEach((row, y) => row.forEach((t, x) => t !== 'normal' && (terrain += `${t[0]}${x},${y};`)));
-  return `${state.turn}|${ep}|${state.bonus.length}|${terrain}|${parts.join(';')}`;
+  const tiles = (state.tiles ?? []).map((t) => `${t.kind[0]}${t.pos.x},${t.pos.y}`).join(';');
+  const keys = state.keys ? `${state.keys.player}/${state.keys.enemy}` : '';
+  return `${state.turn}|${ep}|${state.bonus.length}|${terrain}|${tiles}|${keys}|${parts.join(';')}`;
 }
 
 function insufficientMaterial(pieces: Piece[]): boolean {

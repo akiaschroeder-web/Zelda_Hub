@@ -64,6 +64,7 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   accelerate: 'rgba(240, 200, 80, 0.95)',
   sacredLight: 'rgba(250, 230, 140, 0.95)',
   darkWarp: 'rgba(120, 40, 60, 0.95)',
+  unlock: 'rgba(230, 190, 70, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -178,6 +179,29 @@ function zeldaNotes(p: Piece): string {
   }
 }
 
+/** What a special space does, for the info panel. */
+function describeSpace(state: GameState, c: Coord): { title: string; text: string } | null {
+  const tile = state.tiles?.find((t) => sameCoord(t.pos, c));
+  if (state.board.terrain[c.y]?.[c.x] === 'door')
+    return { title: '🔒 Locked Door', text: 'Blocks like a wall. A piece next to it can step in and open it for good by spending one of your Small Keys (find them on the board).' };
+  if (!tile) return null;
+  switch (tile.kind) {
+    case 'key':
+      return { title: '🗝️ Small Key', text: 'Move any piece here to pick it up for your side. Each key opens one Locked Door.' };
+    case 'switch':
+      return { title: '🔄 Rotation Switch', text: 'Landing here turns all the terrain 90° clockwise around the centre. Pieces stay where they are — even if a wall or gap ends up under them, until they move off.' };
+    case 'floorMaster':
+      return {
+        title: '✋ Floor Master',
+        text: `A piece landing here is dragged back to the square it started the battle on (Iron Boots resist). Rests 3 turns after grabbing someone.${(tile.readyPly ?? -1) >= state.ply ? ' Resting now.' : ''}`,
+      };
+    case 'heart':
+      return { title: '❤️ Recovery Heart', text: 'The first damaged piece to land here, from either side, heals 1 HP. Pieces at full HP leave it.' };
+    case 'warp':
+      return { title: `▲ Triforce Warp (${tile.pair === 'V' ? 'teal' : 'gold'})`, text: 'Landing here carries a piece to the other warp of the same colour, if that square is free.' };
+  }
+}
+
 export function resultText(r: GameResult): string {
   switch (r.kind) {
     case 'checkmate':
@@ -241,6 +265,8 @@ export default function BattleView({ state, onMove, title, description, finishLa
   const [inspected, setInspected] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirming, setConfirming] = useState<MenuOption | null>(null);
+  /** A special space being read (tap an empty special square). */
+  const [spaceInfo, setSpaceInfo] = useState<{ title: string; text: string } | null>(null);
   const over = state.result.kind !== 'ongoing';
   const bonus = state.turn === 'player' ? state.bonus[0] : undefined;
 
@@ -367,6 +393,15 @@ export default function BattleView({ state, onMove, title, description, finishLa
   const onSquare = (c: Coord) => {
     if (pendingPromotion || chooser) return;
     const piece = occ.get(coordKey(c));
+    if (spaceInfo) setSpaceInfo(null);
+    // Tapping an empty special space (with nothing to do there) explains it.
+    const space = !piece && !options.has(coordKey(c)) ? describeSpace(state, c) : null;
+    if (space) {
+      setInspected(null);
+      setSelected(null);
+      setSpaceInfo(space);
+      return;
+    }
     // While looking at a piece, a tap closes the view (or looks at another piece).
     if (inspected) {
       const next = piece && piece.id !== inspected && (piece.side === 'enemy' || state.turn !== 'player' || over) ? piece.id : null;
@@ -451,7 +486,8 @@ export default function BattleView({ state, onMove, title, description, finishLa
   }
   if (checkedKing) tint(checkedKing.pos, COLORS.check);
 
-  const info = inspection ? describePiece(inspection.piece) : selectedPiece ? describePiece(selectedPiece) : null;
+  const hasKeys = !!state.keys && (state.board.terrain.some((r) => r.includes('door')) || state.keys.player + state.keys.enemy > 0 || state.tiles?.some((t) => t.kind === 'key'));
+  const info = spaceInfo ? { title: spaceInfo.title, text: spaceInfo.text, upgrades: '' } : inspection ? describePiece(inspection.piece) : selectedPiece ? describePiece(selectedPiece) : null;
   const inspectHint =
     inspection?.piece.side === 'enemy'
       ? inspection.moves.length || inspection.threats.length
@@ -486,7 +522,22 @@ export default function BattleView({ state, onMove, title, description, finishLa
         </Text>
       )}
 
-      <BoardView board={state.board} pieces={displayPieces} cell={cell} tints={tints} markers={markers} onSquare={onSquare} />
+      <BoardView
+        board={state.board}
+        pieces={displayPieces}
+        cell={cell}
+        tints={tints}
+        markers={markers}
+        onSquare={onSquare}
+        tiles={state.tiles}
+        rotations={state.rotations}
+        ply={state.ply}
+      />
+      {hasKeys && (
+        <Text style={styles.keys}>
+          🗝️ Small Keys — you: {state.keys.player} · enemy: {state.keys.enemy}
+        </Text>
+      )}
 
       {info ? (
         <View style={styles.infoBox}>
@@ -651,6 +702,7 @@ const styles = StyleSheet.create({
   infoText: { color: COLORS.text, fontSize: 12, marginTop: 2 },
   infoUpgrades: { color: COLORS.gold, fontSize: 12, marginTop: 3 },
   foresight: { color: '#c39bf0', fontSize: 12, marginBottom: 6, textAlign: 'center' },
+  keys: { color: COLORS.gold, fontSize: 13, marginTop: 6 },
   promoChoice: { padding: 6, marginHorizontal: 4, borderRadius: 8, backgroundColor: COLORS.squareDark },
   cancel: { color: COLORS.textDim, fontSize: 14, textAlign: 'center' },
 });

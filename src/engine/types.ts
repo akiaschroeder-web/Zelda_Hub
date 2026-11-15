@@ -8,7 +8,20 @@
 
 export type Side = 'player' | 'enemy';
 
-export type Terrain = 'normal' | 'gap' | 'wall' | 'cracked';
+/** `door` is a Locked Door (Zelda Pack): blocks like a wall until a Small Key opens it. */
+export type Terrain = 'normal' | 'gap' | 'wall' | 'cracked' | 'door';
+
+/** Special spaces that sit on normal squares (Zelda Pack). */
+export type TileKind = 'key' | 'switch' | 'floorMaster' | 'heart' | 'warp';
+
+export interface Tile {
+  kind: TileKind;
+  pos: Coord;
+  /** Linked Triforce Warp tiles share a pair id. */
+  pair?: string;
+  /** Floor Master: inactive until this ply has passed. */
+  readyPly?: number;
+}
 
 export type PieceType =
   | 'pawn'
@@ -122,6 +135,7 @@ export type ActionKind =
   | 'accelerate' // Chronarch: Temporal Acceleration
   | 'sacredLight' // Zelda: heal an ally within 2
   | 'darkWarp' // Ganondorf (Phase 2): teleport up to 3
+  | 'unlock' // step into a Locked Door, spending a Small Key
   | 'upgrade'
   | 'pass';
 
@@ -233,6 +247,8 @@ export interface Board {
   deployZone?: Coord[];
   /** Squares where generated enemy armies are placed. */
   enemyZone?: Coord[];
+  /** Special spaces at the start of the battle. */
+  tiles?: Tile[];
 }
 
 /** A terrain change that reverts later (bridges over gaps, barricades). */
@@ -372,6 +388,12 @@ export interface GameState {
   reborn: Piece[];
   /** Pieces swallowed by a Like Like (Engulf). */
   engulfed: Engulfed[];
+  /** Special spaces currently on the board (keys, switches, hearts, warps...). */
+  tiles: Tile[];
+  /** Small Keys each side holds. */
+  keys: { player: number; enemy: number };
+  /** Times the terrain has rotated (Rotation Switch). */
+  rotations: number;
 }
 
 /** A piece held inside a Like Like until `release` (then it's captured) or the Like Like falls (then it returns). */

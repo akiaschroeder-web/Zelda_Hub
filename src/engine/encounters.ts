@@ -342,4 +342,13 @@ export const ENCOUNTERS: EncounterDef[] = [
       '4,1': ['stone_of_agony'],
     },
   },
+  {
+    id: 'zelda_dungeon',
+    name: 'Hyrule Dungeon',
+    description:
+      'Zelda Pack spaces: Locked Doors and Small Keys, a Rotation Switch, a Floor Master, a Recovery Heart and two pairs of Triforce Warps. Tap a special square to read it.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', 'W.#LL#.V', '...K..F.', '.H.....S', 'V.#..#KW', '........', '........'],
+    pieces: ['rnbqkbnr', 'pppppppp', '........', '........', '........', '........', 'PPPPPPPP', 'RNBQKBNR'],
+  },
 ];

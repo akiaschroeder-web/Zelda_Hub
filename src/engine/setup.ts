@@ -106,6 +106,9 @@ export function createGame(board: Board, placements: Placement[], rules: Encount
     overwatch: [],
     reborn: [],
     engulfed: [],
+    tiles: (board.tiles ?? []).map((t) => ({ ...t, pos: { ...t.pos } })),
+    keys: { player: 0, enemy: 0 },
+    rotations: 0,
   };
   state.runFlags = [...runFlags];
   battleStart(state);

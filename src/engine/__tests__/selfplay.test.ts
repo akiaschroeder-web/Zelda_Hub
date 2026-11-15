@@ -21,7 +21,13 @@ function checkInvariants(s: GameState) {
     for (const c of footprint(p)) {
       const k = `${c.x},${c.y}`;
       // Skulltulas (Wall Crawler) may stand on walls, never on gaps.
-      const ok = p.type === 'skulltula' ? inBounds(s.board, c) && terrainAt(s.board, c) !== 'gap' : isStandable(s.board, c);
+      // After a Rotation Switch, a piece may be left standing on a wall or gap until it moves off.
+      const ok =
+        s.rotations > 0
+          ? inBounds(s.board, c)
+          : p.type === 'skulltula'
+            ? inBounds(s.board, c) && terrainAt(s.board, c) !== 'gap'
+            : isStandable(s.board, c);
       expect(ok, `${p.type} on blocked square ${k}`).toBe(true);
       expect(seen.has(k), `two pieces on ${k}`).toBe(false);
       seen.add(k);

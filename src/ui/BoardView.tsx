@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BOSS_TYPES, sizeOf } from '../engine/pieces';
-import { Board, Coord, Piece, Terrain, coordKey, sameCoord, shieldTotal } from '../engine/types';
+import { BOSS_TYPES, footprint, sizeOf } from '../engine/pieces';
+import { Board, Coord, Piece, Terrain, Tile, coordKey, sameCoord, shieldTotal } from '../engine/types';
 import { PIECE_IMAGES } from './pieceImages';
 import { COLORS } from './theme';
 
@@ -27,7 +27,16 @@ interface Props {
   /** Square-shaped outline tints, e.g. deployment zone. */
   outlines?: Map<string, string>;
   onSquare?: (c: Coord) => void;
+  /** Special spaces (Zelda Pack) drawn on top of the terrain. */
+  tiles?: Tile[];
+  /** Times the terrain has rotated; each increase plays the rotation animation. */
+  rotations?: number;
+  /** Current ply (to show a resting Floor Master). */
+  ply?: number;
 }
+
+/** How long the terrain takes to swing round when a Rotation Switch fires. */
+export const ROTATE_MS = 750;
 
 /** How long a piece takes to slide to its new square. */
 export const MOVE_MS = 260;
@@ -35,8 +44,28 @@ const FADE_MS = 280;
 const nativeDriver = Platform.OS !== 'web';
 
 /** Draws terrain, pieces (any size), HP pips, shields and move markers. */
-export default function BoardView({ board, pieces, cell, tints, markers, outlines, onSquare }: Props) {
+export default function BoardView({ board, pieces, cell, tints, markers, outlines, onSquare, tiles = board.tiles, rotations = 0, ply = 0 }: Props) {
+  // Rotation Switch: the new terrain starts drawn a quarter-turn back (so it looks exactly like
+  // the old terrain) and swings clockwise into place. Pieces live in another layer and stay still.
+  const [spin] = useState(() => new Animated.Value(0));
+  const lastRotations = useRef(rotations);
+  useEffect(() => {
+    const turns = rotations - lastRotations.current;
+    lastRotations.current = rotations;
+    if (turns <= 0) return;
+    spin.setValue(-90 * turns);
+    const anim = Animated.sequence([
+      Animated.delay(MOVE_MS),
+      Animated.timing(spin, { toValue: 0, duration: ROTATE_MS * turns, easing: Easing.inOut(Easing.cubic), useNativeDriver: nativeDriver }),
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [rotations, spin]);
+
+  const occupied = new Set(pieces.flatMap((p) => footprint(p).map(coordKey)));
   const rows = [];
+  const terrainCells = [];
+  const tintCells = [];
   for (let y = 0; y < board.height; y++) {
     const squares = [];
     for (let x = 0; x < board.width; x++) {
@@ -45,16 +74,33 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
       const isPromo = board.promotionSquares?.some((s) => sameCoord(s.pos, c));
       squares.push(
         <Pressable key={x} onPress={() => onSquare?.(c)} style={{ width: cell, height: cell }}>
-          <Square terrain={board.terrain[y][x]} light={(x + y) % 2 === 0} size={cell} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: (x + y) % 2 === 0 ? COLORS.squareLight : COLORS.squareDark }]} />
           {isPromo && <View style={[StyleSheet.absoluteFill, styles.promoSquare]} />}
           {outlines?.get(k) && (
             <View style={[StyleSheet.absoluteFill, { borderWidth: 2, borderColor: outlines.get(k) }]} />
           )}
-          {tints?.get(k)?.map((color, i) => (
-            <View key={i} style={[StyleSheet.absoluteFill, { backgroundColor: color }]} />
-          ))}
         </Pressable>,
       );
+      const t = board.terrain[y][x];
+      const tile = tiles?.find((o) => sameCoord(o.pos, c));
+      if (t !== 'normal' || tile)
+        terrainCells.push(
+          <View key={k} style={{ position: 'absolute', left: x * cell, top: y * cell, width: cell, height: cell }}>
+            {t !== 'normal' && <Square terrain={t} size={cell} />}
+            {tile && (
+              <TileIcon tile={tile} size={cell} resting={tile.kind === 'floorMaster' && (tile.readyPly ?? -1) >= ply} small={occupied.has(k)} />
+            )}
+          </View>,
+        );
+      const tint = tints?.get(k);
+      if (tint)
+        tintCells.push(
+          <View key={k} style={{ position: 'absolute', left: x * cell, top: y * cell, width: cell, height: cell }}>
+            {tint.map((color, i) => (
+              <View key={i} style={[StyleSheet.absoluteFill, { backgroundColor: color }]} />
+            ))}
+          </View>,
+        );
     }
     rows.push(
       <View key={y} style={styles.row}>
@@ -119,6 +165,22 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
   return (
     <View style={styles.frame}>
       {rows}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: board.width * cell,
+          height: board.height * cell,
+          transform: [{ rotate: spin.interpolate({ inputRange: [-360, 0], outputRange: ['-360deg', '0deg'] }) }],
+        }}
+      >
+        {terrainCells}
+      </Animated.View>
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {tintCells}
+      </View>
       {ghostLayer}
       {pieceLayer}
       {markerLayer}
@@ -237,7 +299,41 @@ function PieceArt({ p, cell }: { p: Piece; cell: number }) {
   );
 }
 
-function Square({ terrain, light, size }: { terrain: Terrain; light: boolean; size: number }) {
+const TILE_ICONS: Record<Tile['kind'], string> = { key: '🗝️', switch: '🔄', floorMaster: '✋', heart: '❤️', warp: '▲' };
+
+/** A special space's marker, drawn on its square. */
+function TileIcon({ tile, size, resting, small }: { tile: Tile; size: number; resting: boolean; small: boolean }) {
+  const warp = tile.kind === 'warp';
+  return (
+    <View
+      style={[
+        StyleSheet.absoluteFill,
+        styles.tile,
+        warp && { backgroundColor: tile.pair === 'V' ? 'rgba(60, 190, 200, 0.28)' : 'rgba(240, 200, 60, 0.28)' },
+        // Under a piece the icon shrinks into the bottom-left corner so the piece stays readable.
+        small && { alignItems: 'flex-start', justifyContent: 'flex-end', padding: 1 },
+      ]}
+    >
+      <Text
+        style={{
+          fontSize: size * (small ? 0.24 : warp ? 0.5 : 0.42),
+          color: warp ? (tile.pair === 'V' ? '#3cbec8' : '#f0c83c') : undefined,
+          opacity: resting ? 0.45 : 0.9,
+        }}
+      >
+        {TILE_ICONS[tile.kind]}
+      </Text>
+    </View>
+  );
+}
+
+function Square({ terrain, size }: { terrain: Terrain; size: number }) {
+  if (terrain === 'door')
+    return (
+      <View style={[StyleSheet.absoluteFill, styles.door, { borderWidth: Math.max(2, size * 0.06) }]}>
+        <Text style={{ fontSize: size * 0.42 }}>🔒</Text>
+      </View>
+    );
   if (terrain === 'gap') return <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.gap }]} />;
   if (terrain === 'wall' || terrain === 'cracked') {
     const cracked = terrain === 'cracked';
@@ -260,7 +356,7 @@ function Square({ terrain, light, size }: { terrain: Terrain; light: boolean; si
       </View>
     );
   }
-  return <View style={[StyleSheet.absoluteFill, { backgroundColor: light ? COLORS.squareLight : COLORS.squareDark }]} />;
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -279,6 +375,8 @@ const styles = StyleSheet.create({
   promoSquare: { borderWidth: 2, borderColor: COLORS.gold, borderStyle: 'dashed' },
   wall: { borderColor: COLORS.wallEdge, alignItems: 'center', justifyContent: 'center' },
   crack: { position: 'absolute', height: 2, backgroundColor: COLORS.wallEdge },
+  door: { backgroundColor: '#6b4a2a', borderColor: '#3a2614', alignItems: 'center', justifyContent: 'center' },
+  tile: { alignItems: 'center', justifyContent: 'center' },
   hpRow: { position: 'absolute', bottom: 1, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 3 },
   hpPip: { borderRadius: 2, borderWidth: 1, borderColor: '#1a1410' },
   hpFullPlayer: { backgroundColor: '#7cc46a' },
