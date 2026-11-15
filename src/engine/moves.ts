@@ -48,6 +48,7 @@ import {
 import { attacksSquare, heavySteps, lPaths, shotSquares, sideStepVariants, stepsFor } from './movement';
 import { harvestSoul, resolveSpecial, specialMoves } from './specials';
 import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd } from './zelda';
+import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { FREE_BOSS_ACTIONS, BOSS_COOLDOWNS, bossMoves, bossTurnEnd, bossTurnStart, haunted, resolveBoss, swarmCommanded } from './bosses';
 import { PIECE_STATS, ZELDA_TYPES, footprint, sizeOf } from './pieces';
 import {
@@ -369,6 +370,8 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...upgradeActions(state, p),
     ...temporalEchoMoves(state, p, ordinary),
   ];
+  // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
+  if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
   if (p.type === 'king' && !p.hasMoved && !bound) moves.push(...castleMoves(state, p));
   return moves;
 }
@@ -560,6 +563,7 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (t.statuses.some((st) => st.kind === 'prey' && st.source === p.side)) dmg += 1;
   if (has(p, 'revenge_strike') && t.id === p.lastAttackerId) dmg += 1;
   if (has(p, 'kingbreaker') && t.type === 'king') dmg += 1;
+  if (has(p, 'master_sword') && isBoss(t)) dmg += 1;
   if (sizeOf(p) > 1 && !m.action) {
     if (has(p, 'wide_sweep') && nTargets >= 2) dmg += 1;
     if (has(p, 'crushing_weight')) dmg += 1;
@@ -630,7 +634,10 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
       allowIntercept: targets.length === 1,
       pierce: has(p, 'precision') ? 1 : 0,
       lethal,
+      pure: has(p, 'light_arrows'),
+      trueSight: has(p, 'lens_of_truth'),
     });
+    biggoronCleave(s, p, pos, dir, m.targets ?? []);
     if (out.kind === 'intercepted') {
       const guard = out.by;
       const gpos = s.captured.find((c) => c.id === guard)?.pos;
@@ -648,6 +655,9 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
       markUsed(p, 'finishing_blow');
       out = dealDamage(s, t.id, 1, { sourceId: p.id, kind: ranged ? 'ranged' : 'attack' });
     }
+    // Fire / Ice Arrows on an enemy that took damage and is still standing.
+    const after = getPiece(s, t.id);
+    if (after && after.hp + shieldTotal(after) < hpBefore) arrowEffects(s, p, t.id);
     if (!alive(s, t.id) && !s.reborn.some((r) => r.id === t.id) && t.side !== p.side) {
       if (t.maxHp > 1) bigKills++;
     }
@@ -717,6 +727,9 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
   if (captured > 0) {
     for (let i = 0; i < captured; i++) harvestSoul(s, p);
     if (p.type === 'zora') p.counters.evadeSpent = 0; // Graceful Evasion recharges
+    // Kokiri Sword: an optional one-square step after a capture.
+    if (has(p, 'kokiri_sword') && m.action !== 'shoot' && alive(s, p.id) && sizeOf(p) === 1 && entry?.source !== 'kokiri_sword')
+      s.bonus.unshift({ pieceId: p.id, filter: 'nonCapturing', optional: true, source: 'kokiri_sword', maxDistance: 1 });
     if (p.type === 'slayer' && bigKills > 0) heal(s, p, 1); // Bloodlust
     // Assassin Execution: an extra non-capturing move of up to two squares.
     if (p.type === 'assassin' && m.action !== 'shoot' && alive(s, p.id) && entry?.source !== 'execution')
@@ -1144,6 +1157,11 @@ function startTurn(s: GameState) {
   for (const p of s.pieces.filter((p) => p.side === side)) {
     p.prevPos = p.turnPos ?? p.pos;
     p.turnPos = { ...p.pos };
+    // Song of Time remembers HP from the start of the previous turn.
+    if (has(p, 'song_of_time')) {
+      p.counters.prevHp = p.counters.turnHp ?? p.hp;
+      p.counters.turnHp = p.hp;
+    }
     if (has(p, 'throne_guardian') && threatened) {
       while (shieldTotal(p) < 2) addShield(s, p);
     }

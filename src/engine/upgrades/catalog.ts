@@ -303,6 +303,47 @@ const R: Record<UpgradeCategory, Row[]> = {
   ],
 };
 
+/**
+ * Zelda Content Pack upgrades (Ocarina of Time inspired). Only offered when
+ * the run has the Zelda Pack on. Activated ones replace the piece's move.
+ */
+const ZELDA_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity, category: UpgradeCategory, text: string][] = [
+  // Weapons & Equipment
+  [241, 'kokiri_sword', 'Kokiri Sword', 'uncommon', 'offense', 'After capturing an enemy, may step one square in any direction into an empty square (no capture).'],
+  [242, 'master_sword', 'Master Sword', 'rare', 'offense', 'Attacks against Boss Pieces deal 2 damage instead of 1.'],
+  [243, 'biggorons_sword', "Biggoron's Sword", 'rare', 'offense', 'Attacks also deal 1 damage to an enemy directly behind the target, in the direction of the attack.'],
+  [244, 'deku_shield', 'Deku Shield', 'common', 'defense', 'Blocks the first point of damage this piece takes each battle.'],
+  [245, 'hylian_shield', 'Hylian Shield', 'rare', 'defense', 'Negates the first attack against this piece each battle, however much damage it would deal.'],
+  [246, 'mirror_shield', 'Mirror Shield', 'epic', 'defense', 'Once per battle, a ranged or magical attack on this piece is reflected back at its source.'],
+  [247, 'fairy_bow', 'Fairy Bow', 'rare', 'offense', 'Every 3 turns, instead of moving, shoot an enemy up to 3 squares away in a clear straight line (orthogonal).'],
+  [248, 'fairy_slingshot', 'Fairy Slingshot', 'uncommon', 'status', 'Every 3 turns, instead of moving, stun an enemy within 2 squares so it cannot move on its next turn.'],
+  [249, 'boomerang', 'Boomerang', 'uncommon', 'offense', 'Every 3 turns, instead of moving, deal 1 damage to an enemy up to 2 squares away in a clear straight line.'],
+  [250, 'megaton_hammer', 'Megaton Hammer', 'uncommon', 'walls', 'Instead of moving, smash an adjacent cracked wall — and hit an enemy directly behind it for 1 damage.'],
+  // Tools & Special Equipment
+  [251, 'hookshot', 'Hookshot', 'rare', 'movement', 'Every 4 turns, instead of moving, pull this piece up to 4 squares in a straight line to the square in front of a wall, over gaps.'],
+  [252, 'longshot', 'Longshot', 'epic', 'movement', 'Like the Hookshot, but reaches 7 squares and recharges every 3 turns.'],
+  [253, 'bombs', 'Bombs', 'uncommon', 'walls', 'Every 3 turns, instead of moving, blow up a cracked wall within 2 squares; every piece next to it takes 1 damage (allies too).'],
+  [254, 'bombchu', 'Bombchu', 'rare', 'offense', 'Every 4 turns, instead of moving, send a Bombchu up to 5 squares in a straight line over gaps; it hits the first piece (1 damage) or cracked wall (destroyed).'],
+  [255, 'hover_boots', 'Hover Boots', 'uncommon', 'terrain', 'Movement can cross a single gap square, as long as it ends on solid ground.'],
+  [256, 'iron_boots', 'Iron Boots', 'uncommon', 'defense', 'Cannot be pushed, pulled or forcibly moved — so it can never be knocked into a gap.'],
+  [257, 'lens_of_truth', 'Lens of Truth', 'uncommon', 'status', "This piece's attacks ignore evasion and dodges (Zora, Phantom King), and it sees through nearby illusions."],
+  [258, 'deku_nut', 'Deku Nut', 'uncommon', 'status', 'Once per battle, instead of moving, stun every adjacent enemy for 1 turn.'],
+  // Magic & Spells
+  [259, 'dins_fire', "Din's Fire", 'epic', 'offense', 'Every 5 turns, instead of moving, deal 1 damage to every enemy within 2 squares. Walls block it.'],
+  [260, 'farores_wind', "Farore's Wind", 'rare', 'movement', 'Once per battle, instead of moving, teleport to any empty square.'],
+  [261, 'nayrus_love', "Nayru's Love", 'rare', 'defense', 'Once per battle, instead of moving, become immune to damage until your next turn.'],
+  [262, 'fire_arrows', 'Fire Arrows', 'rare', 'status', 'Enemies this piece damages are Burned: they lose 1 HP at the end of their next turn. Does not stack.'],
+  [263, 'ice_arrows', 'Ice Arrows', 'rare', 'status', 'Enemies this piece damages are Frozen and cannot move on their next turn.'],
+  [264, 'light_arrows', 'Light Arrows', 'epic', 'offense', "This piece's attacks ignore shields, damage reduction, armor and temporary invulnerability."],
+  // Ocarina Songs & Magical Relics
+  [265, 'song_of_time', 'Song of Time', 'epic', 'movement', 'Once per battle, instead of moving, return to where this piece began its previous turn, restoring HP lost since.'],
+  [266, 'suns_song', "Sun's Song", 'rare', 'status', 'Every 5 turns, instead of moving, stun every enemy undead (ReDead) for 1 turn — or, instead, stun one adjacent enemy.'],
+  [267, 'song_of_storms', 'Song of Storms', 'rare', 'status', 'Every 4 turns, instead of moving, call a 3×3 storm within 3 squares: every piece in it moves 1 square less next turn (minimum 1).'],
+  [268, 'golden_gauntlets', 'Golden Gauntlets', 'rare', 'bounce', 'Instead of moving, shove an adjacent enemy 1 square away. A wall deals it 1 damage (a cracked wall breaks); a gap captures it.'],
+  [269, 'bottled_fairy', 'Bottled Fairy', 'rare', 'defense', 'The first time this piece would be captured, it survives with 1 HP instead.'],
+  [270, 'stone_of_agony', 'Stone of Agony', 'common', 'status', 'Ending a move next to a disguised enemy reveals it, and squares watched by hidden hazards are flagged when you select this piece.'],
+];
+
 /** Upgrades that depend on systems the game doesn't have yet. Never offered. */
 export const EXCLUDED: Record<string, string> = {
   free_rotation: 'Pieces have no facing.',
@@ -325,12 +366,14 @@ export interface UpgradeInfo {
   /** Extra Army Points the carrying piece costs to deploy. */
   cost: number;
   excluded?: string;
+  /** Content pack the upgrade belongs to (offered only when that pack is on). */
+  pack?: string;
 }
 
 const COST: Record<UpgradeRarity, number> = { common: 0, uncommon: 1, rare: 1, epic: 2, legendary: 3 };
 
 export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, Row[]][])
-  .flatMap(([category, rows]) =>
+  .flatMap(([category, rows]): UpgradeInfo[] =>
     rows.map(([num, id, name, rarity, text]) => ({
       num,
       id,
@@ -341,6 +384,19 @@ export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, R
       slots: rarity === 'legendary' ? 2 : 1,
       cost: COST[rarity],
       excluded: EXCLUDED[id],
+    })),
+  )
+  .concat(
+    ZELDA_ROWS.map(([num, id, name, rarity, category, text]): UpgradeInfo => ({
+      num,
+      id,
+      name,
+      rarity,
+      category,
+      text,
+      slots: rarity === 'legendary' ? 2 : 1,
+      cost: COST[rarity],
+      pack: 'zelda',
     })),
   )
   .sort((a, b) => a.num - b.num);

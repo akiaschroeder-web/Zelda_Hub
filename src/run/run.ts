@@ -162,7 +162,7 @@ export function enterNode(run: RunState, nodeId: string): RunState {
       case 'elite':
         return { phase: 'deploy', battle: generateBattle(rng, run.act, node.floor, node.type, node.id, run.unlockedBosses, run.packs) };
       case 'boss':
-        return { phase: 'deploy', battle: bossBattle(run.act, node.id, rng, node.boss) };
+        return { phase: 'deploy', battle: bossBattle(run.act, node.id, rng, node.boss, run.packs) };
       case 'shop':
         return { phase: 'shop', shop: generateShop(rng, run.act, run.roster, run.packs) };
       case 'treasure':

@@ -127,6 +127,16 @@ const STATUS_NAMES: Partial<Record<string, string>> = {
   springLoaded: 'Spring Loaded',
   fortified: 'Fortified',
   prophecy: 'Protected by prophecy',
+  burned: 'Burned',
+};
+
+/** Statuses named after what caused them. */
+const SOURCE_NAMES: Record<string, string> = {
+  scream: 'Paralyzed',
+  ice_arrows: 'Frozen',
+  slingshot: 'Stunned (slingshot)',
+  nayrus_love: "Nayru's Love",
+  song_of_storms: 'In the storm',
 };
 
 export function describePiece(p: Piece): { title: string; text: string; upgrades: string } {
@@ -137,7 +147,7 @@ export function describePiece(p: Piece): { title: string; text: string; upgrades
   const abilityText = ability
     ? ` ${ability.label}${ability.id ? (p.used.includes(ability.id) ? ': used' : ': ready') : ''}.`
     : '';
-  const statuses = p.statuses.map((st) => (st.source === 'scream' ? 'Paralyzed' : (STATUS_NAMES[st.kind] ?? st.kind)));
+  const statuses = p.statuses.map((st) => (st.source && SOURCE_NAMES[st.source]) || (STATUS_NAMES[st.kind] ?? st.kind));
   const zelda = zeldaNotes(p);
   const ups = p.upgrades.map((u) => `${UPGRADE_BY_ID[u]?.name ?? u}${p.used.includes(u) ? ' (used)' : ''}`);
   return {
@@ -256,9 +266,10 @@ export default function BattleView({ state, onMove, title, description, finishLa
 
   // Revelation: enemy illusions look like Illusionists unless one of your Oracles is within 3 squares.
   const displayPieces = useMemo(() => {
-    const oracles = state.pieces.filter((p) => p.side === 'player' && p.type === 'oracle');
+    // A Lens of Truth also sees through illusions within 3; the Stone of Agony reveals them for good.
+    const seers = state.pieces.filter((p) => p.side === 'player' && (p.type === 'oracle' || p.upgrades.includes('lens_of_truth')));
     return state.pieces.map((p) =>
-      p.side === 'enemy' && p.type === 'illusion' && !oracles.some((o) => distance(o.pos, p.pos) <= 3)
+      p.side === 'enemy' && p.type === 'illusion' && !p.counters.revealed && !seers.some((o) => distance(o.pos, p.pos) <= 3)
         ? { ...p, type: 'illusionist' as const, temp: undefined }
         : p,
     );
@@ -429,6 +440,11 @@ export default function BattleView({ state, onMove, title, description, finishLa
       for (const c of inspection.threats) if (!moveSquares.has(coordKey(c))) tint(c, ENEMY_THREAT);
     }
   } else if (selectedPiece) footprint(selectedPiece).forEach((c) => tint(c, COLORS.selected));
+  // Stone of Agony: flag move squares that an enemy hazard (Overwatch, charged ground, the Watcher's gaze) is watching.
+  if (selectedPiece?.upgrades.includes('stone_of_agony') && !inspection) {
+    const hazards = state.overwatch.filter((o) => o.side !== selectedPiece.side).flatMap((o) => o.cells);
+    for (const c of hazards) if (markers.has(coordKey(c))) tint(c, 'rgba(255, 150, 40, 0.55)');
+  }
   if (foresight) {
     tint(foresight.from, 'rgba(160, 80, 220, 0.35)');
     tint(foresight.to, 'rgba(160, 80, 220, 0.5)');

@@ -15,12 +15,18 @@ export function enemyUpgradeCount(act: number, kind: 'battle' | 'elite' | 'boss'
 }
 
 /** Hand out upgrades to random non-King enemy pieces. */
-export function upgradeEnemies(rng: Rng, enemies: EnemyPlacement[], act: number, count: number): EnemyPlacement[] {
+export function upgradeEnemies(
+  rng: Rng,
+  enemies: EnemyPlacement[],
+  act: number,
+  count: number,
+  packs: readonly string[] = [],
+): EnemyPlacement[] {
   const out = enemies.map((e) => ({ ...e, upgrades: [...(e.upgrades ?? [])] }));
   const candidates = out.filter((e) => e.type !== 'king');
   for (let i = 0; i < count && candidates.length; i++) {
     const e = rng.pick(candidates);
-    const id = rollUpgrade(rng, 'enemy', act, [{ type: e.type, upgrades: e.upgrades! }]);
+    const id = rollUpgrade(rng, 'enemy', act, [{ type: e.type, upgrades: e.upgrades! }], [], packs);
     if (id && canTake(id, e.type, e.upgrades!)) e.upgrades!.push(id);
   }
   return out;
@@ -261,7 +267,7 @@ export function generateBattle(
     description: `${info.blurb} ${template.name}.`,
     rules,
     terrain: template.terrain,
-    enemies: upgradeEnemies(rng, placeArmy(template.terrain, army), act, enemyUpgradeCount(act, kind)),
+    enemies: upgradeEnemies(rng, placeArmy(template.terrain, army), act, enemyUpgradeCount(act, kind), packs),
   };
 }
 
@@ -424,7 +430,7 @@ const ARENAS: Partial<Record<PieceType, { name: string; description: string; ter
 
 export const bossArenaName = (boss: PieceType) => ARENAS[boss]?.name ?? PIECE_STATS[boss].name;
 
-export function bossBattle(act: number, id: string, rng?: Rng, boss?: PieceType): RunBattle {
+export function bossBattle(act: number, id: string, rng?: Rng, boss?: PieceType, packs: readonly string[] = []): RunBattle {
   const type = boss ?? BOSS_POOLS[Math.min(act, BOSS_POOLS.length - 1)][0];
   const arena = ARENAS[type]!;
   const enemies = parsePlacements(arena.enemies, { ...ZELDA_LEGEND, β: [type, 'enemy'] })
@@ -437,7 +443,7 @@ export function bossBattle(act: number, id: string, rng?: Rng, boss?: PieceType)
     description: arena.description,
     rules: { checkRules: true, bossKill: true },
     terrain: arena.terrain,
-    enemies: rng ? upgradeEnemies(rng, enemies, act, enemyUpgradeCount(act, 'boss')) : enemies,
+    enemies: rng ? upgradeEnemies(rng, enemies, act, enemyUpgradeCount(act, 'boss'), packs) : enemies,
     boss: type,
   };
 }

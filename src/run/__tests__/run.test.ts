@@ -387,7 +387,7 @@ describe('full runs', () => {
 });
 
 describe('content packs', () => {
-  it('only offers pack pieces and bosses when the pack is on', async () => {
+  it('only offers pack pieces, bosses and upgrades when the pack is on', async () => {
     const { recruitPool, rollPiece } = await import('../rewards');
     const { bossPoolFor, newRun: freshRun } = await import('../run');
     const { generateBattle } = await import('../battlegen');
@@ -410,6 +410,13 @@ describe('content packs', () => {
     expect(enemiesOff.some((e) => zelda.includes(e.type))).toBe(false);
     const enemiesOn = Array.from({ length: 60 }, (_, i) => generateBattle(new Rng(i), 1, 2, 'battle', `b${i}`, [], ['zelda'])).flatMap((b) => b.enemies);
     expect(enemiesOn.some((e) => zelda.includes(e.type))).toBe(true);
+
+    const { rollUpgrade } = await import('../rewards');
+    const { UPGRADE_BY_ID } = await import('../../engine/upgrades/catalog');
+    const roster = [{ type: 'rook' as const, upgrades: [] }, { type: 'knight' as const, upgrades: [] }];
+    const ups = (packs: string[]) => Array.from({ length: 400 }, () => rollUpgrade(rng, 'shop', 1, roster, [], packs)).filter(Boolean) as string[];
+    expect(ups([]).some((id) => UPGRADE_BY_ID[id].pack)).toBe(false);
+    expect(ups(['zelda']).some((id) => UPGRADE_BY_ID[id].pack === 'zelda')).toBe(true);
 
     expect(freshRun(1, ['zelda']).packs).toEqual(['zelda']);
     expect(freshRun(1).packs).toEqual([]);

@@ -75,6 +75,7 @@ export function rollUpgrade(
   act: number,
   roster: RosterView,
   exclude: string[] = [],
+  packs: readonly string[] = [],
 ): string | null {
   const odds = { ...UPGRADE_ODDS[source] };
   if (act > 0) {
@@ -83,7 +84,8 @@ export function rollUpgrade(
     odds.legendary = (odds.legendary ?? 0) + 2 * act;
   }
   const usable = UPGRADES.filter(
-    (u) => !u.excluded && !exclude.includes(u.id) && roster.some((r) => canTake(u.id, r.type, r.upgrades)),
+    (u) =>
+      !u.excluded && (!u.pack || packs.includes(u.pack)) && !exclude.includes(u.id) && roster.some((r) => canTake(u.id, r.type, r.upgrades)),
   );
   if (usable.length === 0) return null;
   for (let tries = 0; tries < 12; tries++) {
@@ -94,10 +96,17 @@ export function rollUpgrade(
   return rng.pick(usable).id;
 }
 
-function upgradeOptions(rng: Rng, source: keyof typeof UPGRADE_ODDS, act: number, roster: RosterView, n: number): RewardOption[] {
+function upgradeOptions(
+  rng: Rng,
+  source: keyof typeof UPGRADE_ODDS,
+  act: number,
+  roster: RosterView,
+  n: number,
+  packs: readonly string[] = [],
+): RewardOption[] {
   const out: string[] = [];
   for (let i = 0; i < n; i++) {
-    const id = rollUpgrade(rng, source, act, roster, out);
+    const id = rollUpgrade(rng, source, act, roster, out, packs);
     if (id) out.push(id);
   }
   return out.map((id) => ({ kind: 'upgrade', id }));
@@ -149,8 +158,8 @@ export function battleReward(
       return { title: `${name}: draw`, gold: 10, armyPoints: 0, options: [] };
     case 'battle': {
       const options = pieceOptions(rng, 'battle', act, 1, packs);
-      options.push(...upgradeOptions(rng, 'battle', act, roster, 1));
-      options.push(rng.chance(0.35) ? { kind: 'armyPoints', amount: 2 } : rng.chance(0.5) ? pieceOptions(rng, 'battle', act, 1, packs)[0] : upgradeOptions(rng, 'battle', act, roster, 1)[0] ?? { kind: 'armyPoints', amount: 2 });
+      options.push(...upgradeOptions(rng, 'battle', act, roster, 1, packs));
+      options.push(rng.chance(0.35) ? { kind: 'armyPoints', amount: 2 } : rng.chance(0.5) ? pieceOptions(rng, 'battle', act, 1, packs)[0] : upgradeOptions(rng, 'battle', act, roster, 1, packs)[0] ?? { kind: 'armyPoints', amount: 2 });
       return { title: `${name} defeated`, gold: rng.int(18, 30) + act * 5, armyPoints: 0, options };
     }
     case 'elite':
@@ -158,14 +167,14 @@ export function battleReward(
         title: `${name} defeated`,
         gold: rng.int(40, 55) + act * 8,
         armyPoints: 0,
-        options: [...pieceOptions(rng, 'elite', act, 1, packs), ...upgradeOptions(rng, 'elite', act, roster, 2), { kind: 'armyPoints', amount: 3 }],
+        options: [...pieceOptions(rng, 'elite', act, 1, packs), ...upgradeOptions(rng, 'elite', act, roster, 2, packs), { kind: 'armyPoints', amount: 3 }],
       };
     case 'boss':
       return {
         title: `${name} has fallen!`,
         gold: 90 + act * 20,
         armyPoints: 3,
-        options: [...pieceOptions(rng, 'boss', act, 1, packs), ...upgradeOptions(rng, 'boss', act, roster, 2)],
+        options: [...pieceOptions(rng, 'boss', act, 1, packs), ...upgradeOptions(rng, 'boss', act, roster, 2, packs)],
       };
   }
 }
@@ -175,7 +184,7 @@ export function treasureReward(rng: Rng, act: number, roster: RosterView, packs:
     title: 'Treasure',
     gold: rng.int(30, 55) + act * 10,
     armyPoints: 0,
-    options: [...pieceOptions(rng, 'treasure', act, 1, packs), ...upgradeOptions(rng, 'treasure', act, roster, 2)],
+    options: [...pieceOptions(rng, 'treasure', act, 1, packs), ...upgradeOptions(rng, 'treasure', act, roster, 2, packs)],
   };
 }
 
@@ -209,7 +218,7 @@ export function generateShop(rng: Rng, act: number, roster: RosterView = [], pac
     price: Math.round(piecePrice(type) * (0.85 + rng.next() * 0.3)),
     sold: false,
   }));
-  for (const o of upgradeOptions(rng, 'shop', act, roster, 2)) {
+  for (const o of upgradeOptions(rng, 'shop', act, roster, 2, packs)) {
     if (o.kind !== 'upgrade') continue;
     const price = UPGRADE_PRICE[UPGRADE_BY_ID[o.id].rarity];
     items.push({ option: o, price: Math.round(price * (0.9 + rng.next() * 0.2)), sold: false });

@@ -230,10 +230,11 @@ describe('Legendary upgrades', () => {
 });
 
 describe('upgrade catalog', () => {
-  it('has all 240 upgrades with unique numbers and ids', () => {
-    expect(UPGRADES).toHaveLength(240);
-    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(240);
-    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(240);
+  it('has all 240 base upgrades plus 30 Zelda Pack upgrades, with unique numbers and ids', () => {
+    expect(UPGRADES.filter((u) => !u.pack)).toHaveLength(240);
+    expect(UPGRADES.filter((u) => u.pack === 'zelda')).toHaveLength(30);
+    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(270);
+    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(270);
     expect(UPGRADES.filter((u) => u.excluded).map((u) => u.id).sort()).toEqual(
       ['anchor_feet', 'board_dominion', 'free_rotation', 'gap_sense', 'terrain_adaptation', 'wall_breaker'].sort(),
     );

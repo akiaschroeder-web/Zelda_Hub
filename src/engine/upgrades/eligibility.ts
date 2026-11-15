@@ -55,6 +55,11 @@ const SMALL_ONLY = [
   'royal_swap',
   'dimensional_shift',
   'ricochet',
+  'hookshot',
+  'longshot',
+  'farores_wind',
+  'song_of_time',
+  'hover_boots',
 ];
 
 /** Why an upgrade can't go on a piece, or null if it can. */
@@ -91,6 +96,12 @@ export function ineligibleReason(id: string, type: PieceType, current: string[])
       return isSlider(type) ? null : 'Needs a long sliding move.';
     case 'diagonal_pivot':
       return type === 'bishop' || type === 'queen' ? null : 'Needs a long diagonal slide.';
+    case 'hookshot':
+    case 'longshot':
+      return current.includes(id === 'hookshot' ? 'longshot' : 'hookshot') ? 'Already has a hook.' : null;
+    case 'kokiri_sword':
+      return type === 'archer' ? 'The Archer never moves to capture.' : null;
+    case 'hover_boots':
     case 'gap_jumper':
     case 'long_gap_jump':
     case 'master_of_the_void':

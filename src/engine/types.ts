@@ -153,7 +153,8 @@ export type StatusKind =
   | 'immune' // takes no damage
   | 'springLoaded' // bonus non-capturing move at the start of next turn
   | 'fortified' // Fortified Position bonus HP applied
-  | 'prophecy'; // the next direct attack against this piece is negated
+  | 'prophecy' // the next direct attack against this piece is negated
+  | 'burned'; // Fire Arrows: loses 1 HP at the end of its next turn
 
 export interface Status {
   kind: StatusKind;

@@ -22,6 +22,7 @@ import {
   sub,
 } from './core';
 import { PIECE_STATS, footprint, ganonPhase } from './pieces';
+import { agonyReveal, burnTick } from './zeldaUpgrades';
 import { Coord, GameState, Move, Piece, Side, endOfTurn, sameCoord } from './types';
 
 /** Turns an enemy stays immune to Paralyzing Scream after being paralyzed (counts down each of its turns). */
@@ -93,11 +94,13 @@ export function zeldaAfterMove(s: GameState, m: Move, from: Coord | undefined) {
     }
   }
   freeEngulfed(s);
+  agonyReveal(s, m.pieceId);
   ganonTransform(s);
 }
 
 /** End of `side`'s turn: Dark Sorcerer blasts, Like Likes digest, Ganondorf transforms. */
 export function zeldaTurnEnd(s: GameState, side: Side) {
+  burnTick(s, side);
   for (const g of s.pieces.filter((g) => g.side === side && ganonPhase(g) >= 2)) {
     const victim = s.pieces
       .filter((e) => e.side !== side && e.type !== 'king' && pieceDistance(e, g) === 1)

@@ -248,7 +248,7 @@ interface Crossing {
 
 function crossingFor(p: Piece): Crossing {
   return {
-    gaps: has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') ? 1 : 0,
+    gaps: has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
     walls: has(p, 'extended_phasing') ? 2 : has(p, 'phasing') ? 1 : 0,
   };
 }
@@ -694,7 +694,7 @@ const GEOMETRY_UPGRADES = new Set([
   'extended_stride', 'diagonal_step', 'orthogonal_step', 'long_leap', 'quick_march', 'corner_turn', 'diagonal_pivot',
   'knights_training', 'short_hop', 'momentum', 'long_retreat', 'flanking_step', 'zigzag', 'royal_pace', 'crossing_step',
   'gap_jumper', 'long_gap_jump', 'master_of_the_void', 'cliff_runner', 'edge_walker', 'phasing', 'extended_phasing',
-  'wall_climber', 'colossal_endurance', 'retreat', 'side_step',
+  'wall_climber', 'colossal_endurance', 'retreat', 'side_step', 'hover_boots',
 ]);
 /** Statuses that change which squares a piece can attack. */
 const GEOMETRY_STATUSES = new Set(['bound', 'stunned', 'disarmed', 'pacified', 'blinded', 'crippled', 'confused', 'slowed', 'rangeBuff']);

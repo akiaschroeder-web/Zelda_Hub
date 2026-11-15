@@ -264,6 +264,10 @@ export interface DamageCtx {
   pierce?: number;
   /** Kill outright regardless of HP or shields (Perfect Strike, Absolute Capture). */
   lethal?: boolean;
+  /** Light Arrows: ignore shields, damage reduction, armor and temporary invulnerability. */
+  pure?: boolean;
+  /** Lens of Truth: ignore evasion (Zora, Phantom King). */
+  trueSight?: boolean;
   /** Absolute Capture also ignores shields; Perfect Strike does too here (it "defeats" the target). */
 }
 
@@ -326,16 +330,31 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
 
   // Kings are only ever hurt by direct attacks, so check stays the one thing to watch.
   if (target.type === 'king' && !direct(ctx.kind)) return { kind: 'immune' };
-  if (hasStatus(target, 'immune') || protectedByZone(s, target)) {
+  if (!ctx.pure && (hasStatus(target, 'immune') || protectedByZone(s, target))) {
     log(s, `${nameOf(target)} is protected.`);
     return { kind: 'immune' };
   }
 
   // Phantom King: Ethereal Escape dodges the first attack by teleporting away.
-  if (direct(ctx.kind) && !ctx.lethal && etherealEscape(s, target, source)) return { kind: 'survived', dealt: 0 };
+  if (direct(ctx.kind) && !ctx.lethal && !ctx.trueSight && etherealEscape(s, target, source)) return { kind: 'survived', dealt: 0 };
+
+  // Mirror Shield: once per battle, a ranged or magical attack is reflected back at its source.
+  if ((ctx.kind === 'ranged' || ctx.kind === 'ability') && source && source.side !== target.side && ready(target, 'mirror_shield')) {
+    markUsed(target, 'mirror_shield');
+    log(s, `${nameOf(target)}'s Mirror Shield reflects the attack!`);
+    dealDamage(s, source.id, amount, { kind: 'reflect' });
+    return { kind: 'survived', dealt: 0 };
+  }
+
+  // Hylian Shield: the first attack each battle is negated outright.
+  if (direct(ctx.kind) && ready(target, 'hylian_shield') && amount > 0) {
+    markUsed(target, 'hylian_shield');
+    log(s, `${nameOf(target)}'s Hylian Shield blocks the blow.`);
+    return { kind: 'survived', dealt: 0 };
+  }
 
   // Zora: Graceful Evasion slips to an empty adjacent square the first time it would take damage.
-  if (target.type === 'zora' && !target.counters.evadeSpent && amount > 0 && ctx.kind !== 'fall') {
+  if (target.type === 'zora' && !target.counters.evadeSpent && amount > 0 && ctx.kind !== 'fall' && !ctx.trueSight) {
     const enemies = s.pieces.filter((e) => e.side !== target.side);
     const score = (c: Coord) => (source ? distanceTo(source, c) * 10 : 0) - enemies.filter((e) => distanceTo(e, c) <= 1).length;
     const spot = ALL_DIRS.map((d) => add(target.pos, d))
@@ -373,14 +392,14 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   }
 
   // Oracle's Prophecy negates the next direct attack.
-  if (direct(ctx.kind) && hasStatus(target, 'prophecy')) {
+  if (direct(ctx.kind) && !ctx.pure && hasStatus(target, 'prophecy')) {
     removeStatus(target, 'prophecy');
     log(s, `The prophecy holds: ${nameOf(target)} is untouched.`);
     return { kind: 'survived', dealt: 0 };
   }
 
   // Darknut: Armored Shell — the first attack only strips its armor.
-  if (direct(ctx.kind) && target.type === 'darknut' && !target.counters.armorBroken && amount > 0) {
+  if (direct(ctx.kind) && !ctx.pure && target.type === 'darknut' && !target.counters.armorBroken && amount > 0) {
     target.counters.armorBroken = 1;
     target.hitsTaken += 1;
     if (source) target.lastAttackerId = source.id;
@@ -398,6 +417,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   }
 
   let dmg = amount;
+  if (!ctx.pure) {
   // Warden's Defensive Aura: adjacent allies take one less from hits of 2 or more.
   if (dmg >= 2 && direct(ctx.kind) && allies(s, target).some((a) => a.type === 'warden' && adjacent(a, target))) dmg -= 1;
   // Reductions.
@@ -419,8 +439,10 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
     }
   }
 
-  // Shields absorb first (Precision ignores some shield points).
-  let pierce = ctx.pierce ?? 0;
+  }
+
+  // Shields absorb first (Precision ignores some shield points; Light Arrows ignore them all).
+  let pierce = ctx.pure ? Infinity : (ctx.pierce ?? 0);
   target.shields.sort((a, b) => (a.expires ?? Infinity) - (b.expires ?? Infinity));
   for (const sh of target.shields) {
     if (dmg <= 0) break;
@@ -451,6 +473,12 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
 
 /** Critical Survival, Royal Resilience, Royal Resurrection. Returns true if the piece lives. */
 function preventDeath(s: GameState, p: Piece): boolean {
+  if (ready(p, 'bottled_fairy')) {
+    markUsed(p, 'bottled_fairy');
+    p.hp = 1;
+    log(s, `A fairy flies out of the bottle — ${nameOf(p)} survives at 1 HP!`);
+    return true;
+  }
   if (ready(p, 'critical_survival')) {
     markUsed(p, 'critical_survival');
     p.hp = 1;
@@ -604,7 +632,7 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
 /** `peek` checks without spending a once-per-battle Brace (used when listing moves). */
 export function immuneToForcedMove(s: GameState, p: Piece, source?: Piece, peek = false): boolean {
   if (p.type === 'king' || isBoss(p) || p.type === 'warden') return true;
-  if (hasStatus(p, 'rooted') || has(p, 'steadfast')) return true;
+  if (hasStatus(p, 'rooted') || has(p, 'steadfast') || has(p, 'iron_boots')) return true;
   if (has(p, 'heavy_stabilizer') && source && sizeOf(source) < sizeOf(p)) return true;
   if (
     allies(s, p).some(

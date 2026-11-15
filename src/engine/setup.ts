@@ -42,6 +42,8 @@ function battleStart(state: GameState) {
       lasting(p);
     }
     if (has(p, 'wide_shield')) lasting(p, 2);
+    if (has(p, 'deku_shield')) lasting(p);
+    if (has(p, 'song_of_time')) p.counters.turnHp = p.hp;
     if (has(p, 'guardian_aura')) friends.filter((a) => adjacent(a, p)).forEach((a) => lasting(a));
     if (has(p, 'footprint_guard') && sizeOf(p) > 1) friends.filter((a) => adjacent(a, p)).forEach((a) => lasting(a));
     if (has(p, 'kings_shield')) {

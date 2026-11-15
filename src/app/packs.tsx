@@ -3,6 +3,7 @@ import { Image, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import { PACKS } from '../content/packs';
 import { BOSS_TYPES, PIECE_STATS } from '../engine/pieces';
 import { useRun } from '../run/RunContext';
+import { UPGRADES } from '../engine/upgrades/catalog';
 import { Button, text } from '../ui/common';
 import { PIECE_IMAGES } from '../ui/pieceImages';
 import { COLORS } from '../ui/theme';
@@ -35,6 +36,7 @@ export default function Packs() {
                 accessibilityLabel={`${pack.name} ${on ? 'on' : 'off'}`}
               />
             </View>
+            <Text style={styles.section}>Pieces</Text>
             {pack.pieces
               .filter((t) => t !== 'ganon')
               .map((t) => (
@@ -52,6 +54,16 @@ export default function Packs() {
                   </View>
                 </View>
               ))}
+            {UPGRADES.some((u) => u.pack === pack.id) && <Text style={styles.section}>Upgrades</Text>}
+            {UPGRADES.filter((u) => u.pack === pack.id).map((u) => (
+              <View key={u.id}>
+                <Text style={styles.pieceName}>
+                  {u.name}
+                  <Text style={[styles.pieceMeta, { color: RARITY_COLORS[u.rarity] }]}>{'  '}{u.rarity}</Text>
+                </Text>
+                <Text style={styles.pieceBlurb}>{u.text}</Text>
+              </View>
+            ))}
           </View>
         );
       })}
@@ -60,6 +72,14 @@ export default function Packs() {
     </ScrollView>
   );
 }
+
+const RARITY_COLORS: Record<string, string> = {
+  common: '#b9b2a6',
+  uncommon: '#6fbf73',
+  rare: '#5aa0e6',
+  epic: '#b57ae0',
+  legendary: '#f0c040',
+};
 
 const styles = StyleSheet.create({
   screen: { padding: 16, gap: 14, alignItems: 'stretch', maxWidth: 560, width: '100%', alignSelf: 'center' },
@@ -74,4 +94,5 @@ const styles = StyleSheet.create({
   pieceName: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
   pieceMeta: { color: COLORS.textDim, fontSize: 12, fontWeight: '400' },
   pieceBlurb: { color: COLORS.textDim, fontSize: 12 },
+  section: { color: COLORS.gold, fontSize: 12, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 4 },
 });
