@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { finishBattle } from '../run/run';
 import { useRun } from '../run/RunContext';
 import BattleView from '../ui/BattleView';
@@ -17,6 +18,20 @@ export default function Battle() {
           description={run.battle!.description}
           finishLabel="Continue"
           onFinish={(final) => update((r) => finishBattle(r, final))}
+          menu={[
+            {
+              label: 'Save & quit to menu',
+              onPress: () => router.dismissTo('/'),
+            },
+            {
+              label: 'Forfeit battle',
+              confirm: 'Forfeiting counts as a defeat. Losing a battle ends your run.',
+              onPress: () =>
+                update((r) =>
+                  r.activeBattle ? finishBattle(r, { ...r.activeBattle, result: { kind: 'forfeit', winner: 'enemy' } }) : r,
+                ),
+            },
+          ]}
         />
       )}
     </RunGuard>

@@ -4,6 +4,7 @@ import { chooseMove } from '../engine/ai';
 import { occupancy } from '../engine/board';
 import { actionLabel, describeMove } from '../engine/describe';
 import { UPGRADE_BY_ID } from '../engine/upgrades/catalog';
+import { attackSquares } from '../engine/movement';
 import { applyMove, distance, findKing, inCheck, legalMoves } from '../engine/moves';
 import { PIECE_STATS, footprint, sizeOf } from '../engine/pieces';
 import {
@@ -148,6 +149,8 @@ export function resultText(r: GameResult): string {
       return 'Enemy army eliminated — victory!';
     case 'bossDefeated':
       return r.winner === 'player' ? 'The boss has fallen — victory!' : 'Your army was overwhelmed.';
+    case 'forfeit':
+      return 'You forfeited the battle.';
     case 'draw':
       return {
         stalemate: 'Stalemate — draw.',
@@ -162,6 +165,16 @@ export function resultText(r: GameResult): string {
 
 const hexWithAlpha = (rgba: string, a: number) => rgba.replace(/[\d.]+\)$/, `${a})`);
 
+const ENEMY_MOVE = 'rgba(224, 88, 79, 0.95)';
+const ENEMY_THREAT = 'rgba(224, 88, 79, 0.2)';
+
+export interface MenuOption {
+  label: string;
+  onPress: () => void;
+  /** Ask for confirmation with this message first. */
+  confirm?: string;
+}
+
 interface Props {
   state: GameState;
   /** Called with the new state after every move (player or AI). */
@@ -173,16 +186,22 @@ interface Props {
   onFinish: (final: GameState) => void;
   /** Extra controls under the board. */
   footer?: ReactNode;
+  /** Entries for the in-battle menu (quit, restart...). */
+  menu?: MenuOption[];
 }
 
 /** Give each battle its own React `key` so a restart starts with clean UI state. */
-export default function BattleView({ state, onMove, title, description, finishLabel, onFinish, footer }: Props) {
+export default function BattleView({ state, onMove, title, description, finishLabel, onFinish, footer, menu }: Props) {
   const { width, height } = useWindowDimensions();
   const [selected, setSelected] = useState<string | null>(null);
   const [lastMove, setLastMove] = useState<Move | null>(null);
   const [log, setLog] = useState('');
   const [pendingPromotion, setPendingPromotion] = useState<Move[] | null>(null);
   const [chooser, setChooser] = useState<Move[] | null>(null);
+  /** A piece being looked at (an enemy, or any piece while it isn't your move). */
+  const [inspected, setInspected] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirming, setConfirming] = useState<MenuOption | null>(null);
   const over = state.result.kind !== 'ongoing';
   const bonus = state.turn === 'player' ? state.bonus[0] : undefined;
 
@@ -195,14 +214,14 @@ export default function BattleView({ state, onMove, title, description, finishLa
 
   // Enemy turn
   useEffect(() => {
-    if (state.turn !== 'enemy' || over) return;
+    if (state.turn !== 'enemy' || over || menuOpen) return;
     const t = setTimeout(() => {
       const m = chooseMove(state, AI_DEPTH);
       if (m) play(state, m);
     }, AI_DELAY_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, over]);
+  }, [state, over, menuOpen]);
 
   const occ = useMemo(() => occupancy(state.pieces), [state]);
 
@@ -215,6 +234,16 @@ export default function BattleView({ state, onMove, title, description, finishLa
         : p,
     );
   }, [state]);
+
+  // Inspecting a piece: everything it could do if it were its turn, seen as you see it
+  // (a disguised illusion shows an Illusionist's moves).
+  const inspection = useMemo(() => {
+    const shown = inspected ? displayPieces.find((p) => p.id === inspected) : undefined;
+    if (!shown) return null;
+    const view: GameState = { ...state, pieces: displayPieces, turn: shown.side, bonus: [] };
+    const moves = legalMoves(view, shown.side).filter((m) => m.pieceId === shown.id && m.action !== 'pass');
+    return { piece: shown, moves, threats: attackSquares(view, shown) };
+  }, [inspected, displayPieces, state]);
 
   // Foresight: with an Oracle on the field, show the move the enemy currently rates best.
   const foresight = useMemo(() => {
@@ -253,6 +282,25 @@ export default function BattleView({ state, onMove, title, description, finishLa
 
   const markers = useMemo(() => {
     const out = new Map<string, Marker>();
+    if (inspection) {
+      const p = inspection.piece;
+      const enemy = p.side === 'enemy';
+      const own = footprint(p);
+      for (const m of inspection.moves) {
+        const cells = sizeOf(p) > 1 && !m.action ? footprint(p, m.to).filter((c) => !own.some((o) => sameCoord(o, c))) : [m.to];
+        for (const c of cells) {
+          const k = coordKey(c);
+          const prev = out.get(k);
+          if (prev && prev.kind === 'ring' && !m.action) continue;
+          if (m.action) {
+            const color = ACTION_COLORS[m.action];
+            out.set(k, { kind: 'ring', color, fill: hexWithAlpha(color, 0.18), square: m.action === 'demolish', crosshair: m.action === 'shoot' });
+          } else if ((m.targets?.length ?? 0) > 0) out.set(k, { kind: 'ring', color: enemy ? ENEMY_MOVE : undefined });
+          else if (!prev) out.set(k, { kind: 'dot', color: enemy ? ENEMY_MOVE : undefined });
+        }
+      }
+      return out;
+    }
     for (const [k, ms] of options) {
       const m = ms.find((o) => !o.action) ?? ms[0];
       if (m.action) {
@@ -267,7 +315,7 @@ export default function BattleView({ state, onMove, title, description, finishLa
       } else out.set(k, { kind: (m.targets?.length ?? 0) > 0 ? 'ring' : 'dot' });
     }
     return out;
-  }, [options]);
+  }, [options, inspection]);
 
   const commit = (m: Move) => {
     play(state, m);
@@ -277,7 +325,18 @@ export default function BattleView({ state, onMove, title, description, finishLa
   };
 
   const onSquare = (c: Coord) => {
-    if (state.turn !== 'player' || over || pendingPromotion || chooser) return;
+    if (pendingPromotion || chooser) return;
+    const piece = occ.get(coordKey(c));
+    // While looking at a piece, a tap closes the view (or looks at another piece).
+    if (inspected) {
+      const next = piece && piece.id !== inspected && (piece.side === 'enemy' || state.turn !== 'player' || over) ? piece.id : null;
+      setInspected(next);
+      return;
+    }
+    if (state.turn !== 'player' || over) {
+      setInspected(piece ? piece.id : null);
+      return;
+    }
     const opts = options.get(coordKey(c)) ?? [];
     if (opts.length > 0) {
       if (opts.length > 1 && opts.every((m) => m.promotion)) {
@@ -291,7 +350,11 @@ export default function BattleView({ state, onMove, title, description, finishLa
       else commit(opts.find((m) => !m.action) ?? opts[0]);
       return;
     }
-    const piece = occ.get(coordKey(c));
+    if (piece && piece.side === 'enemy') {
+      setInspected(piece.id);
+      if (!bonus?.pieceId) setSelected(null);
+      return;
+    }
     if (bonus?.pieceId) return; // the bonus move belongs to one piece
     setSelected(piece && piece.side === 'player' && piece.id !== selected ? piece.id : null);
   };
@@ -330,19 +393,38 @@ export default function BattleView({ state, onMove, title, description, finishLa
       if (hit) footprint(hit).forEach((c) => tint(c, COLORS.hit));
     }
   }
-  if (selectedPiece) footprint(selectedPiece).forEach((c) => tint(c, COLORS.selected));
+  if (inspection) {
+    footprint(inspection.piece).forEach((c) => tint(c, inspection.piece.side === 'enemy' ? 'rgba(224, 88, 79, 0.45)' : COLORS.selected));
+    if (inspection.piece.side === 'enemy') {
+      const moveSquares = new Set(markers.keys());
+      for (const c of inspection.threats) if (!moveSquares.has(coordKey(c))) tint(c, ENEMY_THREAT);
+    }
+  } else if (selectedPiece) footprint(selectedPiece).forEach((c) => tint(c, COLORS.selected));
   if (foresight) {
     tint(foresight.from, 'rgba(160, 80, 220, 0.35)');
     tint(foresight.to, 'rgba(160, 80, 220, 0.5)');
   }
   if (checkedKing) tint(checkedKing.pos, COLORS.check);
 
-  const info = selectedPiece ? describePiece(selectedPiece) : null;
+  const info = inspection ? describePiece(inspection.piece) : selectedPiece ? describePiece(selectedPiece) : null;
+  const inspectHint =
+    inspection?.piece.side === 'enemy'
+      ? inspection.moves.length || inspection.threats.length
+        ? 'Enemy piece. Red dots: where it can move. Rings: what it can attack or do. Red shading: squares it threatens. Tap anywhere to close.'
+        : "Enemy piece. It can't move or attack right now. Tap anywhere to close."
+      : inspection
+        ? 'Tap anywhere to close.'
+        : '';
   const lostCount = state.captured.filter((p) => p.side === 'player').length;
   const takenCount = state.captured.filter((p) => p.side === 'enemy').length;
 
   return (
     <View style={styles.screen}>
+      {menu && menu.length > 0 && !over && !menuOpen && (
+        <Pressable onPress={() => setMenuOpen(true)} style={styles.menuButton} accessibilityLabel="Battle menu">
+          <Text style={styles.menuButtonText}>☰</Text>
+        </Pressable>
+      )}
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.tag}>{state.rules.checkRules ? 'ROYAL DUEL · CHECK RULES' : 'EXTERMINATION · NO CHECK'}</Text>
@@ -365,7 +447,13 @@ export default function BattleView({ state, onMove, title, description, finishLa
         <View style={styles.infoBox}>
           <Text style={styles.infoTitle}>{info.title}</Text>
           <Text style={styles.infoText}>{info.text}</Text>
-          {info.upgrades ? <Text style={styles.infoUpgrades}>{info.upgrades}</Text> : null}
+          {info.upgrades && !inspection ? <Text style={styles.infoUpgrades}>{info.upgrades}</Text> : null}
+          {inspection && inspection.piece.upgrades.length ? (
+            <Text style={styles.infoUpgrades}>
+              Upgrades: {inspection.piece.upgrades.map((u) => UPGRADE_BY_ID[u]?.name ?? u).join(', ')}
+            </Text>
+          ) : null}
+          {inspectHint ? <Text style={styles.infoHint}>{inspectHint}</Text> : null}
         </View>
       ) : (
         <Text style={styles.log} numberOfLines={2}>
@@ -423,6 +511,46 @@ export default function BattleView({ state, onMove, title, description, finishLa
         </Dialog>
       )}
 
+      {menuOpen && !confirming && (
+        <Dialog title="Paused">
+          <View style={{ gap: 8, alignSelf: 'stretch' }}>
+            <Button label="Resume" primary onPress={() => setMenuOpen(false)} />
+            {menu?.map((o) => (
+              <Button
+                key={o.label}
+                label={o.label}
+                onPress={() => {
+                  if (o.confirm) setConfirming(o);
+                  else {
+                    setMenuOpen(false);
+                    o.onPress();
+                  }
+                }}
+              />
+            ))}
+          </View>
+        </Dialog>
+      )}
+
+      {confirming && (
+        <Dialog title={confirming.label}>
+          <Text style={styles.confirmText}>{confirming.confirm}</Text>
+          <View style={{ gap: 8, alignSelf: 'stretch' }}>
+            <Button
+              label={`Yes, ${confirming.label.toLowerCase()}`}
+              primary
+              onPress={() => {
+                const o = confirming;
+                setConfirming(null);
+                setMenuOpen(false);
+                o.onPress();
+              }}
+            />
+            <Button label="Go back" onPress={() => setConfirming(null)} />
+          </View>
+        </Dialog>
+      )}
+
       {over && (
         <Dialog title={resultText(state.result)}>
           {lostCount > 0 && (
@@ -439,7 +567,24 @@ export default function BattleView({ state, onMove, title, description, finishLa
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.background, alignItems: 'center', paddingHorizontal: 12, paddingTop: 12 },
-  header: { alignItems: 'center', marginBottom: 8 },
+  header: { alignItems: 'center', marginBottom: 8, paddingHorizontal: 44 },
+  menuButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 5,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.panel,
+    borderWidth: 1,
+    borderColor: COLORS.panelBorder,
+  },
+  menuButtonText: { color: COLORS.text, fontSize: 20 },
+  confirmText: { color: COLORS.text, fontSize: 14, textAlign: 'center', maxWidth: 300 },
+  infoHint: { color: COLORS.textDim, fontSize: 11, marginTop: 3 },
   title: { color: COLORS.text, fontSize: 24, fontWeight: '700', letterSpacing: 0.5 },
   tag: { color: COLORS.gold, fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginTop: 2 },
   desc: { color: COLORS.textDim, fontSize: 13, textAlign: 'center', marginTop: 4, maxWidth: 420 },

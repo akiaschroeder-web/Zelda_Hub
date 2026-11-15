@@ -33,7 +33,7 @@ function EndOfRun({ run }: { run: RunState }) {
   const won = run.status === 'won';
   return (
     <ScrollView style={{ backgroundColor: COLORS.background }} contentContainerStyle={styles.endScreen}>
-      <Text style={[text.title, { color: won ? COLORS.gold : COLORS.danger }]}>{won ? 'Victory!' : 'Your King has fallen'}</Text>
+      <Text style={[text.title, { color: won ? COLORS.gold : COLORS.danger }]}>{won ? 'Victory!' : run.lastResult?.result.kind === 'forfeit' ? 'Run over' : 'Your King has fallen'}</Text>
       {run.lastResult && (
         <Text style={[text.body, { textAlign: 'center' }]}>
           {run.lastResult.battle}: {resultText(run.lastResult.result)}
@@ -60,7 +60,7 @@ function EndOfRun({ run }: { run: RunState }) {
         primary
         onPress={() => {
           abandonRun();
-          router.replace('/');
+          router.dismissTo('/');
         }}
       />
     </ScrollView>
@@ -185,7 +185,7 @@ function MapView({ run }: { run: RunState }) {
         )}
         <View style={styles.footerButtons}>
           <Button small label="Army" onPress={() => router.push('/army')} />
-          <Button small label="‹ Menu" onPress={() => router.replace('/')} />
+          <Button small label="‹ Menu" onPress={() => router.dismissTo('/')} />
         </View>
       </Panel>
     </View>

@@ -47,6 +47,10 @@ export default function Sandbox() {
       description={current ? current.description : ENCOUNTERS[idx].description}
       finishLabel="Play again"
       onFinish={() => (boss ? startBoss(boss) : start(idx))}
+      menu={[
+        { label: 'Restart battle', onPress: () => (boss ? startBoss(boss) : start(idx)) },
+        { label: 'Quit to menu', onPress: () => router.back() },
+      ]}
       footer={
         <View style={styles.controls}>
           {ENCOUNTERS.map((e, i) => (

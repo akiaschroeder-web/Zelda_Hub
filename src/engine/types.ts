@@ -316,6 +316,8 @@ export type GameResult =
   | { kind: 'kingCaptured'; winner: Side }
   | { kind: 'eliminated'; winner: Side }
   | { kind: 'bossDefeated'; winner: Side }
+  /** The player gave up the battle from the menu. */
+  | { kind: 'forfeit'; winner: Side }
   | { kind: 'draw'; reason: 'stalemate' | 'fiftyMove' | 'repetition' | 'insufficientMaterial' };
 
 export interface GameState {

@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ReactNode, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BOSS_TYPES, sizeOf } from '../engine/pieces';
 import { Board, Coord, Piece, Terrain, coordKey, sameCoord, shieldTotal } from '../engine/types';
 import { PIECE_IMAGES } from './pieceImages';
@@ -27,6 +28,11 @@ interface Props {
   outlines?: Map<string, string>;
   onSquare?: (c: Coord) => void;
 }
+
+/** How long a piece takes to slide to its new square. */
+export const MOVE_MS = 260;
+const FADE_MS = 280;
+const nativeDriver = Platform.OS !== 'web';
 
 /** Draws terrain, pieces (any size), HP pips, shields and move markers. */
 export default function BoardView({ board, pieces, cell, tints, markers, outlines, onSquare }: Props) {
@@ -57,46 +63,24 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
     );
   }
 
-  const pieceLayer = pieces.map((p) => {
-    const size = sizeOf(p) * cell;
-    return (
-      <View
-        key={p.id}
-        pointerEvents="none"
-        style={{ position: 'absolute', left: p.pos.x * cell, top: p.pos.y * cell, width: size, height: size }}
-      >
-        {BOSS_TYPES.has(p.type) && (
-          <View style={[StyleSheet.absoluteFill, styles.bossRing, { borderColor: p.side === 'player' ? COLORS.gold : COLORS.danger }]} />
-        )}
-        <Image source={PIECE_IMAGES[p.side][p.type]} style={styles.pieceImg} resizeMode="contain" />
-        {p.maxHp > 1 && (
-          <View style={styles.hpRow}>
-            {Array.from({ length: p.maxHp }, (_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.hpPip,
-                  { width: Math.max(6, cell * 0.16), height: Math.max(6, cell * 0.16) },
-                  i < p.hp ? (p.side === 'player' ? styles.hpFullPlayer : styles.hpFullEnemy) : styles.hpEmpty,
-                ]}
-              />
-            ))}
-          </View>
-        )}
-        {shieldTotal(p) > 0 && (
-          <View style={styles.shieldBadge}>
-            <Text style={styles.shieldText}>{shieldTotal(p)}</Text>
-          </View>
-        )}
-        {p.statuses.length > 0 && (
-          <View style={styles.statusDot}>
-            <Text style={styles.statusText}>{p.statuses.length}</Text>
-          </View>
-        )}
-        {p.temp && <View style={[StyleSheet.absoluteFill, styles.tempRing]} />}
-      </View>
-    );
-  });
+  // Pieces that disappeared since the last render fade out where they stood.
+  const prevPieces = useRef(pieces);
+  const [ghosts, setGhosts] = useState<Piece[]>([]);
+  useEffect(() => {
+    const ids = new Set(pieces.map((p) => p.id));
+    const gone = prevPieces.current.filter((p) => !ids.has(p.id));
+    prevPieces.current = pieces;
+    if (gone.length) setGhosts((g) => [...g.filter((o) => !gone.some((n) => n.id === o.id)), ...gone]);
+  }, [pieces]);
+
+  const pieceLayer = pieces.map((p) => (
+    <Sprite key={p.id} pos={p.pos} cell={cell} size={sizeOf(p) * cell}>
+      <PieceArt p={p} cell={cell} />
+    </Sprite>
+  ));
+  const ghostLayer = ghosts.map((p) => (
+    <Ghost key={`ghost-${p.id}`} p={p} cell={cell} onDone={() => setGhosts((g) => g.filter((o) => o !== p))} />
+  ));
 
   const markerLayer = [...(markers ?? new Map<string, Marker>()).entries()].map(([k, m]) => {
     const [x, y] = k.split(',').map(Number);
@@ -104,7 +88,7 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
       <View
         key={k}
         pointerEvents="none"
-        style={{ position: 'absolute', left: x * cell, top: y * cell, width: cell, height: cell }}
+        style={{ position: 'absolute', left: x * cell, top: y * cell, width: cell, height: cell, zIndex: 3 }}
       >
         {m.kind === 'ring' ? (
           <View
@@ -135,9 +119,121 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
   return (
     <View style={styles.frame}>
       {rows}
+      {ghostLayer}
       {pieceLayer}
       {markerLayer}
     </View>
+  );
+}
+
+/** Slides to its square whenever the position changes; the moving piece draws on top. */
+function Sprite({ pos, cell, size, children }: { pos: Coord; cell: number; size: number; children: ReactNode }) {
+  const [xy] = useState(() => new Animated.ValueXY({ x: pos.x * cell, y: pos.y * cell }));
+  const lastCell = useRef(cell);
+  const [moving, setMoving] = useState(false);
+  useEffect(() => {
+    const target = { x: pos.x * cell, y: pos.y * cell };
+    if (lastCell.current !== cell) {
+      // The board was resized: jump, don't slide.
+      lastCell.current = cell;
+      xy.setValue(target);
+      return;
+    }
+    setMoving(true);
+    const anim = Animated.timing(xy, {
+      toValue: target,
+      duration: MOVE_MS,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: nativeDriver,
+    });
+    anim.start(() => setMoving(false));
+    return () => anim.stop();
+  }, [pos.x, pos.y, cell, xy]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: size,
+        height: size,
+        zIndex: moving ? 2 : 1,
+        transform: xy.getTranslateTransform(),
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+/** A captured piece: holds still while the attacker arrives, then fades and shrinks away. */
+function Ghost({ p, cell, onDone }: { p: Piece; cell: number; onDone: () => void }) {
+  const [t] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    const anim = Animated.timing(t, {
+      toValue: 1,
+      duration: FADE_MS,
+      delay: MOVE_MS * 0.6,
+      easing: Easing.in(Easing.quad),
+      useNativeDriver: nativeDriver,
+    });
+    anim.start(() => onDone());
+    return () => anim.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const size = sizeOf(p) * cell;
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: p.pos.x * cell,
+        top: p.pos.y * cell,
+        width: size,
+        height: size,
+        opacity: t.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+        transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }) }],
+      }}
+    >
+      <PieceArt p={p} cell={cell} />
+    </Animated.View>
+  );
+}
+
+function PieceArt({ p, cell }: { p: Piece; cell: number }) {
+  return (
+    <>
+      {BOSS_TYPES.has(p.type) && (
+        <View style={[StyleSheet.absoluteFill, styles.bossRing, { borderColor: p.side === 'player' ? COLORS.gold : COLORS.danger }]} />
+      )}
+      <Image source={PIECE_IMAGES[p.side][p.type]} style={styles.pieceImg} resizeMode="contain" />
+      {p.maxHp > 1 && (
+        <View style={styles.hpRow}>
+          {Array.from({ length: p.maxHp }, (_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.hpPip,
+                { width: Math.max(6, cell * 0.16), height: Math.max(6, cell * 0.16) },
+                i < p.hp ? (p.side === 'player' ? styles.hpFullPlayer : styles.hpFullEnemy) : styles.hpEmpty,
+              ]}
+            />
+          ))}
+        </View>
+      )}
+      {shieldTotal(p) > 0 && (
+        <View style={styles.shieldBadge}>
+          <Text style={styles.shieldText}>{shieldTotal(p)}</Text>
+        </View>
+      )}
+      {p.statuses.length > 0 && (
+        <View style={styles.statusDot}>
+          <Text style={styles.statusText}>{p.statuses.length}</Text>
+        </View>
+      )}
+      {p.temp && <View style={[StyleSheet.absoluteFill, styles.tempRing]} />}
+    </>
   );
 }
 
