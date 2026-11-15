@@ -18,7 +18,7 @@ export interface PieceStats {
 
 export const PIECE_STATS: Record<PieceType, PieceStats> = {
   pawn: { size: 1, maxHp: 1, damage: 1, cost: 1, value: 100, name: 'Pawn', blurb: 'Advances forward, captures diagonally.' },
-  knight: { size: 1, maxHp: 1, damage: 1, cost: 3, value: 300, name: 'Knight', blurb: 'L-shaped jump. Leaps gaps, blocked by walls.' },
+  knight: { size: 1, maxHp: 1, damage: 1, cost: 3, value: 300, name: 'Knight', blurb: 'L-shaped jump. Leaps gaps; blocked only if walls cut off both ways around the L.' },
   bishop: { size: 1, maxHp: 1, damage: 1, cost: 3, value: 310, name: 'Bishop', blurb: 'Slides diagonally.' },
   rook: { size: 1, maxHp: 1, damage: 1, cost: 5, value: 500, name: 'Rook', blurb: 'Slides orthogonally.' },
   queen: { size: 1, maxHp: 1, damage: 1, cost: 9, value: 900, name: 'Queen', blurb: 'Slides in any direction.' },

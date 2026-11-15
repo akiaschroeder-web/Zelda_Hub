@@ -107,17 +107,23 @@ describe('terrain', () => {
     );
   });
 
-  it('lets Knights jump gaps but not walls in their 2x3 rectangle', () => {
+  it('lets Knights jump gaps, and walls only block when both L routes are walled', () => {
     const terrain = ['........', '........', '........', '._......', '........', '........', '........', '........'];
     const s = game(['........', '........', '........', '........', 'N.......', '........', '........', 'K......k'], terrain);
     const knight = s.pieces.find((p) => p.type === 'knight')!;
     expect(targets(legalMoves(s), knight.id)).toEqual(['1,2', '1,6', '2,3', '2,5'].sort());
 
+    // One wall at (1,3): every jump still has a clear route round the other side.
     const walled = terrain.map((r, y) => (y === 3 ? '.#......' : r));
     const s2 = game(['........', '........', '........', '........', 'N.......', '........', '........', 'K......k'], walled);
-    // The wall at (1,3) sits inside the rectangles for (1,2) and (2,3).
     const knight2 = s2.pieces.find((p) => p.type === 'knight')!;
-    expect(targets(legalMoves(s2), knight2.id)).toEqual(['1,6', '2,5']);
+    expect(targets(legalMoves(s2), knight2.id)).toEqual(['1,2', '1,6', '2,3', '2,5'].sort());
+
+    // Walls at (0,3) and (1,4) wall off both routes to (1,2) and to (2,3).
+    const boxed = terrain.map((r, y) => (y === 3 ? '#.......' : y === 4 ? '.#......' : r));
+    const s3 = game(['........', '........', '........', '........', 'N.......', '........', '........', 'K......k'], boxed);
+    const knight3 = s3.pieces.find((p) => p.type === 'knight')!;
+    expect(targets(legalMoves(s3), knight3.id)).toEqual(['1,6', '2,5']);
   });
 
   it('cracked walls block like solid walls', () => {

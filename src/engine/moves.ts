@@ -45,7 +45,7 @@ import {
   silenced,
   suppressed,
 } from './core';
-import { attacksSquare, heavySteps, shotSquares, sideStepVariants, stepsFor } from './movement';
+import { attacksSquare, heavySteps, lPaths, shotSquares, sideStepVariants, stepsFor } from './movement';
 import { harvestSoul, resolveSpecial, specialMoves } from './specials';
 import { FREE_BOSS_ACTIONS, BOSS_COOLDOWNS, bossMoves, bossTurnEnd, bossTurnStart, haunted, resolveBoss, swarmCommanded } from './bosses';
 import { PIECE_STATS, footprint, sizeOf } from './pieces';
@@ -75,16 +75,11 @@ export { distance, adjacent };
 export const hasUsedAbility = hasUsed;
 
 /**
- * A Knight jump is blocked when any wall (solid or cracked) lies inside the
- * 2x3 rectangle spanned by its start and landing squares. Gaps never block.
+ * A Knight jump goes around the corner either way (along x first, or along y first)
+ * and is blocked only when both routes pass over a wall (solid or cracked). Gaps never block.
  */
 export function knightPathClear(state: GameState, from: Coord, to: Coord): boolean {
-  const x0 = Math.min(from.x, to.x);
-  const x1 = Math.max(from.x, to.x);
-  const y0 = Math.min(from.y, to.y);
-  const y1 = Math.max(from.y, to.y);
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (isWall(state.board, { x, y })) return false;
-  return true;
+  return lPaths(from, to).some((path) => !path.some((c) => isWall(state.board, c)));
 }
 
 /**

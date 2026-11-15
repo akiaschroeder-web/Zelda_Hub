@@ -266,21 +266,35 @@ function walk(
   return out;
 }
 
+/** The squares passed over by the two L-shaped routes from `from` to `to` (ends excluded). */
+export function lPaths(from: Coord, to: Coord): Coord[][] {
+  const sx = Math.sign(to.x - from.x);
+  const sy = Math.sign(to.y - from.y);
+  const xFirst: Coord[] = [];
+  const yFirst: Coord[] = [];
+  for (let x = from.x + sx; x !== to.x + sx; x += sx) xFirst.push({ x, y: from.y });
+  for (let y = from.y + sy; y !== to.y; y += sy) xFirst.push({ x: to.x, y });
+  for (let y = from.y + sy; y !== to.y + sy; y += sy) yFirst.push({ x: from.x, y });
+  for (let x = from.x + sx; x !== to.x; x += sx) yFirst.push({ x, y: to.y });
+  return [xFirst, yFirst];
+}
+
 function leapClear(s: GameState, from: Coord, off: Coord, rule: 'rect' | 'line', wallsAllowed: number) {
   const to = add(from, off);
   if (!isStandable(s.board, to)) return null;
   let walls = 0;
   let gap = false;
   if (rule === 'rect') {
-    const x0 = Math.min(from.x, to.x);
-    const x1 = Math.max(from.x, to.x);
-    const y0 = Math.min(from.y, to.y);
-    const y1 = Math.max(from.y, to.y);
-    for (let y = y0; y <= y1; y++)
-      for (let x = x0; x <= x1; x++) {
-        if (isWall(s.board, { x, y })) walls++;
-        if (terrainAt(s.board, { x, y }) === 'gap') gap = true;
-      }
+    // An L-shaped jump can go either way round the corner: along x first, or along y first.
+    // It's blocked only if every route has more walls than the piece may pass through.
+    let best = Infinity;
+    for (const path of lPaths(from, to)) {
+      const w = path.filter((c) => isWall(s.board, c)).length;
+      if (w > wallsAllowed) continue;
+      best = Math.min(best, w);
+      if (path.some((c) => terrainAt(s.board, c) === 'gap')) gap = true;
+    }
+    walls = best;
   } else {
     const d = sign(off);
     const n = Math.max(Math.abs(off.x), Math.abs(off.y));
