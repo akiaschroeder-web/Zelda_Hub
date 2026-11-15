@@ -17,7 +17,7 @@ const SANDBOX_BOSSES: { type: PieceType; act: number }[] = [
   ...PACKS.flatMap((p) => p.bosses),
 ];
 
-/** A boss arena against a standard chess army (24 Army Points, auto-deployed). */
+/** A boss arena against a standard chess army (the run's starting Army Points, auto-deployed). */
 function bossSandbox(type: PieceType): { state: GameState; name: string; description: string } {
   const act = SANDBOX_BOSSES.find((b) => b.type === type)?.act ?? 0;
   const battle = bossBattle(act, `sandbox-${type}`, undefined, type);

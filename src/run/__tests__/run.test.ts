@@ -428,3 +428,17 @@ describe('content packs', () => {
     expect(freshRun(1).packs).toEqual([]);
   });
 });
+
+describe('shop prices', () => {
+  it('common and uncommon goods get 20% cheaper each act, up to 40%; rarer goods do not', async () => {
+    const { shopDiscount } = await import('../rewards');
+    expect([0, 1, 2].map((a) => shopDiscount('common', a))).toEqual([0, 0.2, 0.4]);
+    expect([0, 1, 2].map((a) => shopDiscount('uncommon', a))).toEqual([0, 0.2, 0.4]);
+    expect(shopDiscount('rare', 2)).toBe(0);
+    expect(shopDiscount('legendary', 2)).toBe(0);
+  });
+
+  it('a new run starts with 32 Army Points', () => {
+    expect(RUN_CONFIG.armyPoints).toBe(32);
+  });
+});

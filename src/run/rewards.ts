@@ -215,17 +215,26 @@ export function piecePrice(t: PieceType): number {
 
 const UPGRADE_PRICE: Record<UpgradeRarity, number> = { common: 30, uncommon: 45, rare: 65, epic: 95, legendary: 140, mythical: 250 };
 
+/**
+ * Common and uncommon goods get cheaper as the run goes on (20% off per act
+ * after the first), so the basics stay affordable while gold matters more.
+ */
+export function shopDiscount(rarity: string, act: number): number {
+  return rarity === 'common' || rarity === 'uncommon' ? Math.min(0.4, 0.2 * act) : 0;
+}
+
 export function generateShop(rng: Rng, act: number, roster: RosterView = [], packs: readonly string[] = []): ShopItem[] {
   const pieces: PieceType[] = [];
   for (let i = 0; i < 4; i++) pieces.push(rollPiece(rng, i === 0 ? 'battle' : 'recruit', act, pieces, packs));
   const items: ShopItem[] = pieces.map((type) => ({
     option: { kind: 'piece', type },
-    price: Math.round(piecePrice(type) * (0.85 + rng.next() * 0.3)),
+    price: Math.round(piecePrice(type) * (0.85 + rng.next() * 0.3) * (1 - shopDiscount(rarityOf(type), act))),
     sold: false,
   }));
   for (const o of upgradeOptions(rng, 'shop', act, roster, 2, packs)) {
     if (o.kind !== 'upgrade') continue;
-    const price = UPGRADE_PRICE[UPGRADE_BY_ID[o.id].rarity];
+    const rarity = UPGRADE_BY_ID[o.id].rarity;
+    const price = UPGRADE_PRICE[rarity] * (1 - shopDiscount(rarity, act));
     items.push({ option: o, price: Math.round(price * (0.9 + rng.next() * 0.2)), sold: false });
   }
   items.push({ option: { kind: 'armyPoints', amount: 2 }, price: 55 + act * 15, sold: false });
