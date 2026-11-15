@@ -349,6 +349,45 @@ const ZELDA_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity,
   [273, 'triforce_wisdom', 'Triforce of Wisdom', 'mythical', 'legendary', "You always see the enemy's intended move and every illusion. Once per battle, instead of moving, every ally within 2 squares becomes immune to damage until your next turn."],
 ];
 
+/** Sonic Content Pack upgrades. Only offered when the run has the Sonic Pack on. */
+const SONIC_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity, category: UpgradeCategory, text: string][] = [
+  // Movement & Offensive
+  [274, 'speed_shoes', 'Speed Shoes', 'common', 'movement', 'Sliding moves reach one square further. Fixed-distance jumps are unaffected.'],
+  [275, 'spin_dash', 'Spin Dash', 'uncommon', 'offense', 'An attack after travelling 3 or more squares in a straight line deals 2 damage instead of 1.'],
+  [276, 'homing_attack', 'Homing Attack', 'rare', 'offense', 'Every 3 turns, leap straight at an enemy within 3 squares and attack it, ignoring anything in the way.'],
+  [277, 'bounce_bracelet', 'Bounce Bracelet', 'uncommon', 'movement', 'Can also jump exactly 2 squares orthogonally, over whatever is between.'],
+  [278, 'light_speed_dash', 'Light Speed Dash', 'rare', 'movement', 'Every 4 turns, instead of moving normally, dash to any empty square in this row or column, ignoring everything in the way.'],
+  [279, 'flame_ring', 'Flame Ring', 'rare', 'offense', 'Attacks also deal 1 damage to one other enemy next to the target.'],
+  [280, 'magic_gloves', 'Magic Gloves', 'rare', 'offense', 'Every 4 turns, instead of moving, capture an adjacent non-Boss enemy that has exactly 1 HP.'],
+  [281, 'ancient_light', 'Ancient Light', 'legendary', 'offense', 'After a capture, may immediately make one more capture with its normal movement (once per turn).'],
+  // Defensive & Survival
+  [282, 'blue_shield', 'Blue Shield', 'common', 'defense', 'Blocks the first point of damage this piece takes each battle.'],
+  [283, 'flame_shield', 'Flame Shield', 'uncommon', 'defense', 'Once per battle, an adjacent enemy that damages this piece takes 1 damage back.'],
+  [284, 'lightning_shield', 'Lightning Shield', 'uncommon', 'offense', 'Every 3 turns, instead of moving, deal 1 damage to an enemy up to 2 squares away orthogonally (clear line).'],
+  [285, 'bubble_shield', 'Bubble Shield', 'uncommon', 'movement', 'Every 3 turns, instead of moving normally, jump exactly 2 squares in any direction to an empty square.'],
+  [286, 'invincibility', 'Invincibility Monitor', 'rare', 'defense', 'Once per battle, the first time this piece would take damage, it takes none.'],
+  [287, 'extra_life', 'Extra Life', 'legendary', 'defense', 'The first time this piece would be permanently lost, it returns to your army after the battle.'],
+  [288, 'ring_protection', 'Ring Protection', 'common', 'defense', 'When this piece takes damage and survives, it hops to the safest adjacent empty square (every 3 turns).'],
+  // Terrain & Special Movement
+  [289, 'yellow_drill', 'Yellow Drill', 'uncommon', 'walls', 'Slides through walls and cracked walls, destroying them on the way. Must finish on open ground.'],
+  [290, 'pink_spikes', 'Pink Spikes', 'uncommon', 'walls', 'Slides through walls without breaking them, and can stop on a wall.'],
+  [291, 'orange_rocket', 'Orange Rocket', 'rare', 'movement', 'Every 4 turns, instead of moving normally, rocket to any empty square within 4 orthogonally, over anything.'],
+  [292, 'cyan_laser', 'Cyan Laser', 'rare', 'offense', 'Every 4 turns, shoot up to 5 squares in a straight or diagonal line through anything; ending on an enemy attacks it.'],
+  [293, 'blue_cube', 'Blue Cube', 'uncommon', 'walls', 'Every 4 turns, instead of moving, raise a wall on an empty square within 3, or remove a wall within 3.'],
+  [294, 'purple_frenzy', 'Purple Frenzy', 'rare', 'offense', 'Each capture adds 1 to this piece’s sliding range for the rest of the battle (up to +3).'],
+  [295, 'hover_wisp', 'Hover Wisp', 'uncommon', 'terrain', 'Slides can cross any run of gaps, as long as they end on solid ground.'],
+  // Special & Chaos
+  [296, 'chaos_drive', 'Chaos Drive', 'uncommon', 'defense', '+1 maximum HP (up to 3).'],
+  [297, 'chaos_spear', 'Chaos Spear', 'rare', 'offense', 'Every 3 turns, instead of moving, deal 1 damage to the first enemy within 4 in a straight or diagonal line. Walls block it.'],
+  [298, 'chaos_blast', 'Chaos Blast', 'legendary', 'offense', 'Once per battle, instead of moving, deal 1 damage to every enemy within 2 squares and destroy every cracked wall there.'],
+  [299, 'chaos_control', 'Chaos Control', 'legendary', 'movement', 'Every 4 turns, instead of moving normally, teleport to any empty square within 5.'],
+  [300, 'team_blast', 'Team Blast', 'legendary', 'offense', 'Once per battle, instead of moving, deal 1 damage to every adjacent enemy — 2 if two or more allies are also adjacent.'],
+  [301, 'super_peel_out', 'Super Peel Out', 'uncommon', 'movement', 'Every 3 turns, a non-capturing slide of up to twice the normal range in one direction.'],
+  // Emeralds
+  [302, 'chaos_emeralds', 'Chaos Emeralds', 'mythical', 'legendary', '+1 maximum HP (up to 3), +1 sliding range and +1 damage. On Sonic, Shadow, Silver or Blaze: they transform into their Super form instead, and the Emeralds are used up (no slot).'],
+  [303, 'master_emerald', 'Master Emerald', 'legendary', 'legendary', 'Every 3 turns, instead of moving, deal 1 damage to every adjacent enemy; cannot be forcibly moved. On Super Sonic: he becomes Hyper Sonic instead, using it up (no slot).'],
+];
+
 /** Upgrades that depend on systems the game doesn't have yet. Never offered. */
 export const EXCLUDED: Record<string, string> = {
   free_rotation: 'Pieces have no facing.',
@@ -404,6 +443,17 @@ export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, R
       slots: slotsFor(rarity),
       cost: COST[rarity],
       pack: 'zelda',
+    })),
+    SONIC_ROWS.map(([num, id, name, rarity, category, text]): UpgradeInfo => ({
+      num,
+      id,
+      name,
+      rarity,
+      category,
+      text,
+      slots: slotsFor(rarity),
+      cost: COST[rarity],
+      pack: 'sonic',
     })),
   )
   .sort((a, b) => a.num - b.num);

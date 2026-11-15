@@ -72,6 +72,7 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   psychokinesis: 'rgba(90, 220, 220, 0.95)',
   energyShot: 'rgba(214, 60, 60, 0.95)',
   missiles: 'rgba(230, 110, 60, 0.95)',
+  burningAura: 'rgba(240, 90, 60, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -121,6 +122,10 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   eggman: { id: 'escape', label: 'Emergency Escape' },
   buzz_bomber: { label: 'Energy Shot (red)' },
   crabmeat: { id: 'carapace', label: 'Armored Carapace' },
+  super_shadow: { label: 'Super Chaos Control (red), Super Chaos Spear (yellow)' },
+  super_silver: { label: 'Super Psychokinesis (cyan), Psychic Defense' },
+  burning_blaze: { label: 'Burning Aura (orange)' },
+  hyper_sonic: { id: 'last_stand', label: 'Last Stand' },
 };
 
 const STATUS_NAMES: Partial<Record<string, string>> = {

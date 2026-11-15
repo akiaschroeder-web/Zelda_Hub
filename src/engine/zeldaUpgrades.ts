@@ -216,7 +216,7 @@ export function resolveZeldaUpgrade(s: GameState, m: Move) {
       break;
     case 'dins_fire':
       // Blaze is immune to fire.
-      for (const e of s.pieces.filter((e) => e.side !== p.side && e.type !== 'blaze' && dinsReach(s, p, e))) hit(s, p, e, abilityDamage(p, e), 'ability');
+      for (const e of s.pieces.filter((e) => e.side !== p.side && e.type !== 'blaze' && e.type !== 'burning_blaze' && dinsReach(s, p, e))) hit(s, p, e, abilityDamage(p, e), 'ability');
       break;
     case 'farores_wind':
       p.pos = { ...m.to };

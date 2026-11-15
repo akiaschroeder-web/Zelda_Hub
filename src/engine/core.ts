@@ -184,7 +184,7 @@ export function addStatus(p: Piece, st: Status) {
   // Triforce of Courage: no negative status effect can take hold.
   if (p.upgrades.includes('triforce_courage') && (NEGATIVE.includes(st.kind) || COURAGE_ALSO.includes(st.kind))) return;
   // Blaze: Flame Immunity.
-  if (p.type === 'blaze' && st.kind === 'burned') return;
+  if ((p.type === 'blaze' || p.type === 'burning_blaze') && st.kind === 'burned') return;
   const existing = statusOf(p, st.kind);
   if (existing && (st.kind === 'rangeBuff' || st.kind === 'damageBuff')) {
     existing.amount = (existing.amount ?? 0) + (st.amount ?? 0);
@@ -356,6 +356,15 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
     log(s, 'The Death Egg Robot shrugs off the shot.');
     return { kind: 'immune' };
   }
+  // Super Silver: Psychic Defense negates an attack on himself or an adjacent ally (every 3 turns).
+  if (direct(ctx.kind) && amount > 0 && !ctx.pure) {
+    const psy = s.pieces.find((o) => o.side === target.side && o.type === 'super_silver' && (o.counters.psyDefCd ?? 0) <= 0 && (o.id === target.id || adjacent(o, target)));
+    if (psy) {
+      psy.counters.psyDefCd = 3;
+      log(s, "Super Silver's psychic barrier stops the attack!");
+      return { kind: 'survived', dealt: 0 };
+    }
+  }
   // Rouge: Stealth — the first attack on her misses, as long as she hasn't captured anything.
   if (direct(ctx.kind) && target.type === 'rouge' && !hasUsed(target, 'stealth') && !target.counters.captures && !ctx.trueSight && amount > 0) {
     markUsed(target, 'stealth');
@@ -368,6 +377,13 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
     markUsed(target, 'mirror_shield');
     log(s, `${nameOf(target)}'s Mirror Shield reflects the attack!`);
     dealDamage(s, source.id, amount, { kind: 'reflect' });
+    return { kind: 'survived', dealt: 0 };
+  }
+
+  // Invincibility Monitor: the first damage of any kind is ignored.
+  if (amount > 0 && ctx.kind !== 'fall' && !ctx.pure && ready(target, 'invincibility')) {
+    markUsed(target, 'invincibility');
+    log(s, `${nameOf(target)} is invincible!`);
     return { kind: 'survived', dealt: 0 };
   }
 
@@ -513,20 +529,39 @@ function escapeAfterHit(s: GameState, t: Piece, hpBefore: number, ctx: DamageCtx
     removeStatus(t, 'copying');
     addStatus(t, { kind: 'copying', until: endOfTurn(s.ply, t.side, 2), source: source.type });
   }
+  // Flame Shield: once per battle, an adjacent enemy that hurts this piece takes 1 back.
+  if (source && source.side !== t.side && ready(t, 'flame_shield') && t.hp < hpBefore && adjacent(source, t) && getPiece(s, source.id)) {
+    markUsed(t, 'flame_shield');
+    log(s, `${nameOf(t)}'s Flame Shield scorches the attacker.`);
+    dealDamage(s, source.id, 1, { kind: 'splash' });
+  }
   let spots: Coord[] = [];
+  let ring = false;
   if (t.type === 'deku_scrub' && direct(ctx.kind) && !hasUsed(t, 'burrow')) spots = ALL_DIRS.map((d) => add(t.pos, d));
   else if (t.type === 'lizalfos' && t.hp < hpBefore && (t.counters.acroCd ?? 0) <= 0) spots = DIAG.map((d) => add(t.pos, scale(d, 2)));
+  else if (has(t, 'ring_protection') && t.hp < hpBefore && (t.counters.ringCd ?? 0) <= 0 && sizeOf(t) === 1) {
+    spots = ALL_DIRS.map((d) => add(t.pos, d));
+    ring = true;
+  }
   const enemies = s.pieces.filter((e) => e.side !== t.side);
   const score = (c: Coord) => (source ? distanceTo(source, c) * 10 : 0) - enemies.filter((e) => distanceTo(e, c) <= 1).length;
   const spot = spots.filter((c) => isEmpty(s, c)).sort((a, b) => score(b) - score(a))[0];
   if (!spot) return;
-  if (t.type === 'deku_scrub') markUsed(t, 'burrow');
+  if (ring) t.counters.ringCd = 3;
+  else if (t.type === 'deku_scrub') markUsed(t, 'burrow');
   else t.counters.acroCd = 3;
   t.pos = { ...spot };
-  log(s, t.type === 'deku_scrub' ? `${nameOf(t)} burrows away!` : `${nameOf(t)} flips away acrobatically!`);
+  log(s, ring ? `${nameOf(t)} scrambles clear!` : t.type === 'deku_scrub' ? `${nameOf(t)} burrows away!` : `${nameOf(t)} flips away acrobatically!`);
 }
 
 function preventDeath(s: GameState, p: Piece): boolean {
+  // Hyper Sonic: Last Stand.
+  if (p.type === 'hyper_sonic' && !hasUsed(p, 'last_stand')) {
+    markUsed(p, 'last_stand');
+    p.hp = 1;
+    log(s, 'Hyper Sonic refuses to fall!');
+    return true;
+  }
   // Amy Rose: Unshakable Determination.
   if (p.type === 'amy' && !hasUsed(p, 'determination')) {
     markUsed(p, 'determination');
@@ -666,7 +701,7 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
     return;
   }
   s.captured.push(p);
-  if (has(p, 'second_life') && !p.temp) s.saved.push(p.id);
+  if ((has(p, 'second_life') || has(p, 'extra_life')) && !p.temp) s.saved.push(p.id);
   // Necromancer: Death Harvest — heals whenever an enemy is captured.
   for (const n of s.pieces.filter((o) => o.side !== p.side && o.type === 'necromancer')) heal(s, n, 1);
   // Bomber Volatile: when captured (not detonated), 1 damage to every adjacent piece.
@@ -719,6 +754,8 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
 export function immuneToForcedMove(s: GameState, p: Piece, source?: Piece, peek = false): boolean {
   if (p.type === 'king' || isBoss(p) || p.type === 'warden') return true;
   if (hasStatus(p, 'rooted') || has(p, 'steadfast') || has(p, 'iron_boots') || has(p, 'triforce_courage')) return true;
+  // Super Shadow's Chaos Protection and the Master Emerald.
+  if (p.type === 'super_shadow' || has(p, 'master_emerald')) return true;
   if (has(p, 'heavy_stabilizer') && source && sizeOf(source) < sizeOf(p)) return true;
   if (
     allies(s, p).some(

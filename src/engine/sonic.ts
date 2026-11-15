@@ -34,6 +34,11 @@ import { Bonus, Coord, GameState, Move, Piece, Side, sameCoord } from './types';
 
 export const SONIC_COOLDOWNS = {
   blurCd: 3,
+  superSpeedCd: 2,
+  superControlCd: 2,
+  superPkCd: 2,
+  psyDefCd: 3,
+  auraCd: 3,
   chaosControlCd: 4,
   chaosSpearCd: 3,
   energyShotCd: 2,
@@ -96,17 +101,37 @@ export function sonicMoves(s: GameState, p: Piece): Move[] {
       }
       break;
     case 'shadow':
-      if (ready(p, 'chaosControlCd') && !bound)
-        for (let dy = -4; dy <= 4; dy++)
-          for (let dx = -4; dx <= 4; dx++) {
-            const c = { x: p.pos.x + dx, y: p.pos.y + dy };
-            if (Math.max(Math.abs(dx), Math.abs(dy)) >= 2 && isEmpty(s, c)) out.push({ ...base, to: c, action: 'chaosControl' });
+    case 'super_shadow': {
+      // Super Shadow's Chaos Control reaches anywhere on the board, every 2 turns.
+      const sup = p.type === 'super_shadow';
+      const reach = sup ? 99 : 4;
+      if (ready(p, sup ? 'superControlCd' : 'chaosControlCd') && !bound)
+        for (let y = 0; y < s.board.height; y++)
+          for (let x = 0; x < s.board.width; x++) {
+            const c = { x, y };
+            const dist = Math.max(Math.abs(x - p.pos.x), Math.abs(y - p.pos.y));
+            if (dist >= 2 && dist <= reach && isEmpty(s, c)) out.push({ ...base, to: c, action: 'chaosControl' });
           }
       if (ready(p, 'chaosSpearCd'))
         for (const d of ALL_DIRS) {
-          const hit = firstInLine(s, p.pos, d, 3);
+          const hit = firstInLine(s, p.pos, d, sup ? 5 : 3);
           if (hit && hit.side !== p.side) out.push({ ...base, to: hit.pos, action: 'chaosSpear', allyId: hit.id });
         }
+      break;
+    }
+    case 'super_silver':
+      // Super Psychokinesis: lift an enemy within 4 one square; slamming it into a wall deals 1.
+      if (!ready(p, 'superPkCd') && s.bonus[0]?.source !== 'super_pk') break;
+      for (const e of enemies.filter((e) => sizeOf(e) === 1 && !isBoss(e) && pieceDistance(e, p) <= 4 && !immuneToForcedMove(s, e, p, true)))
+        for (const d of ALL_DIRS) {
+          const c = add(e.pos, d);
+          if (isEmpty(s, c)) out.push({ ...base, to: c, action: 'psychokinesis', allyId: e.id });
+          else if (inBounds(s.board, c) && (terrainAt(s.board, c) === 'wall' || terrainAt(s.board, c) === 'cracked'))
+            out.push({ ...base, to: c, action: 'psychokinesis', allyId: e.id, param: 'impact' });
+        }
+      break;
+    case 'burning_blaze':
+      if (ready(p, 'auraCd') && enemies.some((e) => pieceDistance(e, p) === 1)) out.push({ ...base, to: p.pos, action: 'burningAura' });
       break;
     case 'silver':
       // Psychokinesis: an enemy 1×1 piece within 3 is lifted to an empty square next to it.
@@ -132,7 +157,7 @@ export function sonicMoves(s: GameState, p: Piece): Move[] {
 }
 
 /** Resolve one of the actions above. Returns false if the action isn't one of these. */
-export function resolveSonic(s: GameState, m: Move): boolean {
+export function resolveSonic(s: GameState, m: Move, entry?: Bonus): boolean {
   const p = getPiece(s, m.pieceId);
   if (!p) return false;
   const target = getPiece(s, m.allyId);
@@ -143,23 +168,37 @@ export function resolveSonic(s: GameState, m: Move): boolean {
       log(s, `${nameOf(p)} flies off carrying the ${target ? PIECE_STATS[target.type].name : 'ally'}.`);
       return true;
     case 'chaosControl':
-      p.counters.chaosControlCd = SONIC_COOLDOWNS.chaosControlCd;
+      if (p.type === 'super_shadow') p.counters.superControlCd = SONIC_COOLDOWNS.superControlCd;
+      else p.counters.chaosControlCd = SONIC_COOLDOWNS.chaosControlCd;
       p.pos = { ...m.to };
       log(s, 'Chaos Control!');
       return true;
     case 'chaosSpear':
       p.counters.chaosSpearCd = SONIC_COOLDOWNS.chaosSpearCd;
-      if (target) dealDamage(s, target.id, 1, { sourceId: p.id, kind: 'ranged' });
+      if (target) dealDamage(s, target.id, p.type === 'super_shadow' ? 2 : 1, { sourceId: p.id, kind: 'ranged' });
       return true;
     case 'energyShot':
       p.counters.energyShotCd = SONIC_COOLDOWNS.energyShotCd;
       if (target) dealDamage(s, target.id, 1, { sourceId: p.id, kind: 'ranged' });
       return true;
     case 'psychokinesis':
-      if (target) {
+      if (target && m.param === 'impact') {
+        log(s, `${nameOf(p)} slams ${nameOf(target)} into the wall!`);
+        dealDamage(s, target.id, 1, { sourceId: p.id, kind: 'collision' });
+      } else if (target) {
         target.pos = { ...m.to };
         log(s, `${nameOf(p)} lifts ${nameOf(target)} with psychokinesis.`);
       }
+      // Super Silver: the first lift starts the cooldown and allows a second lift right away.
+      if (p.type === 'super_silver' && entry?.source !== 'super_pk') {
+        p.counters.superPkCd = SONIC_COOLDOWNS.superPkCd;
+        s.bonus.unshift({ pieceId: p.id, filter: 'any', optional: true, source: 'super_pk' });
+      }
+      return true;
+    case 'burningAura':
+      p.counters.auraCd = SONIC_COOLDOWNS.auraCd;
+      log(s, 'Burning Aura!');
+      for (const e of s.pieces.filter((e) => e.side !== p.side && pieceDistance(e, p) === 1)) dealDamage(s, e.id, 1, { sourceId: p.id, kind: 'ability' });
       return true;
     case 'missiles': {
       p.counters.missilesCd = SONIC_COOLDOWNS.missilesCd;
@@ -179,7 +218,7 @@ export function resolveSonic(s: GameState, m: Move): boolean {
 export function sonicBeforeMove(s: GameState, m: Move) {
   const p = getPiece(s, m.pieceId);
   if (!p || m.action) return;
-  if (p.type === 'sonic') {
+  if (p.type === 'sonic' || p.type === 'super_sonic') {
     const d = sub(m.to, m.from);
     const n = Math.max(Math.abs(d.x), Math.abs(d.y));
     const dir = sign(d);
@@ -202,6 +241,29 @@ export function sonicAfterMove(s: GameState, m: Move, from: Coord | undefined, e
       if (entry?.source === 'blue_blur') p.counters.blurCd = SONIC_COOLDOWNS.blurCd;
       else if (ready(p, 'blurCd')) s.bonus.unshift({ pieceId: p.id, filter: 'nonCapturing', optional: true, source: 'blue_blur' });
     }
+    // Super Speed: every 2 turns Super Sonic may move again, capturing too.
+    if (p.type === 'super_sonic' && !m.action) {
+      if (entry?.source === 'super_speed') p.counters.superSpeedCd = SONIC_COOLDOWNS.superSpeedCd;
+      else if (ready(p, 'superSpeedCd')) s.bonus.unshift({ pieceId: p.id, filter: 'any', optional: true, source: 'super_speed' });
+    }
+    if (p.type === 'hyper_sonic' && !m.action) {
+      // Hyper Speed: a second move every turn (both can capture).
+      if (entry?.source !== 'hyper_speed') s.bonus.unshift({ pieceId: p.id, filter: 'any', optional: true, source: 'hyper_speed' });
+      // Hyper Flash: a move of 3+ squares flashes every enemy within 2 of where he lands.
+      if (Math.max(Math.abs(m.to.x - from.x), Math.abs(m.to.y - from.y)) >= 3)
+        for (const e of s.pieces.filter((e) => e.side !== p.side && distanceTo(e, m.to) <= 2))
+          dealDamage(s, e.id, 1, { sourceId: p.id, kind: 'ability' });
+      // Hyper Impact: an attack shatters cracked walls around the target square.
+      if (m.targets?.length)
+        for (const d of ALL_DIRS) {
+          const c = add(m.to, d);
+          if (terrainAt(s.board, c) === 'cracked') destroyCracked(s, c, p);
+        }
+    }
+    // Burning Blaze: Flame Burst scorches every other enemy next to a square she captures on.
+    if (p.type === 'burning_blaze' && m.targets?.some((id) => s.captured.some((c) => c.id === id)))
+      for (const e of s.pieces.filter((e) => e.side !== p.side && distanceTo(e, m.to) === 1))
+        dealDamage(s, e.id, 1, { sourceId: p.id, kind: 'ability' });
     // Motobug Momentum: after a sideways capture it may roll one square further.
     if (p.type === 'motobug' && m.targets?.length && m.from.y === m.to.y && sameCoord(p.pos, m.to) && entry?.source !== 'momentum') {
       const next = add(p.pos, { x: Math.sign(m.to.x - m.from.x), y: 0 });

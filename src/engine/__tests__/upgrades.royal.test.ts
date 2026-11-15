@@ -230,12 +230,13 @@ describe('Legendary upgrades', () => {
 });
 
 describe('upgrade catalog', () => {
-  it('has all 240 base upgrades plus 33 Zelda Pack upgrades (3 Mythical), with unique numbers and ids', () => {
+  it('has all 240 base upgrades plus 33 Zelda and 30 Sonic Pack upgrades, with unique numbers and ids', () => {
     expect(UPGRADES.filter((u) => !u.pack)).toHaveLength(240);
     expect(UPGRADES.filter((u) => u.pack === 'zelda')).toHaveLength(33);
-    expect(UPGRADES.filter((u) => u.rarity === 'mythical').map((u) => u.id).sort()).toEqual(['triforce_courage', 'triforce_power', 'triforce_wisdom']);
-    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(273);
-    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(273);
+    expect(UPGRADES.filter((u) => u.pack === 'sonic')).toHaveLength(30);
+    expect(UPGRADES.filter((u) => u.rarity === 'mythical').map((u) => u.id).sort()).toEqual(['chaos_emeralds', 'triforce_courage', 'triforce_power', 'triforce_wisdom']);
+    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(303);
+    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(303);
     expect(UPGRADES.filter((u) => u.excluded).map((u) => u.id).sort()).toEqual(
       ['anchor_feet', 'board_dominion', 'free_rotation', 'gap_sense', 'terrain_adaptation', 'wall_breaker'].sort(),
     );

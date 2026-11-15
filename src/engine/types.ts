@@ -112,6 +112,12 @@ export type PieceType =
   | 'crabmeat'
   | 'chaos'
   | 'death_egg'
+  // Emerald transformations (Sonic Pack)
+  | 'super_sonic'
+  | 'super_shadow'
+  | 'super_silver'
+  | 'burning_blaze'
+  | 'hyper_sonic'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -168,6 +174,7 @@ export type ActionKind =
   | 'psychokinesis' // Silver: move an enemy
   | 'energyShot' // Buzz Bomber
   | 'missiles' // Death Egg Robot (Phase 2)
+  | 'burningAura' // Burning Blaze
   | 'upgrade'
   | 'pass';
 

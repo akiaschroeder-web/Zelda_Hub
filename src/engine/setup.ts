@@ -29,6 +29,8 @@ export function maxHpFor(type: PieceType, upgrades: string[] = [], bonus = 0): n
   if (upgrades.includes('reinforced_frame') && PIECE_STATS[type].size > 1) hp += 1;
   if (upgrades.includes('colossal_endurance')) hp += 2;
   if (upgrades.includes('triforce_power')) hp += 1;
+  // Chaos Drive and the Chaos Emeralds: +1, but only up to 3.
+  for (const u of ['chaos_drive', 'chaos_emeralds']) if (upgrades.includes(u) && hp < 3) hp += 1;
   return hp;
 }
 
@@ -44,6 +46,10 @@ function battleStart(state: GameState) {
     }
     if (has(p, 'wide_shield')) lasting(p, 2);
     if (has(p, 'deku_shield')) lasting(p);
+    // Super Sonic's Protection and Hyper Sonic's Hyper Protection.
+    if (p.type === 'super_sonic') lasting(p);
+    if (has(p, 'blue_shield')) lasting(p);
+    if (p.type === 'hyper_sonic') lasting(p, 2);
     if (has(p, 'song_of_time')) p.counters.turnHp = p.hp;
     if (has(p, 'guardian_aura')) friends.filter((a) => adjacent(a, p)).forEach((a) => lasting(a));
     if (has(p, 'footprint_guard') && sizeOf(p) > 1) friends.filter((a) => adjacent(a, p)).forEach((a) => lasting(a));

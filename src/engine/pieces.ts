@@ -317,6 +317,27 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 4, maxHp: 3, damage: 1, cost: 30, value: 3200, name: 'Death Egg Robot',
     blurb: '4×4. One square orthogonally, crushing cracked walls; stomps every adjacent enemy when it moves. Gains a missile barrage at 2 HP and goes critical at 1 HP.',
   },
+  // Emerald transformations
+  super_sonic: {
+    size: 1, maxHp: 3, damage: 2, cost: 12, value: 1100, name: 'Super Sonic',
+    blurb: 'Up to six squares orthogonally or four diagonally, smashing cracked walls on the way. Attacks deal 2. Every 2 turns, a second move (which can capture). Ignores the first point of damage each battle.',
+  },
+  super_shadow: {
+    size: 1, maxHp: 3, damage: 1, cost: 12, value: 1050, name: 'Super Shadow',
+    blurb: 'Up to four squares any direction. Chaos Control (every 2 turns) anywhere on the board; Chaos Spear (every 3 turns) for 2 damage within 5. Cannot be forcibly moved.',
+  },
+  super_silver: {
+    size: 1, maxHp: 3, damage: 1, cost: 11, value: 1000, name: 'Super Silver',
+    blurb: 'Up to four squares any direction, over gaps. Every 2 turns, lifts up to two enemies within 4 by a square each (slamming them into walls for 1). Every 3 turns, negates an attack on himself or an adjacent ally.',
+  },
+  burning_blaze: {
+    size: 1, maxHp: 3, damage: 2, cost: 11, value: 1000, name: 'Burning Blaze',
+    blurb: 'Up to five squares diagonally or three orthogonally, over gaps. Attacks deal 2; a capture scorches every enemy next to it. Burning Aura (every 3 turns): 1 damage to every adjacent enemy. Immune to fire.',
+  },
+  hyper_sonic: {
+    size: 1, maxHp: 3, damage: 2, cost: 16, value: 1500, name: 'Hyper Sonic',
+    blurb: 'Up to seven squares any direction, leaping over everything. Moves twice every turn. Long moves flash enemies within 2; attacks deal 2 and shatter nearby cracked walls. Shrugs off the first 2 damage and survives one fatal hit.',
+  },
   ganon: {
     size: 3, maxHp: 3, damage: 1, cost: 26, value: 2700, name: 'Ganon',
     blurb: "3×3. Ganondorf's demon form. One square any direction, damaging every adjacent enemy whenever he moves.",
@@ -350,7 +371,17 @@ export function ganonPhase(p: Piece): number {
 export const SONIC_TYPES = new Set<PieceType>([
   'sonic', 'tails', 'knuckles', 'amy', 'shadow', 'rouge', 'silver', 'blaze',
   'eggman', 'metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'chaos', 'death_egg',
+  'super_sonic', 'super_shadow', 'super_silver', 'burning_blaze', 'hyper_sonic',
 ]);
+
+/** What the Chaos Emeralds (and then the Master Emerald) turn a piece into. */
+export const EMERALD_FORMS: Partial<Record<PieceType, PieceType>> = {
+  sonic: 'super_sonic',
+  shadow: 'super_shadow',
+  silver: 'super_silver',
+  blaze: 'burning_blaze',
+};
+export const MASTER_EMERALD_FORMS: Partial<Record<PieceType, PieceType>> = { super_sonic: 'hyper_sonic' };
 
 /** Robots that Dr. Eggman's Mechanical Genius reinforces. */
 export const ROBOTS = new Set<PieceType>(['metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'death_egg']);

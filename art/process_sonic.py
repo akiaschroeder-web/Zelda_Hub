@@ -13,6 +13,8 @@ SRC = os.path.join("art", "source", "sonic")
 NAMES = [
     "sonic", "tails", "knuckles", "amy", "shadow", "rouge", "silver", "blaze",
     "eggman", "metal_sonic", "motobug", "buzz_bomber", "crabmeat", "chaos", "death_egg",
+    # Emerald transformations
+    "super_sonic", "super_shadow", "super_silver", "burning_blaze", "hyper_sonic",
 ]
 PLACEHOLDER_LABELS = {"amy": "Am"}
 

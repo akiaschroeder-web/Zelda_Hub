@@ -87,6 +87,8 @@ PACKS.push({
   pieces: [
     'sonic', 'tails', 'knuckles', 'amy', 'shadow', 'rouge', 'silver', 'blaze',
     'eggman', 'metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'chaos', 'death_egg',
+    // Emerald transformations: only reached through the Chaos and Master Emeralds.
+    'super_sonic', 'super_shadow', 'super_silver', 'burning_blaze', 'hyper_sonic',
   ],
 });
 
@@ -99,12 +101,21 @@ const SONIC_ORDER: PieceType[] = [
   'eggman', 'metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'chaos',
 ];
 const CYRILLIC = 'абвгджзиклмнпр';
-export const SONIC_LEGEND: Record<string, [PieceType, Side]> = Object.fromEntries(
-  SONIC_ORDER.flatMap((t, i) => [
-    [CYRILLIC[i], [t, 'enemy']],
-    [CYRILLIC[i].toUpperCase(), [t, 'player']],
-  ]),
-);
+export const SONIC_LEGEND: Record<string, [PieceType, Side]> = {
+  ...Object.fromEntries(
+    SONIC_ORDER.flatMap((t, i) => [
+      [CYRILLIC[i], [t, 'enemy']],
+      [CYRILLIC[i].toUpperCase(), [t, 'player']],
+    ]),
+  ),
+  // Emerald forms: circled numbers for the player, filled ones for the enemy.
+  ...Object.fromEntries(
+    (['super_sonic', 'super_shadow', 'super_silver', 'burning_blaze', 'hyper_sonic'] as PieceType[]).flatMap((t, i) => [
+      ['①②③④⑤'[i], [t, 'player']],
+      ['❶❷❸❹❺'[i], [t, 'enemy']],
+    ]),
+  ),
+};
 
 export const PACK_BY_ID: Record<PackId, ContentPack> = Object.fromEntries(PACKS.map((p) => [p.id, p])) as Record<PackId, ContentPack>;
 

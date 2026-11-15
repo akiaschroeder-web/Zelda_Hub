@@ -48,6 +48,8 @@ import {
 import { sizeOf } from './pieces';
 import { haunted } from './bosses';
 import { isZeldaAction, resolveZeldaUpgrade, zeldaUpgradeActions } from './zeldaUpgrades';
+import { isSonicAction, resolveSonicUpgrade, sonicUpgradeActions } from './sonicUpgrades';
+import { peelOutSquares } from './movement';
 import { Coord, GameState, Move, Piece, PieceType, Side, endOfTurn, opponent, sameCoord, shieldTotal } from './types';
 
 /** Upgrade actions that move pieces around (blocked by Bind and Suppression). */
@@ -272,6 +274,7 @@ export function upgradeActions(s: GameState, p: Piece): Move[] {
   if (ready(p, 'checkmate_gambit')) statusTargets(3, false).forEach((e) => act('checkmate_gambit', e.pos, { allyId: e.id }));
 
   moves.push(...zeldaUpgradeActions(s, p));
+  moves.push(...sonicUpgradeActions(s, p, () => peelOutSquares(s, p)));
 
   return moves.filter((m) => {
     if ((hasStatus(p, 'bound') || suppressed(s, p)) && MOVEMENT_ACTIONS.has(m.upgrade!)) return false;
@@ -293,6 +296,10 @@ export function resolveUpgradeAction(s: GameState, m: Move): void {
   log(s, `${nameOf(p)} uses ${upgradeName(id)}.`);
   if (isZeldaAction(id)) {
     resolveZeldaUpgrade(s, m);
+    return;
+  }
+  if (isSonicAction(id)) {
+    resolveSonicUpgrade(s, m);
     return;
   }
 

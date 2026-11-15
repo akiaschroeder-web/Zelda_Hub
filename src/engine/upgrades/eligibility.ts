@@ -1,5 +1,5 @@
 import { hasDiagonal, hasFiniteRange, hasOrthogonal, isLeaper, isSlider } from '../movement';
-import { PIECE_STATS } from '../pieces';
+import { EMERALD_FORMS, MASTER_EMERALD_FORMS, PIECE_STATS } from '../pieces';
 import { PieceType } from '../types';
 import { UPGRADE_BY_ID, UPGRADE_SLOTS } from './catalog';
 
@@ -10,7 +10,7 @@ const KING_TARGETING = ['royal_guard', 'royal_escort', 'royal_protection'];
 const KING_ALLOWED = new Set(['royal_resilience', 'royal_resurrection']);
 
 /** Upgrades that need a finite movement range to do anything. */
-const FINITE = ['extended_stride', 'quick_march', 'momentum', 'long_retreat', 'cliff_runner', 'edge_walker'];
+const FINITE = ['extended_stride', 'quick_march', 'momentum', 'long_retreat', 'cliff_runner', 'edge_walker', 'speed_shoes', 'super_peel_out', 'purple_frenzy'];
 /** Upgrades that need the piece to make moving attacks (bounceback). */
 const BOUNCERS = [
   'reduced_recoil',
@@ -60,6 +60,16 @@ const SMALL_ONLY = [
   'farores_wind',
   'song_of_time',
   'hover_boots',
+  'homing_attack',
+  'light_speed_dash',
+  'bubble_shield',
+  'orange_rocket',
+  'cyan_laser',
+  'chaos_control',
+  'pink_spikes',
+  'yellow_drill',
+  'bounce_bracelet',
+  'super_peel_out',
 ];
 
 /** Why an upgrade can't go on a piece, or null if it can. */
@@ -68,6 +78,9 @@ export function ineligibleReason(id: string, type: PieceType, current: string[])
   if (!u) return 'Unknown upgrade.';
   if (u.excluded) return u.excluded;
   if (current.includes(id)) return 'Already has it.';
+  // Emerald transformations use the Emeralds up instead of a slot.
+  if (id === 'chaos_emeralds' && EMERALD_FORMS[type]) return null;
+  if (id === 'master_emerald' && MASTER_EMERALD_FORMS[type]) return null;
   const used = current.reduce((n, c) => n + (UPGRADE_BY_ID[c]?.slots ?? 1), 0);
   if (used + u.slots > UPGRADE_SLOTS) return 'Not enough upgrade slots.';
   if (type === 'decoy') return 'Summons cannot be upgraded.';

@@ -1,6 +1,6 @@
 import { isStandable, parseBoard } from '../engine/board';
 import { inCheck } from '../engine/moves';
-import { PIECE_STATS, footprint } from '../engine/pieces';
+import { EMERALD_FORMS, MASTER_EMERALD_FORMS, PIECE_STATS, footprint } from '../engine/pieces';
 import { createGame, Placement } from '../engine/setup';
 import { Coord, GameResult, GameState, Piece, PieceType, coordKey } from '../engine/types';
 import { canTake, upgradeCost } from '../engine/upgrades/eligibility';
@@ -24,6 +24,8 @@ export interface RosterPiece {
   souls?: number;
   /** Harvester: Death's Reward (+1 max HP) already earned this run. */
   deathReward?: boolean;
+  /** Upgrades used up by a transformation (Chaos / Master Emerald): never offered again. */
+  consumed?: string[];
 }
 
 export interface FallenPiece extends RosterPiece {
@@ -207,6 +209,12 @@ function grant(run: RunState, o: RewardOption, targetUid?: string): RunState {
     case 'upgrade': {
       const target = run.roster.find((r) => r.uid === targetUid);
       if (!target || !canTake(o.id, target.type, target.upgrades)) throw new Error('That piece cannot take this upgrade');
+      // The Chaos Emeralds (and then the Master Emerald) transform a piece instead of joining it.
+      const form = o.id === 'chaos_emeralds' ? EMERALD_FORMS[target.type] : o.id === 'master_emerald' ? MASTER_EMERALD_FORMS[target.type] : undefined;
+      if (form) {
+        const roster = run.roster.map((r) => (r.uid === targetUid ? { ...r, type: form, consumed: [...(r.consumed ?? []), o.id] } : r));
+        return { ...run, roster };
+      }
       const roster = run.roster.map((r) => (r.uid === targetUid ? { ...r, upgrades: [...r.upgrades, o.id] } : r));
       return { ...run, roster };
     }
@@ -391,7 +399,7 @@ export function finishBattle(run: RunState, final: GameState): RunState {
   const roster = run.roster
     .filter((r) => !lostIds.has(r.uid))
     .map((r) => {
-      if (savedIds.has(r.uid)) return { ...r, upgrades: r.upgrades.filter((u) => u !== 'second_life') };
+      if (savedIds.has(r.uid)) return { ...r, upgrades: r.upgrades.filter((u) => u !== 'second_life' && u !== 'extra_life') };
       const fielded = onField.get(r.uid);
       if (!fielded) return r;
       // Only promoted Pawns keep a new type (a Clone's copy ends with the battle).

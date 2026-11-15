@@ -258,6 +258,19 @@ function basePatterns(type: PieceType): Pattern[] {
         { kind: 'slide', dirs: SIDEWAYS, max: 4 },
         { kind: 'slide', dirs: [{ x: 0, y: 1 }, { x: 0, y: -1 }], max: 1 },
       ];
+    case 'super_sonic':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 6 },
+        { kind: 'slide', dirs: DIAG, max: 4 },
+      ];
+    case 'super_shadow':
+    case 'super_silver':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 4 }];
+    case 'burning_blaze':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 5 },
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+      ];
     case 'crabmeat':
       return [
         { kind: 'slide', dirs: SIDEWAYS, max: 2 },
@@ -294,6 +307,9 @@ export function rangeBonus(s: GameState, p: Piece, dir: Coord): number {
   if (p.upgrades.length === 0 && p.statuses.length === 0 && !anyHas(s, 'royal_rally') && !anyHas(s, 'siege_presence')) return 0;
   let b = 0;
   if (has(p, 'extended_stride')) b += 1;
+  if (has(p, 'speed_shoes')) b += 1;
+  if (has(p, 'chaos_emeralds')) b += 1;
+  if (has(p, 'purple_frenzy')) b += Math.min(3, p.counters.frenzy ?? 0);
   if (has(p, 'momentum') && p.streak >= 2) b += 1;
   if (has(p, 'long_retreat') && Math.sign(dir.y) === -forward(p.side)) b += 2;
   if (has(p, 'cliff_runner') && adjacentToGap(s, p.pos)) b += 1;
@@ -318,8 +334,8 @@ interface Crossing {
 function crossingFor(p: Piece): Crossing {
   return {
     // Silver levitates over any run of gaps.
-    gaps: p.type === 'silver' ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
-    walls: has(p, 'extended_phasing') ? 2 : has(p, 'phasing') ? 1 : 0,
+    gaps: p.type === 'silver' || p.type === 'super_silver' || p.type === 'burning_blaze' || has(p, 'hover_wisp') ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
+    walls: has(p, 'yellow_drill') ? 99 : has(p, 'extended_phasing') ? 2 : has(p, 'phasing') ? 1 : 0,
   };
 }
 
@@ -460,19 +476,36 @@ function rougeSteps(s: GameState, p: Piece): Step[] {
   return out;
 }
 
-/** Sonic's Spin Attack: a slide may break through one cracked wall and keep going. */
+/** Hyper Sonic: up to seven squares in any direction, leaping over everything in the way. */
+function hyperSteps(s: GameState, p: Piece, reach: number): Step[] {
+  if (hasStatus(p, 'bound')) return [];
+  const out: Step[] = [];
+  for (const d of ALL_DIRS)
+    for (let k = 1; k <= reach; k++) {
+      const c = add(p.pos, scale(d, k));
+      if (!inBounds(s.board, c)) break;
+      if (isStandable(s.board, c)) out.push({ to: c, capture: true, quiet: true, leap: true });
+    }
+  return out;
+}
+
+/**
+ * Spin Attack: Sonic's slide may break through one cracked wall and keep going;
+ * Super Sonic smashes through every cracked wall in his path.
+ */
 function spinSteps(s: GameState, p: Piece): Step[] {
   if (hasStatus(p, 'bound')) return [];
   const out: Step[] = [];
-  for (const pat of basePatterns('sonic'))
+  const breaks = p.type === 'super_sonic' ? Infinity : 1;
+  for (const pat of basePatterns(p.type))
     if (pat.kind === 'slide')
       for (const d of pat.dirs) {
-        let broke = false;
+        let broke = 0;
         for (let k = 1; k <= pat.max; k++) {
           const c = add(p.pos, scale(d, k));
           const t = terrainAt(s.board, c);
-          if (t === 'cracked' && !broke) {
-            broke = true;
+          if (t === 'cracked' && broke < breaks) {
+            broke++;
             continue;
           }
           if (!isStandable(s.board, c)) break;
@@ -580,6 +613,7 @@ function patternsFor(s: GameState, p: Piece): Pattern[] {
   if (has(p, 'backward_advance') && type === 'pawn')
     pats.push({ kind: 'slide', dirs: [{ x: 0, y: -forward(p.side) }], max: 1, capture: false });
   if (has(p, 'short_hop')) pats.push({ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'line' });
+  if (has(p, 'bounce_bracelet')) pats.push({ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'free' });
   if (has(p, 'long_leap')) {
     if (type === 'knight' || type === 'chancellor') pats.push({ kind: 'leap', offsets: LONG_KNIGHT, rule: 'rect' });
     if (type === 'lancer') pats.push({ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 4)), rule: 'line' });
@@ -614,7 +648,8 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
       const bonus = finite ? rangeBonus(s, p, dir) : 0;
       let max = finite ? Math.max(1, pat.max + bonus) : Infinity;
       if (confused) max = 1;
-      const squares = p.type === 'skulltula' ? crawl(s, p.pos, dir, max) : walk(s, p.pos, dir, max, cross);
+      // Skulltulas and Pink Spikes walk over walls as if they were floor.
+      const squares = p.type === 'skulltula' || has(p, 'pink_spikes') ? crawl(s, p.pos, dir, max) : walk(s, p.pos, dir, max, cross);
       const quiet = pat.quiet !== false;
       for (const q of squares) out.push({ to: q.to, capture, quiet, leap: false, uses: pat.uses, crossedGap: q.crossedGap });
       // Wall Climber / Master of the Void: once per battle, cross obstacles further.
@@ -656,7 +691,8 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
   if (p.type === 'goron' && !confused) out.push(...rollingCharge(s, p));
   if ((p.type === 'tails' || p.type === 'buzz_bomber') && !crippled) out.push(...flightSteps(s, p, confused ? 1 : 3));
   if (p.type === 'rouge' && !confused) out.push(...rougeSteps(s, p));
-  if (p.type === 'sonic' && !confused) out.push(...spinSteps(s, p));
+  if ((p.type === 'sonic' || p.type === 'super_sonic') && !confused) out.push(...spinSteps(s, p));
+  if (p.type === 'hyper_sonic' && !crippled) out.push(...hyperSteps(s, p, confused ? 1 : 7));
   if (abilities && p.upgrades.length) out.push(...specialMoves(s, p));
   return p.upgrades.length ? dedupe(out) : out;
 }
@@ -836,6 +872,22 @@ function chaosSteps(s: GameState, p: Piece): HeavyStep[] {
   return out;
 }
 
+/** Super Peel Out: squares beyond the normal range of each finite slide, up to twice as far (no captures). */
+export function peelOutSquares(s: GameState, p: Piece): Coord[] {
+  const out: Coord[] = [];
+  const cross = crossingFor(p);
+  for (const pat of patternsFor(s, p)) {
+    if (pat.kind !== 'slide' || !Number.isFinite(pat.max)) continue;
+    for (const dir of pat.dirs) {
+      const max = Math.max(1, pat.max + rangeBonus(s, p, dir));
+      walk(s, p.pos, dir, max * 2, cross).forEach((q, i) => {
+        if (i >= max && !q.blocked && !out.some((o) => sameCoord(o, q.to))) out.push(q.to);
+      });
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Threats
 // ---------------------------------------------------------------------------
@@ -870,6 +922,7 @@ const GEOMETRY_UPGRADES = new Set([
   'knights_training', 'short_hop', 'momentum', 'long_retreat', 'flanking_step', 'zigzag', 'royal_pace', 'crossing_step',
   'gap_jumper', 'long_gap_jump', 'master_of_the_void', 'cliff_runner', 'edge_walker', 'phasing', 'extended_phasing',
   'wall_climber', 'colossal_endurance', 'retreat', 'side_step', 'hover_boots',
+  'speed_shoes', 'bounce_bracelet', 'yellow_drill', 'pink_spikes', 'purple_frenzy', 'hover_wisp', 'chaos_emeralds',
 ]);
 /** Statuses that change which squares a piece can attack. */
 const GEOMETRY_STATUSES = new Set(['bound', 'stunned', 'disarmed', 'pacified', 'blinded', 'crippled', 'confused', 'slowed', 'rangeBuff']);

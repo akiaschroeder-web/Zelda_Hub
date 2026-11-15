@@ -51,6 +51,8 @@ import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd, zeldaTurnStart } from '.
 import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { resolveSonic, sonicAfterMove, sonicBeforeMove, sonicMoves, sonicTurnEnd, sonicTurnStart } from './sonic';
+import { ATTACK_UPGRADES, drillThrough, flameRing, spendSonicAction } from './sonicUpgrades';
+import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { FREE_BOSS_ACTIONS, BOSS_COOLDOWNS, bossMoves, bossTurnEnd, bossTurnStart, haunted, resolveBoss, swarmCommanded } from './bosses';
 import { PIECE_STATS, ZELDA_TYPES, footprint, sizeOf } from './pieces';
 import {
@@ -427,6 +429,8 @@ function fitsBonus(m: Move, b: Bonus): boolean {
   if (b.pieceId && m.pieceId !== b.pieceId) return false;
   if (b.maxDistance !== undefined && (m.action || distance(m.from, m.to) > b.maxDistance)) return false;
   if (b.to && (m.action || !sameCoord(m.to, b.to))) return false;
+  // Super Silver's second lift: only another Psychokinesis.
+  if (b.source === 'super_pk' && m.action !== 'psychokinesis') return false;
   if (b.filter === 'nonCapturing') return !m.targets?.length && (!m.action || m.action === 'teleport');
   if (b.filter === 'captureOnly') return !!m.targets?.length;
   return true;
@@ -573,6 +577,13 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (has(p, 'kingbreaker') && t.type === 'king') dmg += 1;
   if (has(p, 'master_sword') && isBoss(t)) dmg += 1;
   if (has(p, 'triforce_power')) dmg += 1;
+  if (has(p, 'chaos_emeralds')) dmg += 1;
+  // Spin Dash: +1 after travelling 3+ squares in a straight line.
+  if (has(p, 'spin_dash') && !m.action && !m.leap) {
+    const dx = m.to.x - m.from.x;
+    const dy = m.to.y - m.from.y;
+    if ((dx === 0 || dy === 0 || Math.abs(dx) === Math.abs(dy)) && Math.max(Math.abs(dx), Math.abs(dy)) >= 3) dmg += 1;
+  }
   // Motobug Full Speed Ahead: +1 after rolling three or more squares sideways.
   if (p.type === 'motobug' && m.from.y === m.to.y && Math.abs(m.to.x - m.from.x) >= 3) dmg += 1;
   if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
@@ -653,6 +664,7 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
       trueSight: has(p, 'lens_of_truth'),
     });
     biggoronCleave(s, p, pos, dir, m.targets ?? []);
+    flameRing(s, p, pos, m.targets ?? []);
     if (out.kind === 'intercepted') {
       const guard = out.by;
       const gpos = s.captured.find((c) => c.id === guard)?.pos;
@@ -745,6 +757,12 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
     for (let i = 0; i < captured; i++) harvestSoul(s, p);
     if (p.type === 'zora') p.counters.evadeSpent = 0; // Graceful Evasion recharges
     if (p.type === 'rouge') p.counters.captures = (p.counters.captures ?? 0) + captured; // Stealth ends
+    if (has(p, 'purple_frenzy')) p.counters.frenzy = (p.counters.frenzy ?? 0) + captured;
+    // Ancient Light: one more capture right away (once per turn).
+    if (has(p, 'ancient_light') && alive(s, p.id) && entry?.source !== 'ancient_light' && (p.counters.lightPly ?? -1) !== s.ply) {
+      p.counters.lightPly = s.ply;
+      s.bonus.unshift({ pieceId: p.id, filter: 'captureOnly', optional: true, source: 'ancient_light' });
+    }
     // Epona Gallop: an optional Knight jump to an empty square after a capture.
     if (p.type === 'epona' && m.action !== 'shoot' && alive(s, p.id) && entry?.source !== 'gallop')
       s.bonus.unshift({ pieceId: p.id, filter: 'nonCapturing', optional: true, source: 'gallop', maxDistance: 2 });
@@ -869,7 +887,14 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
   if (!p) return;
   if (resolveBoss(s, m)) return;
   if (resolveSpecial(s, m)) return;
-  if (resolveSonic(s, m)) return;
+  if (resolveSonic(s, m, entry)) return;
+  // Homing Attack / Cyan Laser ending on an enemy: a real attack, with bounceback.
+  if (m.action === 'upgrade' && ATTACK_UPGRADES.has(m.upgrade!) && m.targets?.length) {
+    spendSonicAction(p, m.upgrade!);
+    log(s, `${nameOf(p)} uses ${UPGRADE_BY_ID[m.upgrade!]?.name ?? m.upgrade}.`);
+    resolveAttack(s, { ...m, action: undefined, upgrade: undefined }, entry);
+    return;
+  }
   switch (m.action) {
     case 'pass':
       return;
@@ -1012,6 +1037,7 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   const from = mover ? { ...mover.pos } : undefined;
   zeldaBeforeMove(s, m);
   sonicBeforeMove(s, m);
+  drillThrough(s, m);
   resolve(s, m, entry);
   zeldaAfterMove(s, m, from);
   sonicAfterMove(s, m, from, entry);

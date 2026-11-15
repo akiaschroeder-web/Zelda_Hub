@@ -57,7 +57,7 @@ export type RewardOption =
   | { kind: 'gold'; amount: number };
 
 /** Roster info needed to offer only upgrades that some piece can take. */
-export type RosterView = { type: PieceType; upgrades: string[] }[];
+export type RosterView = { type: PieceType; upgrades: string[]; consumed?: string[] }[];
 
 const UPGRADE_ODDS: Record<'battle' | 'elite' | 'boss' | 'treasure' | 'shop' | 'enemy', Partial<Record<UpgradeRarity, number>>> = {
   battle: { common: 40, uncommon: 38, rare: 18, epic: 4 },
@@ -89,7 +89,7 @@ export function rollUpgrade(
       (!u.pack || packs.includes(u.pack)) &&
       !exclude.includes(u.id) &&
       // Each Mythical upgrade exists once per run.
-      !(u.rarity === 'mythical' && roster.some((r) => r.upgrades.includes(u.id))) &&
+      !(u.rarity === 'mythical' && roster.some((r) => r.upgrades.includes(u.id) || r.consumed?.includes(u.id))) &&
       roster.some((r) => canTake(u.id, r.type, r.upgrades)),
   );
   if (usable.length === 0) return null;

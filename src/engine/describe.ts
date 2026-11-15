@@ -81,6 +81,8 @@ export function actionLabel(state: GameState, m: Move): string {
       return 'Energy Shot';
     case 'missiles':
       return 'Homing Missiles';
+    case 'burningAura':
+      return 'Burning Aura';
     case 'unlock':
       return 'Unlock the door (uses a Small Key)';
     case 'upgrade': {
