@@ -334,6 +334,8 @@ function PieceArt({ p, cell }: { p: Piece; cell: number }) {
   );
 }
 
+const DOOR_ART: ImageSourcePropType = require('../../assets/tiles/door.png');
+
 /** Spaces drawn with an emoji (the rest have art in assets/tiles). */
 const TILE_EMOJI: Partial<Record<Tile['kind'], string>> = { key: '🗝️', switch: '🔄', heart: '❤️' };
 const TILE_ART: Partial<Record<Tile['kind'], ImageSourcePropType>> = {
@@ -391,12 +393,7 @@ function TileIcon({ tile, size, resting, small }: { tile: Tile; size: number; re
 }
 
 function Square({ terrain, size }: { terrain: Terrain; size: number }) {
-  if (terrain === 'door')
-    return (
-      <View style={[StyleSheet.absoluteFill, styles.door, { borderWidth: Math.max(2, size * 0.06) }]}>
-        <Text style={{ fontSize: size * 0.42 }}>🔒</Text>
-      </View>
-    );
+  if (terrain === 'door') return <Image source={DOOR_ART} style={{ position: 'absolute', left: 0, top: 0, width: size, height: size }} resizeMode="stretch" />;
   if (terrain === 'gap') return <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.gap }]} />;
   if (terrain === 'wall' || terrain === 'cracked') {
     const cracked = terrain === 'cracked';
@@ -434,7 +431,6 @@ const styles = StyleSheet.create({
   promoSquare: { borderWidth: 2, borderColor: COLORS.gold, borderStyle: 'dashed' },
   wall: { borderColor: COLORS.wallEdge, alignItems: 'center', justifyContent: 'center' },
   crack: { position: 'absolute', height: 2, backgroundColor: COLORS.wallEdge },
-  door: { backgroundColor: '#6b4a2a', borderColor: '#3a2614', alignItems: 'center', justifyContent: 'center' },
   tile: { alignItems: 'center', justifyContent: 'center' },
   floorCrack: { position: 'absolute', height: 2, backgroundColor: 'rgba(40, 28, 18, 0.75)' },
   springArrow: { position: 'absolute', alignSelf: 'center', top: '18%', color: '#fff', textShadowColor: '#000', textShadowRadius: 3 },
