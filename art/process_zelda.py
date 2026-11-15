@@ -53,6 +53,18 @@ def remove_flat_background(rgb: Image.Image) -> Image.Image:
         for x in (0, w - 1):
             if mask.getpixel((x, y)) == 255:
                 ImageDraw.floodfill(mask, (x, y), 128)
+    # Pockets the edge fill can't reach (between the feet, inside loops of hair): the same
+    # bright, colourless checker grey. Tiny patches (eye whites, highlights) are left alone.
+    label = 50
+    while label < 250:
+        ys, xs = np.nonzero(np.array(mask) == 255)
+        if not len(ys):
+            break
+        ImageDraw.floodfill(mask, (int(xs[0]), int(ys[0])), label)
+        region = np.array(mask) == label
+        if region.sum() >= 40 and mn[region].mean() >= 240:
+            ImageDraw.floodfill(mask, (int(xs[0]), int(ys[0])), 128)
+        label += 1
     bg = np.array(mask) == 128
     alpha = Image.fromarray(np.where(bg, 0, 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(1))
     out = rgb.convert("RGBA")
@@ -99,9 +111,13 @@ def square(img: Image.Image) -> Image.Image:
     return canvas.resize((WORK, WORK), Image.LANCZOS)
 
 
-def outlined(fig: Image.Image, color: tuple) -> Image.Image:
+# Thinner outlines where a wide one would fill a narrow gap (between Malon's boots).
+OUTLINE_WIDTH = {"malon": 5}
+
+
+def outlined(fig: Image.Image, color: tuple, width: int = 13) -> Image.Image:
     alpha = fig.getchannel("A")
-    ring = alpha.point(lambda v: 255 if v > 40 else 0).filter(ImageFilter.MaxFilter(13)).filter(ImageFilter.GaussianBlur(2))
+    ring = alpha.point(lambda v: 255 if v > 40 else 0).filter(ImageFilter.MaxFilter(width)).filter(ImageFilter.GaussianBlur(2))
     base = Image.new("RGBA", fig.size, color + (0,))
     base.putalpha(ring)
     base.alpha_composite(fig)
@@ -126,7 +142,7 @@ def main():
         variants = {name: fig, **({"ganon": demon(fig)} if name == "ganondorf" else {})}
         for out_name, art in variants.items():
             for side, color in OUTLINE.items():
-                outlined(art, color).save(os.path.join(OUT, f"{out_name}_{side}.png"), optimize=True)
+                outlined(art, color, OUTLINE_WIDTH.get(name, 13)).save(os.path.join(OUT, f"{out_name}_{side}.png"), optimize=True)
         print("wrote", name)
 
 
