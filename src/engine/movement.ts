@@ -3,7 +3,7 @@
  * upgrade (extra patterns, range bonuses, gap and wall crossing, once-per-
  * battle special moves).
  */
-import { inBounds, isBarrier, isStandable, isWall, terrainAt } from './board';
+import { inBounds, isBarrier, isHole, isStandable, isWall, terrainAt } from './board';
 import {
   ALL_DIRS,
   DIAG,
@@ -248,7 +248,7 @@ export const hasOrthogonal = (type: PieceType) =>
 const adjacentToGap = (s: GameState, c: Coord) =>
   ALL_DIRS.some((d) => {
     const q = add(c, d);
-    return !inBounds(s.board, q) || terrainAt(s.board, q) === 'gap';
+    return !inBounds(s.board, q) || isHole(s.board, q);
   });
 
 /** Total bonus (or penalty) to finite movement ranges for this piece right now. */
@@ -340,7 +340,7 @@ function crawl(s: GameState, from: Coord, dir: Coord, max: number): { to: Coord;
   let c = from;
   for (let n = 0; n < max; n++) {
     c = add(c, dir);
-    if (!inBounds(s.board, c) || terrainAt(s.board, c) === 'gap' || terrainAt(s.board, c) === 'door') break;
+    if (!inBounds(s.board, c) || isHole(s.board, c) || terrainAt(s.board, c) === 'door') break;
     const occupied = !!pieceAt(s, c);
     out.push({ to: c, crossedGap: false, blocked: occupied });
     if (occupied) break;

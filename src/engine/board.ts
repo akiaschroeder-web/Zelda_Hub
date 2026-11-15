@@ -15,6 +15,12 @@ export const isWall = (board: Board, c: Coord): boolean => {
   return t === 'wall' || t === 'cracked';
 };
 
+/** A hole a piece can fall into: a gap, or off the board's shape. */
+export const isHole = (board: Board, c: Coord): boolean => {
+  const t = terrainAt(board, c);
+  return t === 'gap' || t === 'void';
+};
+
 /** Anything that stops a jump or a line: walls, cracked walls and Locked Doors. */
 export const isBarrier = (board: Board, c: Coord): boolean => isWall(board, c) || terrainAt(board, c) === 'door';
 
@@ -32,6 +38,7 @@ export function occupancy(pieces: Piece[]): Map<string, Piece> {
  *   d  normal square in the player's deployment zone
  *   e  normal square in the enemy's deployment zone
  * Zelda Pack special spaces:
+ *   -  void (not part of the board: shaped boards)
  *   L  Locked Door    K  Small Key    S  Rotation Switch    F  Floor Master
  *   H  Recovery Heart    W / V  a pair of linked Triforce Warps
  */
@@ -52,6 +59,7 @@ export function parseBoard(rows: string[]): Board {
       else if (ch === '+') row.push('cracked');
       else if (ch === ' ' || ch === '_') row.push('gap');
       else if (ch === 'L') row.push('door');
+      else if (ch === '-') row.push('void');
       else if (TILE_CHARS[ch]) {
         row.push('normal');
         tiles.push({ kind: TILE_CHARS[ch], pos: { x, y }, ...(ch === 'W' || ch === 'V' ? { pair: ch } : {}) });

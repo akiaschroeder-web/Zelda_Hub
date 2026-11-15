@@ -3,7 +3,7 @@ import { ReactElement, useRef, useState } from 'react';
 import { Pressable, ScrollView, ScrollViewInstance, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { PIECE_STATS } from '../engine/pieces';
 import { MapNode, NODE_INFO } from '../run/map';
-import { ACTS, RunState, availableNodes, currentMap, enterNode } from '../run/run';
+import { RunState, availableNodes, currentMap, enterNode } from '../run/run';
 import { useRun } from '../run/RunContext';
 import { resultText } from '../ui/BattleView';
 import RunGuard from '../ui/RunGuard';
@@ -20,7 +20,7 @@ export default function MapScreen() {
 function RunHeader({ run }: { run: RunState }) {
   return (
     <View style={styles.header}>
-      <Text style={styles.stat}>Act {Math.min(run.act + 1, ACTS)}/{ACTS}</Text>
+      <Text style={styles.stat}>Act {run.act + 1}</Text>
       <Text style={styles.stat}>💰 {run.gold}</Text>
       <Text style={styles.stat}>⚑ {run.armyPoints} AP</Text>
       <Text style={styles.stat}>♟ {run.roster.length}</Text>
@@ -41,7 +41,7 @@ function EndOfRun({ run }: { run: RunState }) {
       )}
       <Panel>
         <Text style={text.heading}>RUN SUMMARY</Text>
-        <Text style={[text.body, { marginTop: 6 }]}>Reached act {Math.min(run.act + 1, ACTS)} of {ACTS}.</Text>
+        <Text style={[text.body, { marginTop: 6 }]}>Reached act {run.act + 1}.</Text>
         <Text style={text.body}>Nodes cleared: {run.visited.length}.</Text>
         <Text style={text.body}>Survivors: {run.roster.length}. Fallen: {run.fallen.length}.</Text>
         {run.roster.length > 0 && (

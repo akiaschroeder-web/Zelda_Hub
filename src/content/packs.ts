@@ -22,11 +22,6 @@ export interface ContentPack {
   archetypes: { name: string; blurb: string; weights: Partial<Record<PieceType, number>> }[];
   /** Every piece type the pack owns (for filtering and the pack screen). */
   pieces: PieceType[];
-  /**
-   * Extra battle boards (same legend as the base templates, plus the pack's
-   * special spaces). Each Locked Door (L) gets a Small Key placed at random.
-   */
-  boards: { name: string; terrain: string[] }[];
 }
 
 export const PACKS: ContentPack[] = [
@@ -56,24 +51,6 @@ export const PACKS: ContentPack[] = [
     pieces: [
       'link', 'zelda', 'midna', 'goron', 'zora', 'redead', 'like_like', 'darknut', 'skulltula',
       'malon', 'epona', 'deku_scrub', 'lizalfos', 'stalfos', 'ganondorf', 'ganon',
-    ],
-    boards: [
-      {
-        name: 'Locked Passage',
-        terrain: ['eeeeeeee', 'eeeeeeee', '........', '+.L##L.+', '........', '..F..H..', '.dddddd.', 'dddddddd'],
-      },
-      {
-        name: 'Warp Chamber',
-        terrain: ['eeeeeeee', 'eeeeeeee', 'W..__..V', '...__...', '...__...', 'V..__..W', '.dddddd.', 'dddddddd'],
-      },
-      {
-        name: 'Shifting Sanctum',
-        terrain: ['eeeeeeee', 'eeeeeeee', '.__.....', '.__....S', '.....#..', '..H..#..', '.dddddd.', 'dddddddd'],
-      },
-      {
-        name: 'Temple Hall',
-        terrain: ['eeeeeeee', 'eeeeeeee', '.#....#.', '..+.F...', 'S...+..H', '.#.L..#.', '.dddddd.', 'dddddddd'],
-      },
     ],
   },
 ];

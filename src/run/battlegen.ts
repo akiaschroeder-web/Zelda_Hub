@@ -5,6 +5,7 @@ import { Coord, EncounterRules, Piece, PieceType, coordKey } from '../engine/typ
 import { canTake } from '../engine/upgrades/eligibility';
 import { rollUpgrade } from './rewards';
 import { Rng } from './rng';
+import { generateBoard } from './boardgen';
 import { ZELDA_LEGEND, enabledPacks } from '../content/packs';
 
 /** How many upgrades an enemy army gets. */
@@ -53,83 +54,6 @@ export interface RunBattle {
   boss?: PieceType;
 }
 
-/**
- * Board templates. Legend: . normal, # wall, + cracked wall, _ gap,
- * d player deployment, e enemy deployment.
- */
-const TEMPLATES: { name: string; terrain: string[] }[] = [
-  {
-    name: 'Open Field',
-    terrain: ['eeeeeeee', 'eeeeeeee', '........', '........', '........', '........', '.dddddd.', 'dddddddd'],
-  },
-  {
-    name: 'Broken Bridge',
-    terrain: ['eeeeeeee', 'eeeeeeee', '..#..+..', '__....__', '___..___', '__....__', '.dddddd.', 'dddddddd'],
-  },
-  {
-    name: 'Twin Pillars',
-    terrain: ['eeeeeeee', 'eeeeeeee', '........', '.##..##.', '.##..##.', '........', '.dddddd.', 'dddddddd'],
-  },
-  {
-    name: 'Narrow Pass',
-    terrain: ['eeeeee', 'eeeeee', '......', '.#..#.', '......', '.+..+.', '......', '.dddd.', 'dddddd'],
-  },
-  {
-    name: 'Cracked Fortress',
-    terrain: [
-      'eeeeeeeeee',
-      'eeeeeeeeee',
-      '.eeeeeeee.',
-      '.++.##.++.',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '.dddddddd.',
-      '..dddddd..',
-    ],
-  },
-  {
-    name: 'Islands',
-    terrain: [
-      'eeeeeeeee',
-      'eeeeeeeee',
-      '.........',
-      '..__.__..',
-      '..__.__..',
-      '.........',
-      '..__.__..',
-      '.ddddddd.',
-      'ddddddddd',
-    ],
-  },
-  {
-    name: 'Wide Front',
-    terrain: [
-      'eeeeeeeeee',
-      'eeeeeeeeee',
-      '..........',
-      '..#....#..',
-      '..........',
-      '..dddddd..',
-      'dddddddddd',
-    ],
-  },
-  {
-    name: 'Crossroads',
-    terrain: [
-      '__eeeee__',
-      '__eeeee__',
-      '__.....__',
-      '.........',
-      '....#....',
-      '.........',
-      '__.....__',
-      '__ddddd__',
-      '__ddddd__',
-    ],
-  },
-];
 
 type Archetype = 'swarm' | 'cavalry' | 'fortress' | 'royal' | 'unorthodox';
 type ArchetypeInfo = { name: string; blurb: string; weights: Partial<Record<PieceType, number>> };
@@ -250,7 +174,8 @@ export function generateBattle(
   packs: readonly string[] = [],
 ): RunBattle {
   // Content packs add their own boards and army styles alongside the base ones.
-  const template = placeKeys(rng, rng.pick([...TEMPLATES, ...enabledPacks(packs).flatMap((p) => p.boards)]));
+  // Every battle gets freshly generated ground.
+  const template = placeKeys(rng, generateBoard(rng, { packs }));
   const styles: ArchetypeInfo[] = [...Object.values(ARCHETYPES), ...enabledPacks(packs).flatMap((p) => p.archetypes)];
   const info = rng.pick(styles);
   const rules: EncounterRules = { checkRules: rng.chance(0.65) };
@@ -293,153 +218,78 @@ export const BOSS_POOLS: PieceType[][] = [
 ];
 
 /**
- * Each boss's debut arena. `β` marks the boss (top-left square for large
- * bosses); other letters are ordinary enemy pieces.
+ * Each boss's arena: its name, flavour and escort. `β` marks the boss; the
+ * other letters are its escort (their positions here don't matter: the
+ * ground is generated fresh for every fight and the escort placed on it).
  */
-const ARENAS: Partial<Record<PieceType, { name: string; description: string; terrain: string[]; enemies: string[] }>> = {
+const ARENAS: Partial<Record<PieceType, { name: string; description: string; enemies: string[] }>> = {
   necromancer: {
     name: 'The Ossuary',
     description: 'Weak soldiers that keep rising while the Necromancer stands.',
-    terrain: ['........', '.#....#.', '........', '...##...', '........', '.#....#.', 'dddddddd', 'dddddddd'],
     enemies: ['.n.kβ.b.', 'p.pppp.p', '........', '........', '........', '........', '........', '........'],
   },
   stormbringer: {
     name: 'The Open Steppe',
     description: 'An open field under a storm. Spread out — lightning arcs between clustered pieces.',
-    terrain: ['..........', '..........', '..........', '..........', '..........', '..........', 'dddddddddd', 'dddddddddd'],
     enemies: ['r..akβa..r', 'pp.p..p.pp', '..l....l..', '..........', '..........', '..........', '..........', '..........'],
   },
   phantom_king: {
     name: 'The Labyrinth',
     description: 'Walls everywhere. The Phantom King walks straight through them.',
-    terrain: [
-      '..........',
-      '..........',
-      '.##.##.##.',
-      '..........',
-      '#.##..##.#',
-      '..........',
-      '.##.##.##.',
-      '..........',
-      'dddddddddd',
-      'dddddddddd',
-    ],
     enemies: ['.n.gkβg.n.', 'pp.pp.pp.p', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
   },
   empress: {
     name: 'The Throne Room',
     description: 'A royal army that the Empress drives forward, move after move.',
-    terrain: ['........', '........', '.#....#.', '........', '........', '........', 'dddddddd', 'dddddddd'],
     enemies: ['rnbkβbnr', 'pgp..pgp', '........', '........', '........', '........', '........', '........'],
   },
   doppelganger: {
     name: 'Hall of Mirrors',
     description: 'The Doppelganger moves like your own pieces and borrows their tricks.',
-    terrain: ['........', '........', '..#..#..', '........', '........', '..#..#..', 'dddddddd', 'dddddddd'],
     enemies: ['.w.kβ.i.', 'pppppppp', '........', '........', '........', '........', '........', '........'],
   },
   watcher: {
     name: 'The Long Corridors',
     description: 'Every open line is watched. Use walls to approach from protected angles.',
-    terrain: [
-      '..........',
-      '..........',
-      '.#.#..#.#.',
-      '.#.#..#.#.',
-      '.#......#.',
-      '.#.####.#.',
-      '..........',
-      '..........',
-      'dddddddddd',
-      'dddddddddd',
-    ],
     enemies: ['a..kβ...a.', '.y.p..p.y.', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
   },
   hive_mother: {
     name: 'The Nest',
     description: 'An ever-growing swarm of Pawns. Box the Hive Mother in to stop the spawning.',
-    terrain: [
-      '..........',
-      '..........',
-      '..........',
-      '...+..+...',
-      '..........',
-      '..........',
-      '...+..+...',
-      '..........',
-      'dddddddddd',
-      'dddddddddd',
-    ],
     enemies: ['...kβ.....', 'pppp..pppp', '.o......o.', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
   },
   worldbreaker: {
     name: 'The Shattered Plain',
     description: 'The ground breaks apart as the fight goes on — but the Worldbreaker cannot cross gaps either.',
-    terrain: [
-      '..........',
-      '..........',
-      '.+.+..+.+.',
-      '..._.._...',
-      '.+..++..+.',
-      '..._.._...',
-      '.+.+..+.+.',
-      '..........',
-      'dddddddddd',
-      'dddddddddd',
-    ],
     enemies: ['r..kβ..s.r', 'pp.p..p.pp', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
   },
   colossus: {
     name: 'The Fortress Gate',
     description: 'The Colossus advances steadily. Spread out and strike it from several sides.',
-    terrain: [
-      '..........',
-      '..........',
-      '..........',
-      '++..++..++',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      'dddddddddd',
-      'dddddddddd',
-    ],
     enemies: ['gk..β..g.r', 'pp.....p.p', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
   },
   ganondorf: {
     name: 'The Dark Tower',
     description: 'The King of Evil grows more dangerous with every wound: sorcery at 2 HP, and the beast Ganon at 1 HP. Leave him room and he will use it.',
-    terrain: [
-      '..........',
-      '..........',
-      '.#......#.',
-      '..+....+..',
-      '..........',
-      '....__....',
-      '..........',
-      '.+......+.',
-      'dddddddddd',
-      'dddddddddd',
-    ],
     enemies: ['9.8kβ.8.9.', '.6.7..7.6.', 'p.p....p.p', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
   },
   chronarch: {
     name: 'The Clockwork Court',
     description: 'A master tactician that can undo your best move — but only once.',
-    terrain: [
-      '..........',
-      '..........',
-      '..#....#..',
-      '..........',
-      '..........',
-      '..........',
-      '..........',
-      '..#....#..',
-      'dddddddddd',
-      'dddddddddd',
-    ],
     enemies: ['rc.qkβm..r', 'ppgpp.pgpp', '..........', '..........', '..........', '..........', '..........', '..........', '..........', '..........'],
   },
+};
+
+/** The kind of ground each boss's arena is generated with. */
+const ARENA_THEMES: Partial<Record<PieceType, 'open' | 'fortress' | 'ruins' | 'chasm' | 'mixed'>> = {
+  stormbringer: 'open',
+  watcher: 'open',
+  phantom_king: 'fortress',
+  chronarch: 'fortress',
+  worldbreaker: 'ruins',
+  colossus: 'ruins',
+  hive_mother: 'chasm',
+  ganondorf: 'chasm',
 };
 
 export const bossArenaName = (boss: PieceType) => ARENAS[boss]?.name ?? PIECE_STATS[boss].name;
@@ -447,16 +297,27 @@ export const bossArenaName = (boss: PieceType) => ARENAS[boss]?.name ?? PIECE_ST
 export function bossBattle(act: number, id: string, rng?: Rng, boss?: PieceType, packs: readonly string[] = []): RunBattle {
   const type = boss ?? BOSS_POOLS[Math.min(act, BOSS_POOLS.length - 1)][0];
   const arena = ARENAS[type]!;
-  const enemies = parsePlacements(arena.enemies, { ...ZELDA_LEGEND, β: [type, 'enemy'] })
+  // Without a run (sandbox), the arena is still generated, just from a fixed seed.
+  const r = rng ?? new Rng([...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7));
+  const size = PIECE_STATS[type].size;
+  const board = generateBoard(r, { packs, boss: { size, theme: ARENA_THEMES[type] ?? 'mixed' } });
+  const terrain = placeKeys(r, board).terrain;
+  const bossAt = board.bossAt!;
+  // The escort fills the rest of the enemy zone (the boss's squares are taken).
+  const escort = parsePlacements(arena.enemies, ZELDA_LEGEND)
     .filter((p) => p.side === 'enemy')
-    .map(({ type: t, x, y }) => ({ type: t, x, y }));
+    .map((p) => p.type);
+  const withoutBoss = terrain.map((row, y) =>
+    [...row].map((ch, x) => (x >= bossAt.x && x < bossAt.x + size && y >= bossAt.y && y < bossAt.y + size ? '.' : ch)).join(''),
+  );
+  const enemies: EnemyPlacement[] = [{ type, x: bossAt.x, y: bossAt.y }, ...placeArmy(withoutBoss, escort)];
   return {
     id,
     kind: 'boss',
     name: `${PIECE_STATS[type].name} — ${arena.name}`,
-    description: arena.description,
+    description: `${arena.description} ${board.name}.`,
     rules: { checkRules: true, bossKill: true },
-    terrain: arena.terrain,
+    terrain,
     enemies: rng ? upgradeEnemies(rng, enemies, act, enemyUpgradeCount(act, 'boss'), packs) : enemies,
     boss: type,
   };

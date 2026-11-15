@@ -5,7 +5,7 @@
  * These functions MUTATE the working state they are given. `applyMove`
  * clones the incoming state once, then resolves the move on the clone.
  */
-import { inBounds, isStandable, terrainAt } from './board';
+import { inBounds, isHole, isStandable, terrainAt } from './board';
 import { BOSS_TYPES, PIECE_STATS, footprint, sizeOf } from './pieces';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { etherealEscape, haunted } from './bosses';
@@ -699,7 +699,7 @@ export function push(s: GameState, targetId: string, dir: Coord, dist: number, s
   for (let i = 0; i < dist; i++) {
     const next = add(t.pos, dir);
     const cells = footprint(t, next);
-    const fall = cells.some((c) => !inBounds(s.board, c) || terrainAt(s.board, c) === 'gap');
+    const fall = cells.some((c) => !inBounds(s.board, c) || isHole(s.board, c));
     if (fall) {
       if (has(t, 'void_anchor')) break;
       if (ready(t, 'void_immunity')) {

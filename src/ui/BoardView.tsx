@@ -40,6 +40,9 @@ interface Props {
 /** How long the terrain takes to swing round when a Rotation Switch fires. */
 export const ROTATE_MS = 750;
 
+/** Thickness of the board's edge. */
+const EDGE = 4;
+
 /** How long a piece takes to slide to its new square. */
 export const MOVE_MS = 260;
 const FADE_MS = 280;
@@ -65,6 +68,9 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
   }, [rotations, spin]);
 
   const occupied = new Set(pieces.flatMap((p) => footprint(p).map(coordKey)));
+  // Turning a board with an even side flips which squares are light: track it so the
+  // checker pattern turns with the board instead of snapping back afterwards.
+  const parity = board.width % 2 === 0 ? rotations % 2 : 0;
   const rows = [];
   const terrainCells = [];
   const tintCells = [];
@@ -74,31 +80,40 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
       const c = { x, y };
       const k = coordKey(c);
       const isPromo = board.promotionSquares?.some((s) => sameCoord(s.pos, c));
-      squares.push(
-        <Pressable key={x} onPress={() => onSquare?.(c)} style={{ width: cell, height: cell }}>
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: (x + y) % 2 === 0 ? COLORS.squareLight : COLORS.squareDark }]} />
-          {isPromo && <View style={[StyleSheet.absoluteFill, styles.promoSquare]} />}
-          {outlines?.get(k) && (
-            <View style={[StyleSheet.absoluteFill, { borderWidth: 2, borderColor: outlines.get(k) }]} />
-          )}
-        </Pressable>,
-      );
+      // Tap targets only: everything visible is drawn in the layers below.
+      squares.push(<Pressable key={x} onPress={() => onSquare?.(c)} style={{ width: cell, height: cell }} />);
+
+      // The board itself (squares, terrain, special spaces and its edge) — this layer rotates.
       const t = board.terrain[y][x];
       const tile = tiles?.find((o) => sameCoord(o.pos, c));
-      if (t !== 'normal' || tile)
+      if (t !== 'void') {
+        const edge = (dx: number, dy: number) => {
+          const tx = board.terrain[y + dy]?.[x + dx];
+          return tx === undefined || tx === 'void';
+        };
         terrainCells.push(
           <View key={k} style={{ position: 'absolute', left: x * cell, top: y * cell, width: cell, height: cell }}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: (x + y + parity) % 2 === 0 ? COLORS.squareLight : COLORS.squareDark }]} />
             {t !== 'normal' && <Square terrain={t} size={cell} />}
             {tile && (
               <TileIcon tile={tile} size={cell} resting={tile.kind === 'floorMaster' && (tile.readyPly ?? -1) >= ply} small={occupied.has(k)} />
             )}
+            {edge(0, -1) && <View style={[styles.edge, { left: -EDGE, right: -EDGE, top: -EDGE, height: EDGE }]} />}
+            {edge(0, 1) && <View style={[styles.edge, { left: -EDGE, right: -EDGE, bottom: -EDGE, height: EDGE }]} />}
+            {edge(-1, 0) && <View style={[styles.edge, { top: -EDGE, bottom: -EDGE, left: -EDGE, width: EDGE }]} />}
+            {edge(1, 0) && <View style={[styles.edge, { top: -EDGE, bottom: -EDGE, right: -EDGE, width: EDGE }]} />}
           </View>,
         );
+      }
+
+      // Fixed overlays: promotion squares, deployment outlines and highlights.
       const tint = tints?.get(k);
-      if (tint)
+      if (tint || isPromo || outlines?.get(k))
         tintCells.push(
           <View key={k} style={{ position: 'absolute', left: x * cell, top: y * cell, width: cell, height: cell }}>
-            {tint.map((color, i) => (
+            {isPromo && <View style={[StyleSheet.absoluteFill, styles.promoSquare]} />}
+            {outlines?.get(k) && <View style={[StyleSheet.absoluteFill, { borderWidth: 2, borderColor: outlines.get(k) }]} />}
+            {tint?.map((color, i) => (
               <View key={i} style={[StyleSheet.absoluteFill, { backgroundColor: color }]} />
             ))}
           </View>,
@@ -165,8 +180,8 @@ export default function BoardView({ board, pieces, cell, tints, markers, outline
   });
 
   return (
-    <View style={styles.frame}>
-      {rows}
+    <View style={[styles.frame, { width: board.width * cell, height: board.height * cell }]}>
+      <View>{rows}</View>
       <Animated.View
         pointerEvents="none"
         style={{
@@ -380,13 +395,9 @@ function Square({ terrain, size }: { terrain: Terrain; size: number }) {
 }
 
 const styles = StyleSheet.create({
-  frame: {
-    borderWidth: 4,
-    borderColor: COLORS.panelBorder,
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: COLORS.gap,
-  },
+  // No box around the board: its edge is drawn square by square so shaped boards look shaped.
+  frame: { margin: EDGE },
+  edge: { position: 'absolute', backgroundColor: COLORS.panelBorder },
   row: { flexDirection: 'row' },
   pieceImg: { position: 'absolute', left: '6%', top: '4%', width: '88%', height: '88%' },
   dotWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },

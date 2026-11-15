@@ -126,7 +126,7 @@ export function zeldaUpgradeActions(s: GameState, p: Piece): Move[] {
           act('bombchu', c);
           break;
         }
-        if (t === 'wall') break;
+        if (t === 'wall' || t === 'void' || t === 'door') break;
         const o = pieceAt(s, c);
         if (o) {
           if (o.side !== p.side) act('bombchu', c, { allyId: o.id });
@@ -261,7 +261,7 @@ function gauntletShove(s: GameState, p: Piece, e: Piece) {
     dealDamage(s, e.id, 1, { sourceId: p.id, kind: 'collision' });
     return;
   }
-  if (t === 'gap') {
+  if (t === 'gap' || t === 'void') {
     log(s, `${nameOf(e)} is hurled into the void!`);
     capture(s, e, { sourceId: p.id, kind: 'fall' });
     return;

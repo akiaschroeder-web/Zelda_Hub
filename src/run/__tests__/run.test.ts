@@ -9,7 +9,6 @@ import { EVENTS } from '../events';
 import { FLOORS_PER_ACT, generateAct } from '../map';
 import { Rng } from '../rng';
 import {
-  ACTS,
   RunState,
   autoDeploy,
   availableNodes,
@@ -38,7 +37,7 @@ describe('a new run', () => {
     expect(run.armyPoints).toBe(RUN_CONFIG.armyPoints);
     expect(run.gold).toBe(RUN_CONFIG.startingGold);
     expect(run.phase).toBe('map');
-    expect(run.maps).toHaveLength(ACTS);
+    expect(run.maps).toHaveLength(1); // later acts are generated as the run reaches them
     expect(new Set(run.roster.map((r) => r.uid)).size).toBe(run.roster.length);
   });
 
@@ -440,5 +439,23 @@ describe('shop prices', () => {
 
   it('a new run starts with 32 Army Points', () => {
     expect(RUN_CONFIG.armyPoints).toBe(32);
+  });
+});
+
+describe('endless runs', () => {
+  it('beating each boss opens a new act, past the old third act', async () => {
+    const { claimReward, newRun: fresh, bossPoolFor } = await import('../run');
+    let run = fresh(5, ['zelda']);
+    for (let act = 0; act < 5; act++) {
+      const boss = run.maps[act].floors[run.maps[act].floors.length - 1][0];
+      expect(boss.type).toBe('boss');
+      expect(bossPoolFor(act, run.packs)).toContain(boss.boss);
+      run = claimReward({ ...run, nodeId: boss.id, phase: 'reward', reward: { title: '', gold: 0, armyPoints: 0, options: [] } }, null);
+      expect(run.status).toBe('active');
+      expect(run.act).toBe(act + 1);
+      expect(run.maps).toHaveLength(act + 2);
+    }
+    // From act 4 on, any boss (base or pack) can appear.
+    expect(bossPoolFor(4, ['zelda'])).toEqual(expect.arrayContaining(['necromancer', 'colossus', 'ganondorf']));
   });
 });

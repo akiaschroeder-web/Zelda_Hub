@@ -1,4 +1,4 @@
-import { inBounds, isBarrier, isStandable, isWall, terrainAt } from './board';
+import { inBounds, isBarrier, isHole, isStandable, isWall, terrainAt } from './board';
 import { FREE_ACTIONS, resolveUpgradeAction, upgradeActions } from './actions';
 import {
   ALL_DIRS,
@@ -120,8 +120,11 @@ export function inCheck(state: GameState, side: Side): boolean {
 // ---------------------------------------------------------------------------
 
 function isPromotionSquare(state: GameState, side: Side, c: Coord): boolean {
-  const backRow = side === 'player' ? 0 : state.board.height - 1;
-  if (c.y === backRow) return true;
+  // The far end of the pawn's column: nothing but the edge (or squares outside a shaped board) beyond it.
+  const f = forward(side);
+  let y = c.y + f;
+  while (inBounds(state.board, { x: c.x, y }) && terrainAt(state.board, { x: c.x, y }) === 'void') y += f;
+  if (!inBounds(state.board, { x: c.x, y })) return true;
   return !!state.board.promotionSquares?.some((s) => s.side === side && sameCoord(s.pos, c));
 }
 
@@ -1064,7 +1067,7 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
 const orthoGaps = (s: GameState, c: Coord) =>
   ORTHO.filter((d) => {
     const q = add(c, d);
-    return !inBounds(s.board, q) || terrainAt(s.board, q) === 'gap';
+    return !inBounds(s.board, q) || isHole(s.board, q);
   }).length;
 
 const wallsAround = (s: GameState, p: Piece) => {

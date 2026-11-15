@@ -2,7 +2,7 @@
  * Boss Piece abilities. Bosses are immune to forced movement, status effects,
  * conversion and copying (see isBoss checks elsewhere).
  */
-import { inBounds, isStandable, isWall, terrainAt } from './board';
+import { inBounds, isHole, isStandable, isWall, terrainAt } from './board';
 import {
   ALL_DIRS,
   DIAG,
@@ -165,7 +165,7 @@ export function phantomSteps(s: GameState, p: Piece): { to: Coord; capture: bool
   for (const d of ALL_DIRS) {
     for (let n = 1; n <= 3; n++) {
       const c = add(p.pos, scale(d, n));
-      if (!inBounds(s.board, c) || terrainAt(s.board, c) === 'gap') break;
+      if (!inBounds(s.board, c) || isHole(s.board, c)) break;
       if (isWall(s.board, c)) continue; // passes through walls but can't stop on one
       const o = pieceAt(s, c);
       if (o && o.side === p.side) continue;

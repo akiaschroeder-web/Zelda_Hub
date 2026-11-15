@@ -79,3 +79,21 @@ describe('AI self-play', () => {
     }, 60000);
   }
 });
+
+describe('AI self-play on generated boards', () => {
+  it('plays procedurally generated run battles (shaped boards, Zelda spaces) cleanly', async () => {
+    const { generateBattle } = await import('../../run/battlegen');
+    const { autoDeploy, newRun, startBattle } = await import('../../run/run');
+    const { Rng } = await import('../../run/rng');
+    for (let i = 0; i < 12; i++) {
+      const battle = generateBattle(new Rng(100 + i), i % 4, 3, 'battle', `g${i}`, [], ['zelda']);
+      const run = { ...newRun(1, ['zelda']), phase: 'deploy' as const, battle };
+      let s = startBattle(run, autoDeploy(run, battle)).activeBattle!;
+      const r = rng(i + 1);
+      for (let ply = 0; ply < 60 && s.result.kind === 'ongoing'; ply++) {
+        s = applyMove(s, chooseMove(s, 1, r)!);
+        checkInvariants(s);
+      }
+    }
+  }, 120000);
+});

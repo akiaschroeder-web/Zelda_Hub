@@ -45,6 +45,7 @@ export interface RunState {
   seed: number;
   /** Current random generator state (saved so the run is reproducible). */
   rng: number;
+  /** Runs are endless: they only end when the King falls (older saves may say 'won'). */
   status: 'active' | 'won' | 'lost';
   phase: RunPhase;
   roster: RosterPiece[];
@@ -75,7 +76,8 @@ export interface RunState {
   packs: string[];
 }
 
-export const ACTS = 3;
+/** Acts with their own boss tier; from the fourth act on, any boss can appear. */
+export const BOSS_TIERS = 3;
 
 let uidCounter = 0;
 const newUid = (type: PieceType) => `r-${type}-${Date.now().toString(36)}-${(uidCounter++).toString(36)}`;
@@ -92,15 +94,20 @@ function withRng<T>(run: RunState, fn: (rng: Rng) => T): [T, number] {
   return [out, rng.state];
 }
 
-/** Each act's boss pool with the bosses of enabled content packs added. */
-export const bossPoolFor = (act: number, packs: readonly string[]): PieceType[] => [
-  ...BOSS_POOLS[act],
-  ...enabledPacks(packs).flatMap((p) => p.bosses.filter((b) => b.act === act).map((b) => b.type)),
-];
+/**
+ * Each act's boss pool with the bosses of enabled content packs added. Acts
+ * 1-3 have their own tiers; from act 4 on, any boss can wait at the end.
+ */
+export const bossPoolFor = (act: number, packs: readonly string[]): PieceType[] => {
+  const packBosses = enabledPacks(packs).flatMap((p) => p.bosses);
+  if (act >= BOSS_TIERS) return [...BOSS_POOLS.flat(), ...packBosses.map((b) => b.type)];
+  return [...BOSS_POOLS[act], ...packBosses.filter((b) => b.act === act).map((b) => b.type)];
+};
 
 export function newRun(seed = randomSeed(), packs: readonly string[] = []): RunState {
   const rng = new Rng(seed);
-  const maps = Array.from({ length: ACTS }, (_, i) => generateAct(rng, i, bossPoolFor(i, packs)));
+  // Acts are generated one at a time as the run reaches them: there is no last act.
+  const maps = [generateAct(rng, 0, bossPoolFor(0, packs))];
   return {
     version: 3,
     seed,
@@ -183,8 +190,11 @@ function leaveNode(run: RunState): RunState {
   const node = currentNode(run);
   const cleared = { ...run, phase: 'map' as const, battle: null, reward: null, shop: null, event: null };
   if (node?.type !== 'boss') return cleared;
-  if (run.act + 1 >= ACTS) return { ...cleared, status: 'won' };
-  return { ...cleared, act: run.act + 1, nodeId: null };
+  // Beating a boss opens the next act, forever.
+  const act = run.act + 1;
+  if (run.maps[act]) return { ...cleared, act, nodeId: null };
+  const [map, rng] = withRng(run, (r) => generateAct(r, act, bossPoolFor(act, run.packs)));
+  return { ...cleared, act, nodeId: null, maps: [...run.maps, map], rng };
 }
 
 /** Roster pieces that can take this upgrade. */
@@ -330,7 +340,10 @@ export function autoDeploy(run: RunState, battle: RunBattle): DeployedPiece[] {
     if (points + cost > run.armyPoints) continue;
     // Pawns go in front (the zone row furthest forward).
     const candidates = piece.type === 'pawn' ? [...zone].sort((a, b) => a.y - b.y) : zone;
-    const spot = candidates.find((c) => canPlace(run, battle, deployed, piece.uid, c));
+    // Under check rules, skip squares that would attack the enemy King before the battle starts.
+    const safe = (c: Coord) =>
+      !battle.rules.checkRules || !inCheck(buildBattle(run, battle, [...deployed, { uid: piece.uid, x: c.x, y: c.y }]), 'enemy');
+    const spot = candidates.find((c) => canPlace(run, battle, deployed, piece.uid, c) && safe(c));
     if (!spot) continue;
     deployed.push({ uid: piece.uid, x: spot.x, y: spot.y });
     points += cost;

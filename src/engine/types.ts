@@ -9,7 +9,11 @@
 export type Side = 'player' | 'enemy';
 
 /** `door` is a Locked Door (Zelda Pack): blocks like a wall until a Small Key opens it. */
-export type Terrain = 'normal' | 'gap' | 'wall' | 'cracked' | 'door';
+/**
+ * `void` is not part of the board at all (shaped boards): nothing stands on it
+ * or slides across it, and a piece pushed into it falls like off the edge.
+ */
+export type Terrain = 'normal' | 'gap' | 'wall' | 'cracked' | 'door' | 'void';
 
 /** Special spaces that sit on normal squares (Zelda Pack). */
 export type TileKind = 'key' | 'switch' | 'floorMaster' | 'heart' | 'warp';
