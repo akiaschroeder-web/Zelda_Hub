@@ -216,11 +216,11 @@ export function piecePrice(t: PieceType): number {
 const UPGRADE_PRICE: Record<UpgradeRarity, number> = { common: 30, uncommon: 45, rare: 65, epic: 95, legendary: 140, mythical: 250 };
 
 /**
- * Common and uncommon goods get cheaper as the run goes on (20% off per act
- * after the first), so the basics stay affordable while gold matters more.
+ * Common and uncommon goods are discounted early so a new run can build up:
+ * 40% off in act 1, 20% off in act 2, full price in act 3.
  */
 export function shopDiscount(rarity: string, act: number): number {
-  return rarity === 'common' || rarity === 'uncommon' ? Math.min(0.4, 0.2 * act) : 0;
+  return rarity === 'common' || rarity === 'uncommon' ? Math.max(0, 0.4 - 0.2 * act) : 0;
 }
 
 export function generateShop(rng: Rng, act: number, roster: RosterView = [], packs: readonly string[] = []): ShopItem[] {
