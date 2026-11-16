@@ -472,6 +472,25 @@ const MARIO_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity,
   [366, 'wonder_flower', 'Wonder Flower', 'mythical', 'legendary', 'Once per battle, instead of moving, a Wonder Effect for 3 turns: slides 2 squares further over pieces and gaps, +1 damage, and after a capture it may hop one square.'],
 ];
 
+/** Metroid Pack upgrades. */
+const METROID_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity, category: UpgradeCategory, text: string][] = [
+  [367, 'missile_expansion', 'Missile Expansion', 'common', 'offense', 'Every 3 turns, instead of moving, 1 damage to the first piece within 4 orthogonally, if it is an enemy.'],
+  [368, 'super_missile', 'Super Missile', 'rare', 'offense', 'Every 4 turns, instead of moving, 2 damage to the first piece within 5 orthogonally, if it is an enemy, smashing cracked walls on the way. Walls block it.'],
+  [369, 'ice_beam', 'Ice Beam', 'uncommon', 'status', "Every 3 turns, instead of moving, 1 damage to the first piece within 3 in any straight line, if it is an enemy; if it survives, it can't move on its next turn."],
+  [370, 'wave_beam', 'Wave Beam', 'uncommon', 'offense', 'Every 3 turns, instead of moving, 1 damage to an enemy within 4 orthogonally, through pieces and cracked walls (not walls).'],
+  [371, 'plasma_beam', 'Plasma Beam', 'legendary', 'offense', 'Every 3 turns, instead of moving, a beam up to 5 squares in any straight line: 1 damage to every enemy on it. Walls stop it.'],
+  [372, 'morph_ball', 'Morph Ball', 'rare', 'movement', 'Every 3 turns, one slide may roll through pieces and walls, ending on an empty square.'],
+  [373, 'morph_ball_bomb', 'Morph Ball Bomb', 'common', 'walls', 'Every 3 turns, instead of moving, 1 damage to every adjacent enemy, and adjacent cracked walls are smashed.'],
+  [374, 'space_jump', 'Space Jump', 'rare', 'movement', 'Every 3 turns, may move again after a move (the second move can capture nothing).'],
+  [375, 'speed_booster', 'Speed Booster', 'uncommon', 'movement', 'Slides two squares further.'],
+  [376, 'shinespark', 'Shinespark', 'legendary', 'movement', 'Every 4 turns, may launch up to 6 squares in a straight line over pieces and gaps, smashing cracked walls (walls stop it); landing on an enemy deals 2.'],
+  [377, 'varia_suit', 'Varia Suit', 'uncommon', 'defense', '+1 maximum HP (up to 3), and the first point of damage each battle is ignored.'],
+  [378, 'gravity_suit', 'Gravity Suit', 'rare', 'defense', "Crosses gaps when sliding, and enemy abilities can't move it."],
+  [379, 'grapple_beam', 'Grapple Beam', 'uncommon', 'movement', 'Every 3 turns, instead of moving, swing to an empty square next to a wall or cracked wall within 4, over pieces and gaps.'],
+  [380, 'screw_attack', 'Screw Attack', 'legendary', 'offense', 'May also jump exactly 2 squares diagonally. Enemies it jumps over in a straight line take 1.'],
+  [381, 'metroid_suit', 'Metroid Suit', 'mythical', 'legendary', '+1 maximum HP (up to 3), slides one square further, +1 damage, and heals 1 on every capture. Hyper Beam: once per battle, instead of moving, 2 damage to every enemy up to 5 squares in a straight line (walls stop it).'],
+];
+
 /** Upgrades that depend on systems the game doesn't have yet. Never offered. */
 export const EXCLUDED: Record<string, string> = {
   free_rotation: 'Pieces have no facing.',
@@ -571,6 +590,17 @@ export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, R
       slots: slotsFor(rarity),
       cost: COST[rarity],
       pack: 'mario',
+    })),
+    METROID_ROWS.map(([num, id, name, rarity, category, text]): UpgradeInfo => ({
+      num,
+      id,
+      name,
+      rarity,
+      category,
+      text,
+      slots: slotsFor(rarity),
+      cost: COST[rarity],
+      pack: 'metroid',
     })),
   )
   .sort((a, b) => a.num - b.num);

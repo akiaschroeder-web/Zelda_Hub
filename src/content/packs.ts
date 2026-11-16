@@ -5,7 +5,7 @@
  */
 import { PieceType, Side } from '../engine/types';
 
-export type PackId = 'zelda' | 'sonic' | 'duo' | 'crash' | 'mario';
+export type PackId = 'zelda' | 'sonic' | 'duo' | 'crash' | 'mario' | 'metroid';
 
 /** Rarity buckets match the base recruit pools. */
 type PackRarity = 'common' | 'uncommon' | 'rare' | 'epic';
@@ -202,6 +202,43 @@ PACKS.push({
   pieces: ['mario', 'luigi', 'peach', 'daisy', 'yoshi', 'toad', 'toadette', 'wario', 'waluigi', 'rosalina', 'goomba', 'koopa', 'boo', 'hammer_bro', 'bowser'],
 });
 
+PACKS.push({
+  id: 'metroid',
+  name: 'Metroid Pack',
+  description:
+    'Samus Aran and Zero Suit Samus against Metroids, Space Pirates, Chozo Soldiers, the E.M.M.I., Ridley (2×2) — and the 3×3 Mother Brain.',
+  recruits: {
+    common: ['space_pirate'],
+    uncommon: ['metroid', 'zero_suit', 'chozo_soldier'],
+    rare: ['samus', 'emmi'],
+    epic: ['ridley'],
+  },
+  bosses: [{ type: 'mother_brain', act: 1 }],
+  archetypes: [
+    {
+      name: 'Space Pirate Raiders',
+      blurb: 'Space Pirates, Metroids and Chozo Soldiers, with Ridley leading.',
+      weights: { space_pirate: 5, metroid: 3, chozo_soldier: 2, emmi: 1, ridley: 1, pawn: 3 },
+    },
+    {
+      name: 'Galactic Federation',
+      blurb: 'Samus and Zero Suit Samus with Chozo allies.',
+      weights: { samus: 1, zero_suit: 2, chozo_soldier: 2, pawn: 4, knight: 1, bishop: 1 },
+    },
+  ],
+  pieces: ['samus', 'zero_suit', 'metroid', 'space_pirate', 'chozo_soldier', 'emmi', 'ridley', 'mother_brain'],
+});
+
+/** Placement symbols for Metroid pieces: Latin Extended lower case for the enemy, upper case for the player. */
+const METROID_ORDER: PieceType[] = ['samus', 'zero_suit', 'metroid', 'space_pirate', 'chozo_soldier', 'emmi', 'ridley', 'mother_brain'];
+const EXTENDED = 'ðñòóôõöø';
+export const METROID_LEGEND: Record<string, [PieceType, Side]> = Object.fromEntries(
+  METROID_ORDER.flatMap((t, i) => [
+    [EXTENDED[i], [t, 'enemy']],
+    [EXTENDED[i].toUpperCase(), [t, 'player']],
+  ]),
+);
+
 /** Placement symbols for Mario pieces: accented lower case for the enemy, upper case for the player. */
 const MARIO_ORDER: PieceType[] = [
   'mario', 'luigi', 'peach', 'daisy', 'yoshi', 'toad', 'toadette', 'wario', 'waluigi', 'rosalina', 'goomba', 'koopa', 'boo', 'hammer_bro', 'bowser',
@@ -235,7 +272,7 @@ export const pieceAllowed = (t: PieceType, packs: readonly string[]) => {
 export const enabledPacks = (packs: readonly string[]) => PACKS.filter((p) => packs.includes(p.id));
 
 /** Packs that are on unless the player switches them off. */
-export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic', 'duo', 'crash', 'mario'];
+export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic', 'duo', 'crash', 'mario', 'metroid'];
 
 /**
  * Placement symbols for Zelda pieces in board layouts: digits are enemy

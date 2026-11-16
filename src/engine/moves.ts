@@ -52,6 +52,7 @@ import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { baguetteBonus, duoMoves, resolveDuo, tetoDuetBonus } from './duo';
 import { cratesTurnEnd, nitroProximity } from './crates';
+import { emmiCaptures, metroidAfterMove, metroidAttackBonus, metroidBeforeMove, metroidMoves, metroidTurnEnd, resolveMetroid } from './metroid';
 import { marioSpaceMoves, marioSpacesTurnEnd, noteMoves, resolveHitBlock } from './marioSpaces';
 import { marioDamageCap, marioUpgradeAfterMove, marioUpgradeAttackBonus, marioUpgradeBeforeMove, marioUpgradeTurnEnd } from './marioUpgrades';
 import { marioAfterMove, marioAttackBonus, marioFilterMoves, marioMoves, resolveMario } from './mario';
@@ -390,6 +391,7 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...marioMoves(state, p),
     ...marioSpaceMoves(state, p),
     ...noteMoves(state, p),
+    ...metroidMoves(state, p),
   ];
   // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
   if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
@@ -606,7 +608,7 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (p.type === 'motobug' && m.from.y === m.to.y && Math.abs(m.to.x - m.from.x) >= 3) dmg += 1;
   if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
   // Digital Duo: Teto's duet and the Baguette boost the first attack of the battle.
-  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m) + crashUpgradeAttackBonus(p, m) + marioAttackBonus(s, p, t, m) + marioUpgradeAttackBonus(p, m);
+  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m) + crashUpgradeAttackBonus(p, m) + marioAttackBonus(s, p, t, m) + marioUpgradeAttackBonus(p, m) + metroidAttackBonus(p, m);
   // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
   if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
     dmg += 1;
@@ -661,7 +663,9 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
   targets.forEach((t, i) => {
     if (!alive(s, t.id)) return;
     let dmg = damages[i];
-    let lethal = false;
+    // E.M.M.I.'s Capture Protocol: a last-HP enemy is taken outright, nothing can stop it.
+    const protocol = emmiCaptures(p, t);
+    let lethal = protocol;
     const wouldSurvive = dmg < t.hp + shieldTotal(t);
     if (wouldSurvive && !isBoss(t)) {
       if (ready(p, 'perfect_strike')) {
@@ -680,7 +684,7 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
       allowIntercept: targets.length === 1,
       pierce: has(p, 'precision') ? 1 : 0,
       lethal,
-      pure: has(p, 'light_arrows'),
+      pure: has(p, 'light_arrows') || protocol,
       trueSight: has(p, 'lens_of_truth'),
     });
     biggoronCleave(s, p, pos, dir, m.targets ?? []);
@@ -915,6 +919,7 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
   if (resolveCrash(s, m)) return;
   if (resolveMario(s, m)) return;
   if (resolveHitBlock(s, m)) return;
+  if (resolveMetroid(s, m)) return;
   // Homing Attack / Cyan Laser ending on an enemy: a real attack, with bounceback.
   if (m.action === 'upgrade' && ATTACK_UPGRADES.has(m.upgrade!) && m.targets?.length) {
     spendSonicAction(p, m.upgrade!);
@@ -1082,6 +1087,7 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   drillThrough(s, m);
   crashUpgradeBeforeMove(s, m);
   marioUpgradeBeforeMove(s, m);
+  metroidBeforeMove(s, m);
   resolve(s, m, entry);
   zeldaAfterMove(s, m, from);
   sonicAfterMove(s, m, from, entry);
@@ -1089,6 +1095,7 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   crashUpgradeAfterMove(s, m, from, entry, s.captured.length - state.captured.length, mainMove);
   marioAfterMove(s, m, from, entry, s.captured.length - state.captured.length);
   marioUpgradeAfterMove(s, m, entry, s.captured.length - state.captured.length);
+  metroidAfterMove(s, m, from, entry, s.captured.length - state.captured.length);
   nitroProximity(s, m, from);
   tilesAfterMove(s, m, from, state);
 
@@ -1212,6 +1219,7 @@ function endTurn(s: GameState) {
   marioUpgradeTurnEnd(s, side);
   cratesTurnEnd(s);
   marioSpacesTurnEnd(s, side);
+  metroidTurnEnd(s, side);
 
   // Expiry at the end of this ply.
   const ply = s.ply;

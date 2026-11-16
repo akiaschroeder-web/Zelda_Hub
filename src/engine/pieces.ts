@@ -256,6 +256,39 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Stalfos',
     blurb: 'Up to two squares any direction. Reassembly: the first time it falls it becomes a pile of bones, rising again with 1 HP after 2 of its turns — unless an enemy steps on the bones first.',
   },
+  // Metroid Content Pack
+  samus: {
+    size: 1, maxHp: 2, damage: 1, cost: 7, value: 620, name: 'Samus Aran',
+    blurb: 'Up to three squares orthogonally or one diagonally. Arm Cannon: every 3 turns, instead of moving, 1 damage to the first piece within 4 orthogonally, if it is an enemy. Morph Ball: every 3 turns, one slide may roll through pieces and walls to an empty square.',
+  },
+  zero_suit: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 440, name: 'Zero Suit Samus',
+    blurb: "Up to four squares diagonally, or a jump of exactly two orthogonally. Paralyzer: every 3 turns, instead of moving, an enemy within 3 can't move or use abilities next turn (not bosses). Acrobatic Escape: once per battle, flips clear of an attack.",
+  },
+  metroid: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 360, name: 'Metroid',
+    blurb: "Floats up to three squares any direction over gaps and pieces (not walls). Energy Drain: heals 1 after attacking. Latch: every 3 turns, instead of moving, grabs an adjacent 1×1 enemy — it can't move, and takes 1 at the end of each of the Metroid's turns, until the Metroid moves or falls.",
+  },
+  space_pirate: {
+    size: 1, maxHp: 1, damage: 1, cost: 3, value: 300, name: 'Space Pirate',
+    blurb: 'Up to two squares diagonally or one orthogonally. Pirate Blaster: every 3 turns, instead of moving, 1 damage to the first piece within 3 orthogonally, if it is an enemy. Squad Tactics: range 5 with another Space Pirate within 2.',
+  },
+  chozo_soldier: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 520, name: 'Chozo Soldier',
+    blurb: 'Up to two squares any direction. Spear Strike: instead of moving, hits an enemy exactly 2 away orthogonally over an empty square. Counterattack: every 3 turns, an enemy that hits it in melee takes 1 back.',
+  },
+  emmi: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 560, name: 'E.M.M.I.',
+    blurb: 'Up to three squares orthogonally or one diagonally. Pursuit: one square further while an enemy is within 3. Capture Protocol: attacking an enemy on its last HP captures it outright, whatever protects it (not bosses).',
+  },
+  ridley: {
+    size: 2, maxHp: 3, damage: 1, cost: 13, value: 1200, name: 'Ridley',
+    blurb: '2×2. Up to three squares diagonally or two orthogonally, flying over gaps (not landing on them). Tail Strike: every 3 turns, instead of moving, 1 damage to every adjacent enemy. Aerial Assault: after a capture, may move one more square.',
+  },
+  mother_brain: {
+    size: 3, maxHp: 3, damage: 1, cost: 28, value: 2800, name: 'Mother Brain',
+    blurb: '3×3. One square orthogonally. Beam (every 3 turns): 1 damage to every enemy up to 5 in a line. At 2 HP, a barrier stops the first point of damage each turn and the beam fires diagonally too. At 1 HP, Hyper Beam: the first target takes 2, the beam recharges in 2 turns, and she moves up to 2.',
+  },
   // Super Mario Content Pack
   mario: {
     size: 1, maxHp: 1, damage: 1, cost: 5, value: 460, name: 'Mario',
@@ -493,7 +526,7 @@ export const sizeOf = (p: Piece): number => (p.counters?.mega ? 2 : PIECE_STATS[
 export const BOSS_TYPES = new Set<PieceType>([
   'colossus', 'empress', 'necromancer', 'stormbringer', 'watcher',
   'worldbreaker', 'phantom_king', 'doppelganger', 'hive_mother', 'chronarch',
-  'ganondorf', 'ganon', 'death_egg', 'n_tropy', 'bowser',
+  'ganondorf', 'ganon', 'death_egg', 'n_tropy', 'bowser', 'mother_brain',
 ]);
 
 /** Ganondorf's current phase (3 HP = 1, 2 HP = 2, 1 HP or Ganon = 3); 0 for anything else. */
@@ -546,6 +579,7 @@ export const ZELDA_TYPES = new Set<PieceType>([
   'teto',
   ...CRASH_TYPES,
   ...MARIO_TYPES,
+  'samus', 'zero_suit', 'metroid', 'space_pirate', 'chozo_soldier', 'emmi', 'ridley', 'mother_brain',
 ]);
 
 /** Every square a piece occupies. */

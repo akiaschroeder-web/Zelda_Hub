@@ -30,6 +30,7 @@ import { crashAuraPresent, crashRangeBonus, tropyPhase } from './crash';
 import { crashUpgradeRange, crashUpgradeSteps } from './crashUpgrades';
 import { bowserPhase, marioAuraPresent, marioRangeBonus, marioSteps } from './mario';
 import { marioUpgradeRange, marioUpgradeSteps } from './marioUpgrades';
+import { brainPhase, metroidRangeBonus, metroidSteps, ridleySteps } from './metroid';
 import { PIECE_STATS, ZELDA_TYPES, deathEggPhase, footprint, ganonPhase, sizeOf } from './pieces';
 import { haunted, heavyDirs, phantomSteps } from './bosses';
 import { Coord, GameState, Piece, PieceType, forward, sameCoord } from './types';
@@ -214,6 +215,27 @@ function basePatterns(type: PieceType): Pattern[] {
         { kind: 'slide', dirs: DIAG, max: 2 },
         { kind: 'slide', dirs: ORTHO, max: 1 },
       ];
+    // Metroid Pack
+    case 'samus':
+    case 'emmi':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
+    case 'zero_suit':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 4 },
+        { kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'free' },
+      ];
+    case 'metroid':
+      return [{ kind: 'leap', offsets: ALL_DIRS.flatMap((d) => [d, scale(d, 2), scale(d, 3)]), rule: 'line' }];
+    case 'space_pirate':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 2 },
+        { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
+    case 'chozo_soldier':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
     // Super Mario Pack
     case 'mario':
       return [
@@ -418,7 +440,7 @@ const adjacentToGap = (s: GameState, c: Coord) =>
 export function rangeBonus(s: GameState, p: Piece, dir: Coord): number {
   const crash = crashAuraPresent(s) ? crashRangeBonus(s, p) : 0;
   const mario = marioAuraPresent(s) ? marioRangeBonus(s, p) : 0;
-  return crash + mario + baseRangeBonus(s, p, dir);
+  return crash + mario + metroidRangeBonus(s, p) + baseRangeBonus(s, p, dir);
 }
 
 function baseRangeBonus(s: GameState, p: Piece, dir: Coord): number {
@@ -453,7 +475,7 @@ interface Crossing {
 function crossingFor(p: Piece): Crossing {
   return {
     // Silver levitates over any run of gaps.
-    gaps: p.type === 'peach' || has(p, 'super_leaf') || has(p, 'bee_mushroom') || (p.counters.wonderTurns ?? 0) > 0 || p.type === 'silver' || p.type === 'super_silver' || p.type === 'burning_blaze' || has(p, 'hover_wisp') ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
+    gaps: p.type === 'peach' || has(p, 'gravity_suit') || has(p, 'super_leaf') || has(p, 'bee_mushroom') || (p.counters.wonderTurns ?? 0) > 0 || p.type === 'silver' || p.type === 'super_silver' || p.type === 'burning_blaze' || has(p, 'hover_wisp') ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
     walls: has(p, 'yellow_drill') ? 99 : has(p, 'extended_phasing') ? 2 : has(p, 'phasing') ? 1 : 0,
   };
 }
@@ -734,6 +756,7 @@ function patternsFor(s: GameState, p: Piece): Pattern[] {
   if (has(p, 'backward_advance') && type === 'pawn')
     pats.push({ kind: 'slide', dirs: [{ x: 0, y: -forward(p.side) }], max: 1, capture: false });
   if (has(p, 'short_hop')) pats.push({ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'line' });
+  if (has(p, 'screw_attack')) pats.push({ kind: 'leap', offsets: DIAG.map((d) => scale(d, 2)), rule: 'free' });
   if (has(p, 'bounce_bracelet') || has(p, 'frog_suit')) pats.push({ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'free' });
   if (has(p, 'long_leap')) {
     if (type === 'knight' || type === 'chancellor') pats.push({ kind: 'leap', offsets: LONG_KNIGHT, rule: 'rect' });
@@ -818,6 +841,12 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
     );
     out.push(...crashUpgradeSteps(s, p, slides));
     out.push(...marioUpgradeSteps(s, p, slides));
+  }
+  if (!crippled && (p.type === 'samus' || p.upgrades.length)) {
+    const slides = patternsFor(s, p).flatMap((pat) =>
+      pat.kind === 'slide' && !pat.uses ? pat.dirs.map((dir) => ({ dir, max: Number.isFinite(pat.max) ? Math.max(1, pat.max + rangeBonus(s, p, dir)) : Math.max(s.board.width, s.board.height) })) : [],
+    );
+    out.push(...metroidSteps(s, p, slides));
   }
   if (p.type === 'phantom_king' && !crippled) out.push(...phantomSteps(s, p));
   if (p.type === 'midna' && twilightCharged(p)) out.push(...twilightSteps(s, p));
@@ -930,6 +959,7 @@ export interface HeavyStep {
 /** Destinations a multi-square piece can step to (orthogonal, one square; two with Living Avalanche). */
 export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
   if (p.type === 'chaos') return chaosSteps(s, p);
+  if (p.type === 'ridley') return ridleySteps(s, p);
   const out: HeavyStep[] = [];
   const egg = deathEggPhase(p);
   const check = (to: Coord): Omit<HeavyStep, 'to'> | null => {
@@ -968,7 +998,7 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
           : 2
         : p.type === 'bowser'
           ? (diagonal ? 1 : 2) + (bowserPhase(p) === 3 ? 1 : 0)
-          : p.counters.mega
+          : p.counters.mega || (p.type === 'mother_brain' && brainPhase(p) === 3)
             ? 2
           : (p.type === 'ganondorf' && ganonPhase(p) < 3) || egg === 3
             ? 2

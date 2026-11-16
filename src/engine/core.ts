@@ -13,6 +13,7 @@ import { crateSmashed } from './crates';
 import { marioAfterHit, marioNegates, marioReduction } from './mario';
 import { popBubble, tanookiCounter } from './marioUpgrades';
 import { brickSmashed } from './marioSpaces';
+import { metroidAfterHit, metroidNegates, metroidReduction } from './metroid';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { etherealEscape, haunted } from './bosses';
 import {
@@ -378,6 +379,8 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   }
   // Crash Pack: Aku Aku's Protective Spirit, Ripper Roo's Unpredictable, Coco's and Pura's dodges.
   if (direct(ctx.kind) && !ctx.pure && !ctx.lethal && crashNegates(s, target, source, amount)) return { kind: 'survived', dealt: 0 };
+  // Zero Suit Samus: Acrobatic Escape.
+  if (direct(ctx.kind) && !ctx.pure && !ctx.lethal && metroidNegates(s, target, source, amount)) return { kind: 'survived', dealt: 0 };
   // Toadette's Mushroom Rescue.
   if (!ctx.pure && !ctx.lethal && marioNegates(s, target, amount, ctx.kind)) return { kind: 'survived', dealt: 0 };
   // Rouge: Stealth — the first attack on her misses, as long as she hasn't captured anything.
@@ -486,6 +489,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   }
   dmg = crashReduction(s, target, dmg);
   dmg = marioReduction(target, dmg, ctx.kind);
+  dmg = metroidReduction(s, target, dmg);
   if (dmg > 0 && ready(target, 'iron_shell')) {
     markUsed(target, 'iron_shell');
     dmg -= 1;
@@ -535,6 +539,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
 
   if (target.hp < hpBefore || shieldTotal(target) < shieldBefore) onSurvivedHit(s, target, hpBefore, ctx, source);
   marioAfterHit(s, target, source, ctx.kind);
+  metroidAfterHit(s, target, source, ctx.kind);
   escapeAfterHit(s, target, hpBefore, ctx, source);
   return { kind: 'survived', dealt: hpBefore - target.hp };
 }
@@ -803,6 +808,8 @@ export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: 
 /** `peek` checks without spending a once-per-battle Brace (used when listing moves). */
 export function immuneToForcedMove(s: GameState, p: Piece, source?: Piece, peek = false): boolean {
   if (p.type === 'king' || isBoss(p) || p.type === 'warden') return true;
+  // Gravity Suit: enemy abilities can't shove it around.
+  if (has(p, 'gravity_suit') && (!source || source.side !== p.side)) return true;
   if (hasStatus(p, 'rooted') || has(p, 'steadfast') || has(p, 'iron_boots') || has(p, 'triforce_courage')) return true;
   // Super Shadow's Chaos Protection and the Master Emerald.
   if (p.type === 'super_shadow' || has(p, 'master_emerald')) return true;

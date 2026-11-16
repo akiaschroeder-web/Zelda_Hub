@@ -1,4 +1,5 @@
 import { MARIO_USE_NAMES } from './mario';
+import { METROID_USE_NAMES } from './metroid';
 import { PIECE_STATS } from './pieces';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { GameState, Move, Piece, sameCoord } from './types';
@@ -8,7 +9,7 @@ const pieceName = (p: Piece) => PIECE_STATS[p.type].name;
 
 /** Short label for a move, used in the action chooser. */
 /** Names for piece abilities tagged on moves (upgrades use their catalog names). */
-const USE_NAMES: Record<string, string> = { ...MARIO_USE_NAMES, slide_jump: 'Slide Jump' };
+const USE_NAMES: Record<string, string> = { ...MARIO_USE_NAMES, ...METROID_USE_NAMES, slide_jump: 'Slide Jump' };
 
 export function actionLabel(state: GameState, m: Move): string {
   const target = m.allyId ? state.pieces.find((p) => p.id === m.allyId) : undefined;
@@ -107,6 +108,20 @@ export function actionLabel(state: GameState, m: Move): string {
       return 'Fire Breath';
     case 'hitBlock':
       return 'Hit the ? Block';
+    case 'armCannon':
+      return 'Arm Cannon';
+    case 'paralyzer':
+      return `Paralyzer on the ${target ? pieceName(target) : 'enemy'}`;
+    case 'latch':
+      return `Latch onto the ${target ? pieceName(target) : 'enemy'}`;
+    case 'pirateBlaster':
+      return 'Pirate Blaster';
+    case 'spear':
+      return `Spear Strike the ${target ? pieceName(target) : 'enemy'}`;
+    case 'tailStrike':
+      return 'Tail Strike';
+    case 'brainBeam':
+      return 'Beam';
     case 'groundSlam':
       return 'Ground Slam';
     case 'hack':

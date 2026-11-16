@@ -37,6 +37,15 @@ export const PIECE_IMAGES: Record<Side, Record<PieceType, ImageSourcePropType>> 
     deku_scrub: require('../../assets/pieces/deku_scrub_player.png'),
     lizalfos: require('../../assets/pieces/lizalfos_player.png'),
     stalfos: require('../../assets/pieces/stalfos_player.png'),
+    // Metroid Content Pack (art/process_metroid.py)
+    samus: require('../../assets/pieces/samus_player.png'),
+    zero_suit: require('../../assets/pieces/zero_suit_player.png'),
+    metroid: require('../../assets/pieces/metroid_player.png'),
+    space_pirate: require('../../assets/pieces/space_pirate_player.png'),
+    chozo_soldier: require('../../assets/pieces/chozo_soldier_player.png'),
+    emmi: require('../../assets/pieces/emmi_player.png'),
+    ridley: require('../../assets/pieces/ridley_player.png'),
+    mother_brain: require('../../assets/pieces/mother_brain_player.png'),
     // Super Mario Content Pack (art/process_mario.py)
     mario: require('../../assets/pieces/mario_player.png'),
     luigi: require('../../assets/pieces/luigi_player.png'),
@@ -164,6 +173,15 @@ export const PIECE_IMAGES: Record<Side, Record<PieceType, ImageSourcePropType>> 
     deku_scrub: require('../../assets/pieces/deku_scrub_enemy.png'),
     lizalfos: require('../../assets/pieces/lizalfos_enemy.png'),
     stalfos: require('../../assets/pieces/stalfos_enemy.png'),
+    // Metroid Content Pack (art/process_metroid.py)
+    samus: require('../../assets/pieces/samus_enemy.png'),
+    zero_suit: require('../../assets/pieces/zero_suit_enemy.png'),
+    metroid: require('../../assets/pieces/metroid_enemy.png'),
+    space_pirate: require('../../assets/pieces/space_pirate_enemy.png'),
+    chozo_soldier: require('../../assets/pieces/chozo_soldier_enemy.png'),
+    emmi: require('../../assets/pieces/emmi_enemy.png'),
+    ridley: require('../../assets/pieces/ridley_enemy.png'),
+    mother_brain: require('../../assets/pieces/mother_brain_enemy.png'),
     // Super Mario Content Pack (art/process_mario.py)
     mario: require('../../assets/pieces/mario_enemy.png'),
     luigi: require('../../assets/pieces/luigi_enemy.png'),

@@ -188,6 +188,15 @@ export type PieceType =
   | 'boo'
   | 'hammer_bro'
   | 'bowser'
+  // Metroid Pack
+  | 'samus'
+  | 'zero_suit'
+  | 'metroid'
+  | 'space_pirate'
+  | 'chozo_soldier'
+  | 'emmi'
+  | 'ridley'
+  | 'mother_brain'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -268,6 +277,13 @@ export type ActionKind =
   | 'fireBreath' // Bowser
   | 'groundSlam' // Bowser (Phase 3)
   | 'hitBlock' // hit a ? Block
+  | 'armCannon' // Samus
+  | 'paralyzer' // Zero Suit Samus
+  | 'latch' // Metroid
+  | 'pirateBlaster' // Space Pirate
+  | 'spear' // Chozo Soldier: Spear Strike
+  | 'tailStrike' // Ridley
+  | 'brainBeam' // Mother Brain
   | 'upgrade'
   | 'pass';
 

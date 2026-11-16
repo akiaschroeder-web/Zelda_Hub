@@ -1,4 +1,4 @@
-import { CRASH_LEGEND, DUO_LEGEND, MARIO_LEGEND, SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
+import { CRASH_LEGEND, DUO_LEGEND, MARIO_LEGEND, METROID_LEGEND, SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
 import { EncounterDef } from './setup';
 
 /**
@@ -524,6 +524,25 @@ export const ENCOUNTERS: EncounterDef[] = [
       '5,0': ['spiny_shell'],
       '6,0': ['super_horn'],
       '7,0': ['drill_mushroom', 'elephant_fruit'],
+    },
+  },
+  {
+    id: 'planet_zebes',
+    name: 'Planet Zebes',
+    description:
+      'Metroid Pack: Samus, Zero Suit Samus, Chozo Soldiers, Space Pirates and the E.M.M.I. on both sides, with Metroids for the enemy and some of the pack upgrades on your side. Tap a piece to read it.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', '..+..+..', '.#....#.', '.#....#.', '..+..+..', '........', '........'],
+    pieces: ['ôóòõkòóô', 'pppppppp', '........', '........', '........', '........', 'PPPPPPPP', 'ÔÓÐÑKÕÓÔ'],
+    legend: METROID_LEGEND,
+    upgrades: {
+      '2,7': ['plasma_beam'],
+      '3,7': ['screw_attack'],
+      '5,7': ['varia_suit'],
+      '0,6': ['missile_expansion'],
+      '1,6': ['morph_ball_bomb'],
+      '6,6': ['ice_beam'],
+      '7,6': ['grapple_beam'],
     },
   },
 ];

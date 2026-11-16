@@ -9,6 +9,7 @@ import { PIECE_STATS, deathEggPhase, footprint, ganonPhase, sizeOf } from '../en
 import { attackSquares, twilightCharged } from '../engine/movement';
 import { tropyPhase } from '../engine/crash';
 import { bowserPhase } from '../engine/mario';
+import { brainPhase } from '../engine/metroid';
 import {
   AbilityId,
   ActionKind,
@@ -98,6 +99,13 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   fireBreath: 'rgba(240, 90, 60, 0.95)',
   groundSlam: 'rgba(120, 80, 40, 0.95)',
   hitBlock: 'rgba(240, 200, 40, 0.95)',
+  armCannon: 'rgba(240, 160, 60, 0.95)',
+  paralyzer: 'rgba(90, 200, 230, 0.95)',
+  latch: 'rgba(120, 220, 90, 0.95)',
+  pirateBlaster: 'rgba(214, 60, 60, 0.95)',
+  spear: 'rgba(230, 110, 60, 0.95)',
+  tailStrike: 'rgba(150, 90, 220, 0.95)',
+  brainBeam: 'rgba(240, 90, 60, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -154,6 +162,14 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   miku: { label: 'Digital Harmony (teal, every 3 turns), Duet' },
   crash: { label: 'Spin Attack (passive), Slide Jump (every 3 turns)' },
   mario: { label: 'Super Jump (every 3 turns), Stomp' },
+  samus: { label: 'Arm Cannon (orange, every 3 turns), Morph Ball (every 3 turns)' },
+  zero_suit: { id: 'acrobatic_escape', label: 'Paralyzer (blue, every 3 turns), Acrobatic Escape' },
+  metroid: { label: 'Energy Drain, Latch (green, every 3 turns)' },
+  space_pirate: { label: 'Pirate Blaster (red, every 3 turns), Squad Tactics' },
+  chozo_soldier: { label: 'Spear Strike (orange), Counterattack (every 3 turns)' },
+  emmi: { label: 'Pursuit, Capture Protocol (passive)' },
+  ridley: { label: 'Tail Strike (purple, every 3 turns), Aerial Assault' },
+  mother_brain: { label: 'Beam, Automated Defenses, Hyper Beam' },
   luigi: { id: 'scaredy', label: 'High Jump (every 3 turns), Scaredy-Cat' },
   peach: { label: 'Float, Royal Support (pink, every 3 turns)' },
   daisy: { label: 'Athletic Kick, Competitive Spirit' },
@@ -278,6 +294,20 @@ function zeldaTypeNotes(p: Piece): string {
       return cd(p, 'slideJumpCd', 'Slide Jump');
     case 'mario':
       return cd(p, 'superJumpCd', 'Super Jump');
+    case 'samus':
+      return cd(p, 'cannonCd', 'Arm Cannon') + cd(p, 'morphCd', 'Morph Ball');
+    case 'zero_suit':
+      return cd(p, 'paralyzerCd', 'Paralyzer');
+    case 'metroid':
+      return p.counters.latchOn ? ' Latched on.' : cd(p, 'latchCd', 'Latch');
+    case 'space_pirate':
+      return cd(p, 'blasterCd', 'Pirate Blaster');
+    case 'chozo_soldier':
+      return cd(p, 'counterCd', 'Counterattack');
+    case 'ridley':
+      return cd(p, 'tailCd', 'Tail Strike');
+    case 'mother_brain':
+      return [' Phase 1: Defense Systems.', ' Phase 2: Automated Defenses.', ' Phase 3: Hyper Beam.'][brainPhase(p) - 1] + cd(p, 'beamCd', 'Beam');
     case 'luigi':
       return cd(p, 'highJumpCd', 'High Jump');
     case 'peach':

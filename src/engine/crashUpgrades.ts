@@ -301,6 +301,8 @@ const OPTIONAL_USES = new Set([
   'turbo_boost', 'lani_loli', 'akano', 'bounce_crate', 'slide_jump',
   // Mario Pack
   'super_jump', 'high_jump', 'flutter_jump', 'ghostly_passage', 'mini_mushroom', 'wonder_flower', 'p_wing', 'super_leaf', 'drill_mushroom',
+  // Metroid Pack
+  'samus_morph', 'morph_ball', 'shinespark',
 ]);
 export function dedupeUpgradeSteps(moves: Move[]): Move[] {
   if (!moves.some((m) => m.uses?.some((u) => OPTIONAL_USES.has(u)))) return moves;
