@@ -1,4 +1,4 @@
-import { SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
+import { DUO_LEGEND, SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
 import { EncounterDef } from './setup';
 
 /**
@@ -411,5 +411,22 @@ export const ENCOUNTERS: EncounterDef[] = [
     terrain: ['........', '........', '↓.M..T.⇩', '..%%%%..', '..____..', '⇧.....M↑', '........', '........'],
     pieces: ['гжваkдзи', 'бмнпклнм', '........', '........', '........', '........', 'БМНПКЛНМ', 'ГЖВАKДЗИ'],
     legend: SONIC_LEGEND,
+  },
+  {
+    id: 'digital_duo',
+    name: 'Digital Duo',
+    description:
+      'Digital Duo Pack: Hatsune Miku and Kasane Teto on both sides, with the Leek, Baguette and Duet Microphone. Teto drills through cracked walls; Miku heals.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', '..+..+..', '........', '........', '..+..+..', '........', '........'],
+    pieces: ['rnみqkてnr', 'pppppppp', '........', '........', '........', '........', 'PPPPPPPP', 'RNミQKテNR'],
+    legend: DUO_LEGEND,
+    upgrades: {
+      '3,7': ['duet_microphone'],
+      '1,7': ['baguette'],
+      '6,6': ['leek'],
+      '5,0': ['baguette'],
+      '3,0': ['duet_microphone'],
+    },
   },
 ];

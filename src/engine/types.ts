@@ -133,6 +133,9 @@ export type PieceType =
   | 'super_silver'
   | 'burning_blaze'
   | 'hyper_sonic'
+  // Digital Duo Pack
+  | 'miku'
+  | 'teto'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -190,6 +193,7 @@ export type ActionKind =
   | 'energyShot' // Buzz Bomber
   | 'missiles' // Death Egg Robot (Phase 2)
   | 'burningAura' // Burning Blaze
+  | 'harmony' // Hatsune Miku: Digital Harmony
   | 'upgrade'
   | 'pass';
 

@@ -83,6 +83,8 @@ export function actionLabel(state: GameState, m: Move): string {
       return 'Homing Missiles';
     case 'burningAura':
       return 'Burning Aura';
+    case 'harmony':
+      return `Digital Harmony: heal the ${target ? pieceName(target) : 'ally'}`;
     case 'unlock':
       return 'Unlock the door (uses a Small Key)';
     case 'upgrade': {

@@ -388,6 +388,13 @@ const SONIC_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity,
   [303, 'master_emerald', 'Master Emerald', 'legendary', 'legendary', 'Every 3 turns, instead of moving, deal 1 damage to every adjacent enemy; cannot be forcibly moved. On Super Sonic: he becomes Hyper Sonic instead, using it up (no slot).'],
 ];
 
+/** Digital Duo Pack upgrades: any eligible piece can carry them. */
+const DUO_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity, category: UpgradeCategory, text: string][] = [
+  [304, 'leek', 'Leek', 'common', 'support', 'Every 3 turns, instead of moving, heal an adjacent friendly piece by 1 HP.'],
+  [305, 'baguette', 'Baguette', 'uncommon', 'offense', "The piece's first attack each battle deals +1 damage. If that attack defeats its target, the piece restores 1 HP."],
+  [306, 'duet_microphone', 'Duet Microphone', 'rare', 'support', 'Every 4 turns, instead of moving, pick a friendly piece within 2: both get +1 movement range and +1 attack damage until the end of their next turn.'],
+];
+
 /** Upgrades that depend on systems the game doesn't have yet. Never offered. */
 export const EXCLUDED: Record<string, string> = {
   free_rotation: 'Pieces have no facing.',
@@ -454,6 +461,17 @@ export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, R
       slots: slotsFor(rarity),
       cost: COST[rarity],
       pack: 'sonic',
+    })),
+    DUO_ROWS.map(([num, id, name, rarity, category, text]): UpgradeInfo => ({
+      num,
+      id,
+      name,
+      rarity,
+      category,
+      text,
+      slots: slotsFor(rarity),
+      cost: COST[rarity],
+      pack: 'duo',
     })),
   )
   .sort((a, b) => a.num - b.num);

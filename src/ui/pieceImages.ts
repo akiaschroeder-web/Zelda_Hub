@@ -37,6 +37,9 @@ export const PIECE_IMAGES: Record<Side, Record<PieceType, ImageSourcePropType>> 
     deku_scrub: require('../../assets/pieces/deku_scrub_player.png'),
     lizalfos: require('../../assets/pieces/lizalfos_player.png'),
     stalfos: require('../../assets/pieces/stalfos_player.png'),
+    // Digital Duo Content Pack (art/process_duo.py)
+    miku: require('../../assets/pieces/miku_player.png'),
+    teto: require('../../assets/pieces/teto_player.png'),
     // Sonic Content Pack (art/process_sonic.py)
     sonic: require('../../assets/pieces/sonic_player.png'),
     tails: require('../../assets/pieces/tails_player.png'),
@@ -128,6 +131,9 @@ export const PIECE_IMAGES: Record<Side, Record<PieceType, ImageSourcePropType>> 
     deku_scrub: require('../../assets/pieces/deku_scrub_enemy.png'),
     lizalfos: require('../../assets/pieces/lizalfos_enemy.png'),
     stalfos: require('../../assets/pieces/stalfos_enemy.png'),
+    // Digital Duo Content Pack (art/process_duo.py)
+    miku: require('../../assets/pieces/miku_enemy.png'),
+    teto: require('../../assets/pieces/teto_enemy.png'),
     // Sonic Content Pack (art/process_sonic.py)
     sonic: require('../../assets/pieces/sonic_enemy.png'),
     tails: require('../../assets/pieces/tails_enemy.png'),

@@ -50,6 +50,7 @@ import { harvestSoul, resolveSpecial, specialMoves } from './specials';
 import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd, zeldaTurnStart } from './zelda';
 import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
+import { baguetteBonus, duoMoves, resolveDuo, tetoDuetBonus } from './duo';
 import { resolveSonic, sonicAfterMove, sonicBeforeMove, sonicMoves, sonicTurnEnd, sonicTurnStart } from './sonic';
 import { ATTACK_UPGRADES, drillThrough, flameRing, spendSonicAction } from './sonicUpgrades';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
@@ -378,6 +379,7 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...temporalEchoMoves(state, p, ordinary),
     ...(bound ? [] : tileMoves(state, p)),
     ...sonicMoves(state, p),
+    ...duoMoves(state, p),
   ];
   // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
   if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
@@ -587,6 +589,8 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   // Motobug Full Speed Ahead: +1 after rolling three or more squares sideways.
   if (p.type === 'motobug' && m.from.y === m.to.y && Math.abs(m.to.x - m.from.x) >= 3) dmg += 1;
   if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
+  // Digital Duo: Teto's duet and the Baguette boost the first attack of the battle.
+  dmg += tetoDuetBonus(s, p) + baguetteBonus(p);
   // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
   if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
     dmg += 1;
@@ -699,6 +703,8 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
   });
 
   if (!alive(s, p.id)) return;
+  // Baguette: a first attack that defeats its target restores 1 HP.
+  if (baguetteBonus(p) && captured > 0) heal(s, p, 1);
   p.attacks += 1;
 
   const survivors = targets.filter((t) => alive(s, t.id));
@@ -888,6 +894,7 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
   if (resolveBoss(s, m)) return;
   if (resolveSpecial(s, m)) return;
   if (resolveSonic(s, m, entry)) return;
+  if (resolveDuo(s, m)) return;
   // Homing Attack / Cyan Laser ending on an enemy: a real attack, with bounceback.
   if (m.action === 'upgrade' && ATTACK_UPGRADES.has(m.upgrade!) && m.targets?.length) {
     spendSonicAction(p, m.upgrade!);

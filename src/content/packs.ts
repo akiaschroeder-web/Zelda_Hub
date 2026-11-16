@@ -5,7 +5,7 @@
  */
 import { PieceType, Side } from '../engine/types';
 
-export type PackId = 'zelda' | 'sonic';
+export type PackId = 'zelda' | 'sonic' | 'duo';
 
 /** Rarity buckets match the base recruit pools. */
 type PackRarity = 'common' | 'uncommon' | 'rare' | 'epic';
@@ -117,6 +117,31 @@ export const SONIC_LEGEND: Record<string, [PieceType, Side]> = {
   ),
 };
 
+PACKS.push({
+  id: 'duo',
+  name: 'Digital Duo',
+  description:
+    'A mini pack: Hatsune Miku (diagonal healer) and Kasane Teto (orthogonal wall-breaker), who help each other when deployed together, plus the Leek, Baguette and Duet Microphone upgrades.',
+  recruits: { uncommon: ['miku', 'teto'] },
+  bosses: [],
+  archetypes: [
+    {
+      name: 'Digital Duo',
+      blurb: 'Hatsune Miku and Kasane Teto on tour.',
+      weights: { miku: 2, teto: 2, pawn: 4, knight: 1, bishop: 1, rook: 1 },
+    },
+  ],
+  pieces: ['miku', 'teto'],
+});
+
+/** Placement symbols for Digital Duo pieces: hiragana for the enemy, katakana for the player. */
+export const DUO_LEGEND: Record<string, [PieceType, Side]> = {
+  み: ['miku', 'enemy'],
+  ミ: ['miku', 'player'],
+  て: ['teto', 'enemy'],
+  テ: ['teto', 'player'],
+};
+
 export const PACK_BY_ID: Record<PackId, ContentPack> = Object.fromEntries(PACKS.map((p) => [p.id, p])) as Record<PackId, ContentPack>;
 
 const OWNER = new Map<PieceType, PackId>(PACKS.flatMap((p) => p.pieces.map((t) => [t, p.id] as [PieceType, PackId])));
@@ -130,7 +155,7 @@ export const pieceAllowed = (t: PieceType, packs: readonly string[]) => {
 export const enabledPacks = (packs: readonly string[]) => PACKS.filter((p) => packs.includes(p.id));
 
 /** Packs that are on unless the player switches them off. */
-export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic'];
+export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic', 'duo'];
 
 /**
  * Placement symbols for Zelda pieces in board layouts: digits are enemy

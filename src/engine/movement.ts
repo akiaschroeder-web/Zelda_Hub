@@ -210,6 +210,16 @@ function basePatterns(type: PieceType): Pattern[] {
         { kind: 'slide', dirs: DIAG, max: 2 },
         { kind: 'slide', dirs: ORTHO, max: 1 },
       ];
+    case 'miku':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 3 },
+        { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
+    case 'teto':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
     case 'epona':
       // Epona clears anything in her path: walls and gaps too.
       return [

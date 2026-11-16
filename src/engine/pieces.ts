@@ -256,6 +256,15 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Stalfos',
     blurb: 'Up to two squares any direction. Reassembly: the first time it falls it becomes a pile of bones, rising again with 1 HP after 2 of its turns — unless an enemy steps on the bones first.',
   },
+  // Digital Duo Content Pack
+  miku: {
+    size: 1, maxHp: 2, damage: 1, cost: 5, value: 470, name: 'Hatsune Miku',
+    blurb: 'Up to three squares diagonally or one orthogonally. Digital Harmony: instead of moving, heal an ally within 3 by 1 (every 3 turns). Duet: Kasane Teto within 3 is healed too, if hurt.',
+  },
+  teto: {
+    size: 1, maxHp: 2, damage: 1, cost: 5, value: 480, name: 'Kasane Teto',
+    blurb: 'Up to three squares orthogonally or one diagonally. Drill Break: smash an adjacent cracked wall instead of moving. Duet: her first attack each battle deals 2 while Hatsune Miku is within 3.',
+  },
   // Sonic Content Pack
   sonic: {
     size: 1, maxHp: 2, damage: 1, cost: 7, value: 640, name: 'Sonic',
@@ -393,8 +402,10 @@ export const deathEggPhase = (p: Piece) => (p.type !== 'death_egg' ? 0 : p.hp >=
 export const ZELDA_TYPES = new Set<PieceType>([
   'link', 'zelda', 'midna', 'goron', 'zora', 'redead', 'like_like', 'darknut', 'skulltula', 'ganondorf', 'ganon',
   'malon', 'epona', 'deku_scrub', 'lizalfos', 'stalfos',
-  // Sonic pieces share the same slow paths.
+  // Sonic and Digital Duo pieces share the same slow paths.
   ...SONIC_TYPES,
+  'miku',
+  'teto',
 ]);
 
 /** Every square a piece occupies. */

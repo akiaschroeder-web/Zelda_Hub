@@ -73,6 +73,7 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   energyShot: 'rgba(214, 60, 60, 0.95)',
   missiles: 'rgba(230, 110, 60, 0.95)',
   burningAura: 'rgba(240, 90, 60, 0.95)',
+  harmony: 'rgba(60, 210, 200, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -126,6 +127,8 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   super_silver: { label: 'Super Psychokinesis (cyan), Psychic Defense' },
   burning_blaze: { label: 'Burning Aura (orange)' },
   hyper_sonic: { id: 'last_stand', label: 'Last Stand' },
+  miku: { label: 'Digital Harmony (teal, every 3 turns), Duet' },
+  teto: { label: 'Drill Break (orange), Duet' },
 };
 
 const STATUS_NAMES: Partial<Record<string, string>> = {
@@ -207,6 +210,10 @@ function zeldaNotes(p: Piece): string {
     }
     case 'death_egg':
       return [' Phase 1: Iron Giant.', ' Phase 2: Missile Barrage.', ' Phase 3: Critical Overload.'][deathEggPhase(p) - 1];
+    case 'miku':
+      return (p.counters.harmonyCd ?? 0) > 0 ? ` Digital Harmony ready in ${p.counters.harmonyCd} turn(s).` : ' Digital Harmony ready.';
+    case 'teto':
+      return p.attacks === 0 ? ' Duet strike unused (2 damage with Miku within 3).' : ' Duet strike spent.';
     case 'lizalfos':
       return (p.counters.acroCd ?? 0) > 0 ? ` Acrobatic Retreat ready in ${p.counters.acroCd} turn(s).` : ' Acrobatic Retreat ready.';
     case 'zelda':
