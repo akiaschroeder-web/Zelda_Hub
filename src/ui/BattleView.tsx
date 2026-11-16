@@ -7,6 +7,7 @@ import { UPGRADE_BY_ID } from '../engine/upgrades/catalog';
 import { applyMove, distance, findKing, inCheck, legalMoves } from '../engine/moves';
 import { PIECE_STATS, deathEggPhase, footprint, ganonPhase, sizeOf } from '../engine/pieces';
 import { attackSquares, twilightCharged } from '../engine/movement';
+import { tropyPhase } from '../engine/crash';
 import {
   AbilityId,
   ActionKind,
@@ -74,6 +75,18 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   missiles: 'rgba(230, 110, 60, 0.95)',
   burningAura: 'rgba(240, 90, 60, 0.95)',
   harmony: 'rgba(60, 210, 200, 0.95)',
+  hack: 'rgba(240, 120, 200, 0.95)',
+  maskAttach: 'rgba(240, 190, 60, 0.95)',
+  maskDetach: 'rgba(240, 190, 60, 0.95)',
+  grapple: 'rgba(90, 200, 230, 0.95)',
+  rayGun: 'rgba(214, 60, 60, 0.95)',
+  gnMissile: 'rgba(230, 110, 60, 0.95)',
+  vacuum: 'rgba(150, 90, 220, 0.95)',
+  darkProtection: 'rgba(120, 40, 60, 0.95)',
+  mutagen: 'rgba(120, 220, 90, 0.95)',
+  transform: 'rgba(120, 220, 90, 0.95)',
+  tropyWarp: 'rgba(90, 220, 140, 0.95)',
+  timeRewind: 'rgba(250, 230, 140, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -128,6 +141,22 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   burning_blaze: { label: 'Burning Aura (orange)' },
   hyper_sonic: { id: 'last_stand', label: 'Last Stand' },
   miku: { label: 'Digital Harmony (teal, every 3 turns), Duet' },
+  crash: { label: 'Spin Attack (passive), Slide Jump (every 3 turns)' },
+  coco: { id: 'dodge', label: 'Hacking (pink, every 4 turns), Quick Thinking' },
+  crunch: { label: 'Heavy Punch, Bodyguard (every 3 turns)' },
+  aku_aku: { label: 'Protective Spirit (every 3 turns), Guardian Mask (gold)' },
+  tawna: { label: 'Grappling Hook (blue, every 3 turns), Acrobatic Strike' },
+  cortex: { label: 'Ray Gun (red, every 3 turns), Evil Genius' },
+  n_gin: { label: 'Missile Launcher (orange, every 3 turns), Mechanical Reinforcement' },
+  tiny: { label: 'Savage Leap, Intimidation (passive)' },
+  dingodile: { label: 'Vacuum Cannon (purple, every 3 turns), Tail Swipe' },
+  ripper_roo: { label: 'Wild Bounce, Unpredictable (passive)' },
+  uka_uka: { label: 'Dark Protection (dark red, every 3 turns), Corrupting Presence' },
+  polar: { label: 'Charging Run, Momentum (every 3 turns)' },
+  pura: { id: 'dodge', label: 'Agile Sprint (every 3 turns), Quick Reflexes' },
+  brio: { id: 'monster', label: 'Mutagenic Potion (green, every 4 turns), Monster Transformation' },
+  brio_monster: { label: 'Mutagenic Potion (green, every 4 turns)' },
+  n_tropy: { id: 'time_rewind', label: 'Temporal Distortion (green), Time Reversal, Temporal Collapse' },
   teto: { label: 'Drill Break (orange), Duet' },
 };
 
@@ -187,6 +216,10 @@ export function describePiece(p: Piece): { title: string; text: string; upgrades
   };
 }
 
+/** " X ready." or " X ready in N turn(s)." */
+const cd = (p: Piece, key: string, name: string) =>
+  (p.counters[key] ?? 0) > 0 ? ` ${name} ready in ${p.counters[key]} turn(s).` : ` ${name} ready.`;
+
 /** Live state of Zelda Pack abilities for the info panel. */
 function zeldaNotes(p: Piece): string {
   switch (p.type) {
@@ -210,6 +243,34 @@ function zeldaNotes(p: Piece): string {
     }
     case 'death_egg':
       return [' Phase 1: Iron Giant.', ' Phase 2: Missile Barrage.', ' Phase 3: Critical Overload.'][deathEggPhase(p) - 1];
+    case 'crash':
+      return cd(p, 'slideJumpCd', 'Slide Jump');
+    case 'coco':
+      return cd(p, 'hackCd', 'Hacking');
+    case 'crunch':
+      return cd(p, 'bodyguardCd', 'Bodyguard');
+    case 'aku_aku':
+      return cd(p, 'spiritCd', 'Protective Spirit');
+    case 'tawna':
+      return cd(p, 'grappleCd', 'Grappling Hook');
+    case 'cortex':
+      return cd(p, 'rayGunCd', 'Ray Gun');
+    case 'n_gin':
+      return cd(p, 'missileCd', 'Missile Launcher');
+    case 'dingodile':
+      return cd(p, 'vacuumCd', 'Vacuum Cannon');
+    case 'uka_uka':
+      return cd(p, 'darkProtCd', 'Dark Protection');
+    case 'polar':
+      return cd(p, 'momentumCd', 'Momentum');
+    case 'pura':
+      return cd(p, 'sprintCd', 'Agile Sprint');
+    case 'brio':
+      return cd(p, 'potionCd', 'Mutagenic Potion');
+    case 'brio_monster':
+      return ` Monster for ${Math.max(0, (p.counters.monsterTurns ?? 1) - 1)} more turn(s).` + cd(p, 'potionCd', 'Mutagenic Potion');
+    case 'n_tropy':
+      return [' Phase 1: Temporal Distortion.', ' Phase 2: Time Reversal.', ' Phase 3: Temporal Collapse.'][tropyPhase(p) - 1] + cd(p, 'tropyWarpCd', 'Teleport');
     case 'miku':
       return (p.counters.harmonyCd ?? 0) > 0 ? ` Digital Harmony ready in ${p.counters.harmonyCd} turn(s).` : ' Digital Harmony ready.';
     case 'teto':

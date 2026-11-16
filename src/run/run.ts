@@ -449,9 +449,11 @@ export function finishBattle(run: RunState, final: GameState): RunState {
   for (const p of final.reborn.filter((p) => p.side === 'player')) onField.set(p.id, p);
   // A Stalfos lying in bones when the battle ends gets back up afterwards.
   for (const b of (final.bones ?? []).filter((b) => b.piece.side === 'player')) onField.set(b.piece.id, b.piece);
+  // Aku Aku riding on a piece (Guardian Mask) is still with the army.
+  for (const mk of (final.masks ?? []).filter((mk) => mk.piece.side === 'player')) onField.set(mk.piece.id, mk.piece);
   // A piece still inside a Like Like when the battle ends is lost.
   const deployedIds = new Set(
-    [...final.pieces, ...final.captured, ...final.reborn, ...(final.engulfed ?? []).map((e) => e.victim), ...(final.bones ?? []).map((b) => b.piece)].map(
+    [...final.pieces, ...final.captured, ...final.reborn, ...(final.engulfed ?? []).map((e) => e.victim), ...(final.bones ?? []).map((b) => b.piece), ...(final.masks ?? []).map((mk) => mk.piece)].map(
       (p) => p.id,
     ),
   );

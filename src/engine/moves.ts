@@ -51,6 +51,7 @@ import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd, zeldaTurnStart } from '.
 import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { baguetteBonus, duoMoves, resolveDuo, tetoDuetBonus } from './duo';
+import { crashAfterAttack, crashAfterMove, crashAttackBonus, crashMoves, crashTurnEnd, intimidated, resolveCrash } from './crash';
 import { resolveSonic, sonicAfterMove, sonicBeforeMove, sonicMoves, sonicTurnEnd, sonicTurnStart } from './sonic';
 import { ATTACK_UPGRADES, drillThrough, flameRing, spendSonicAction } from './sonicUpgrades';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
@@ -380,11 +381,12 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...(bound ? [] : tileMoves(state, p)),
     ...sonicMoves(state, p),
     ...duoMoves(state, p),
+    ...crashMoves(state, p),
   ];
   // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
   if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
   if (p.type === 'king' && !p.hasMoved && !bound) moves.push(...castleMoves(state, p));
-  return moves;
+  return intimidated(state, p, moves);
 }
 
 /**
@@ -590,7 +592,7 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (p.type === 'motobug' && m.from.y === m.to.y && Math.abs(m.to.x - m.from.x) >= 3) dmg += 1;
   if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
   // Digital Duo: Teto's duet and the Baguette boost the first attack of the battle.
-  dmg += tetoDuetBonus(s, p) + baguetteBonus(p);
+  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m);
   // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
   if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
     dmg += 1;
@@ -669,6 +671,7 @@ function resolveAttack(s: GameState, m: Move, entry?: Bonus) {
     });
     biggoronCleave(s, p, pos, dir, m.targets ?? []);
     flameRing(s, p, pos, m.targets ?? []);
+    crashAfterAttack(s, p, m, pos, m.targets ?? []);
     if (out.kind === 'intercepted') {
       const guard = out.by;
       const gpos = s.captured.find((c) => c.id === guard)?.pos;
@@ -895,6 +898,7 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
   if (resolveSpecial(s, m)) return;
   if (resolveSonic(s, m, entry)) return;
   if (resolveDuo(s, m)) return;
+  if (resolveCrash(s, m)) return;
   // Homing Attack / Cyan Laser ending on an enemy: a real attack, with bounceback.
   if (m.action === 'upgrade' && ATTACK_UPGRADES.has(m.upgrade!) && m.targets?.length) {
     spendSonicAction(p, m.upgrade!);
@@ -1048,6 +1052,7 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   resolve(s, m, entry);
   zeldaAfterMove(s, m, from);
   sonicAfterMove(s, m, from, entry);
+  crashAfterMove(s, m, from, entry, s.captured.length > state.captured.length);
   tilesAfterMove(s, m, from, state);
 
   // Doppelganger: a borrowed ability starts the Stolen Talent cooldown.
@@ -1165,6 +1170,7 @@ function endTurn(s: GameState) {
   bossTurnEnd(s, side);
   zeldaTurnEnd(s, side);
   sonicTurnEnd(s, side);
+  crashTurnEnd(s, side);
 
   // Expiry at the end of this ply.
   const ply = s.ply;

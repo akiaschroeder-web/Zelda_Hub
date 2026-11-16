@@ -6,7 +6,7 @@ import { canTake } from '../engine/upgrades/eligibility';
 import { rollUpgrade } from './rewards';
 import { Rng } from './rng';
 import { generateBoard } from './boardgen';
-import { SONIC_LEGEND, ZELDA_LEGEND, enabledPacks } from '../content/packs';
+import { CRASH_LEGEND, SONIC_LEGEND, ZELDA_LEGEND, enabledPacks } from '../content/packs';
 
 /** How many upgrades an enemy army gets. */
 export function enemyUpgradeCount(act: number, kind: 'battle' | 'elite' | 'boss'): number {
@@ -296,6 +296,13 @@ const ARENAS: Partial<Record<PieceType, { name: string; description: string; ene
     // King, Dr. Eggman, Metal Sonic, then three each of Motobug, Buzz Bomber and Crabmeat (see SONIC_LEGEND).
     enemies: ['kклмммнннппп'],
   },
+  n_tropy: {
+    name: 'The Time Twister',
+    description:
+      "Dr. N. Tropy bends time: he teleports, freezing anyone next to where he lands. At 2 HP he can turn back the clock once, and at 1 HP time collapses around him — he moves further, teleports every turn, and hurts everything he ends up next to.",
+    // King, Cortex, N. Gin, N. Brio, Tiny, Dingodile, then Pawns (see CRASH_LEGEND).
+    enemies: ['kզէծըթ', 'pppppp'],
+  },
   chronarch: {
     name: 'The Clockwork Court',
     description: 'A master tactician that can undo your best move — but only once.',
@@ -314,6 +321,7 @@ const ARENA_THEMES: Partial<Record<PieceType, 'open' | 'fortress' | 'ruins' | 'c
   hive_mother: 'chasm',
   ganondorf: 'chasm',
   death_egg: 'open',
+  n_tropy: 'fortress',
 };
 
 export const bossArenaName = (boss: PieceType) => ARENAS[boss]?.name ?? PIECE_STATS[boss].name;
@@ -328,7 +336,7 @@ export function bossBattle(act: number, id: string, rng?: Rng, boss?: PieceType,
   const terrain = placeKeys(r, board).terrain;
   const bossAt = board.bossAt!;
   // The escort fills the rest of the enemy zone (the boss's squares are taken).
-  const escort = parsePlacements(arena.enemies, { ...ZELDA_LEGEND, ...SONIC_LEGEND })
+  const escort = parsePlacements(arena.enemies, { ...ZELDA_LEGEND, ...SONIC_LEGEND, ...CRASH_LEGEND })
     .filter((p) => p.side === 'enemy')
     .map((p) => p.type);
   const withoutBoss = terrain.map((row, y) =>

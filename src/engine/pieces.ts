@@ -256,6 +256,71 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Stalfos',
     blurb: 'Up to two squares any direction. Reassembly: the first time it falls it becomes a pile of bones, rising again with 1 HP after 2 of its turns — unless an enemy steps on the bones first.',
   },
+  // Crash Bandicoot Content Pack
+  crash: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 450, name: 'Crash Bandicoot',
+    blurb: 'Up to three squares orthogonally or one diagonally. Spin Attack: also hits the enemy right behind his target. Slide Jump: every 3 turns, jumps exactly 3 squares orthogonally over anything (no capture).',
+  },
+  coco: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 420, name: 'Coco Bandicoot',
+    blurb: "Up to three squares diagonally or one orthogonally. Hacking: instead of moving, an enemy within 3 can't move or use abilities on its next turn (every 4 turns; not bosses). Quick Thinking: once per battle, steps aside from an attack.",
+  },
+  crunch: {
+    size: 1, maxHp: 3, damage: 2, cost: 8, value: 750, name: 'Crunch Bandicoot',
+    blurb: 'Up to two squares any direction. Heavy Punch: his attacks deal 2. Bodyguard: every 3 turns, takes a hit meant for an adjacent ally.',
+  },
+  aku_aku: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 330, name: 'Aku Aku',
+    blurb: "Up to three squares any direction, over pieces and gaps (not walls); can't attack. Protective Spirit: every 3 turns, negates an attack on an ally within 2. Guardian Mask: rides on an ally and protects only it, until it sets him down.",
+  },
+  tawna: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 380, name: 'Tawna Bandicoot',
+    blurb: 'Up to three squares orthogonally, or a jump of exactly two diagonally. Grappling Hook: every 3 turns, swings to an empty square next to a wall within 4. Acrobatic Strike: after a capture, may hop one square diagonally.',
+  },
+  cortex: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 420, name: 'Dr. Neo Cortex',
+    blurb: 'Up to two squares diagonally or one orthogonally. Ray Gun: every 3 turns, 1 damage to the first piece within 4 in an orthogonal line, if it is an enemy. Evil Genius: friendly machines within 2 slide one square further.',
+  },
+  n_gin: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 360, name: 'Dr. N. Gin',
+    blurb: 'Up to two squares orthogonally. Missile Launcher: every 3 turns, 1 damage to an enemy within 4, over pieces but not through walls. Mechanical Reinforcement: adjacent friendly machines ignore their first point of damage each battle.',
+  },
+  tiny: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 560, name: 'Tiny Tiger',
+    blurb: "Jumps exactly two squares orthogonally (over anything), or steps one diagonally. Savage Leap: captures with the jump deal 2. Intimidation: enemies next to him can't teleport or reposition themselves.",
+  },
+  dingodile: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 540, name: 'Dingodile',
+    blurb: 'Up to two squares orthogonally or one diagonally. Vacuum Cannon: every 3 turns, pulls a 1×1 enemy within 3 one square closer (not bosses). Tail Swipe: attacking an adjacent enemy also hits another enemy next to him.',
+  },
+  ripper_roo: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 380, name: 'Ripper Roo',
+    blurb: 'Jumps 2-by-1 or 3-by-1 in an L, over anything. Wild Bounce: after a capture, may jump again to an empty square. Unpredictable: the first attack on him each battle has a 50% chance to miss.',
+  },
+  uka_uka: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 430, name: 'Uka Uka',
+    blurb: 'Up to three squares any direction, over pieces and gaps (not walls). Dark Protection: every 3 turns, instead of moving, an adjacent ally shrugs off its next attack. Corrupting Presence: enemies within 2 slide one square less (minimum 1).',
+  },
+  polar: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 400, name: 'Polar',
+    blurb: "Up to four squares orthogonally; can't move diagonally. Charging Run: attacks after moving 3+ squares deal 2. Momentum: every 3 turns, after moving, may slide one more square the same way.",
+  },
+  pura: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 380, name: 'Pura',
+    blurb: "Up to three squares diagonally or two orthogonally. Agile Sprint: every 3 turns, may move again (the second move can't capture). Quick Reflexes: once per battle, steps aside from an attack.",
+  },
+  brio: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 360, name: 'Dr. N. Brio',
+    blurb: 'Up to two squares diagonally or one orthogonally. Mutagenic Potion: every 4 turns, an adjacent ally deals +1 on its next attack. Monster Transformation: once per battle, becomes a 3 HP monster for 3 turns (2 squares any direction, 2 damage).',
+  },
+  brio_monster: {
+    size: 1, maxHp: 3, damage: 2, cost: 4, value: 600, name: 'Brio Monster',
+    blurb: "Dr. N. Brio, transformed: up to two squares any direction, 2 damage, 3 HP. Turns back (with 1 HP) after 3 turns.",
+  },
+  n_tropy: {
+    size: 2, maxHp: 3, damage: 1, cost: 24, value: 2500, name: 'Dr. Nefarious Tropy',
+    blurb: "2×2. Up to two squares any direction. Temporal Distortion: teleports up to 4 (every 3 turns), and enemies next to where he lands can't move next turn. At 2 HP, Time Reversal (once, heal 1) and teleport every 2 turns. At 1 HP, Temporal Collapse: up to three squares, hurts everything next to him after moving, teleport every turn.",
+  },
   // Digital Duo Content Pack
   miku: {
     size: 1, maxHp: 2, damage: 1, cost: 5, value: 470, name: 'Hatsune Miku',
@@ -366,7 +431,7 @@ export const sizeOf = (p: Piece): number => PIECE_STATS[p.type].size;
 export const BOSS_TYPES = new Set<PieceType>([
   'colossus', 'empress', 'necromancer', 'stormbringer', 'watcher',
   'worldbreaker', 'phantom_king', 'doppelganger', 'hive_mother', 'chronarch',
-  'ganondorf', 'ganon', 'death_egg',
+  'ganondorf', 'ganon', 'death_egg', 'n_tropy',
 ]);
 
 /** Ganondorf's current phase (3 HP = 1, 2 HP = 2, 1 HP or Ganon = 3); 0 for anything else. */
@@ -398,14 +463,21 @@ export const ROBOTS = new Set<PieceType>(['metal_sonic', 'motobug', 'buzz_bomber
 /** Death Egg Robot phase (3 HP = 1, 2 HP = 2, 1 HP = 3); 0 for anything else. */
 export const deathEggPhase = (p: Piece) => (p.type !== 'death_egg' ? 0 : p.hp >= 3 ? 1 : p.hp === 2 ? 2 : 3);
 
+/** Crash Bandicoot Pack piece types. */
+export const CRASH_TYPES: PieceType[] = [
+  'crash', 'coco', 'crunch', 'aku_aku', 'tawna', 'cortex', 'n_gin', 'tiny', 'dingodile', 'ripper_roo', 'uka_uka', 'polar', 'pura', 'brio',
+  'brio_monster', 'n_tropy',
+];
+
 /** Zelda Content Pack piece types (handled outside some engine fast paths). */
 export const ZELDA_TYPES = new Set<PieceType>([
   'link', 'zelda', 'midna', 'goron', 'zora', 'redead', 'like_like', 'darknut', 'skulltula', 'ganondorf', 'ganon',
   'malon', 'epona', 'deku_scrub', 'lizalfos', 'stalfos',
-  // Sonic and Digital Duo pieces share the same slow paths.
+  // Sonic, Digital Duo and Crash pieces share the same slow paths.
   ...SONIC_TYPES,
   'miku',
   'teto',
+  ...CRASH_TYPES,
 ]);
 
 /** Every square a piece occupies. */

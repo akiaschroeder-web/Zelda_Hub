@@ -83,6 +83,30 @@ export function actionLabel(state: GameState, m: Move): string {
       return 'Homing Missiles';
     case 'burningAura':
       return 'Burning Aura';
+    case 'hack':
+      return `Hack the ${target ? pieceName(target) : 'enemy'}`;
+    case 'maskAttach':
+      return `Ride on the ${target ? pieceName(target) : 'ally'} (Guardian Mask)`;
+    case 'maskDetach':
+      return 'Set Aku Aku down here';
+    case 'grapple':
+      return 'Grappling Hook';
+    case 'rayGun':
+      return 'Ray Gun';
+    case 'gnMissile':
+      return 'Missile Launcher';
+    case 'vacuum':
+      return `Vacuum the ${target ? pieceName(target) : 'enemy'} here`;
+    case 'darkProtection':
+      return `Dark Protection for the ${target ? pieceName(target) : 'ally'}`;
+    case 'mutagen':
+      return `Mutagenic Potion for the ${target ? pieceName(target) : 'ally'}`;
+    case 'transform':
+      return 'Monster Transformation';
+    case 'tropyWarp':
+      return 'Temporal Distortion (teleport)';
+    case 'timeRewind':
+      return 'Time Reversal (heal 1)';
     case 'harmony':
       return `Digital Harmony: heal the ${target ? pieceName(target) : 'ally'}`;
     case 'unlock':

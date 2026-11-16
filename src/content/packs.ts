@@ -5,7 +5,7 @@
  */
 import { PieceType, Side } from '../engine/types';
 
-export type PackId = 'zelda' | 'sonic' | 'duo';
+export type PackId = 'zelda' | 'sonic' | 'duo' | 'crash';
 
 /** Rarity buckets match the base recruit pools. */
 type PackRarity = 'common' | 'uncommon' | 'rare' | 'epic';
@@ -134,6 +134,48 @@ PACKS.push({
   pieces: ['miku', 'teto'],
 });
 
+PACKS.push({
+  id: 'crash',
+  name: 'Crash Bandicoot Pack',
+  description:
+    'Crash, Coco, Crunch, Tawna, Aku Aku, Polar and Pura against Dr. Neo Cortex, N. Gin, N. Brio, Tiny Tiger, Dingodile, Ripper Roo and Uka Uka — and the 2×2 time-bending Dr. N. Tropy.',
+  recruits: {
+    common: ['polar', 'pura', 'ripper_roo'],
+    uncommon: ['coco', 'aku_aku', 'tawna', 'n_gin', 'brio', 'uka_uka'],
+    rare: ['crash', 'crunch', 'cortex', 'tiny', 'dingodile'],
+  },
+  bosses: [{ type: 'n_tropy', act: 1 }],
+  archetypes: [
+    {
+      name: 'Bandicoot Crew',
+      blurb: 'Crash and friends.',
+      weights: { crash: 1, coco: 2, crunch: 1, tawna: 2, aku_aku: 1, polar: 2, pura: 2, pawn: 3 },
+    },
+    {
+      name: "Cortex's Henchmen",
+      blurb: 'Dr. Neo Cortex and his mutant army.',
+      weights: { cortex: 1, n_gin: 2, brio: 2, tiny: 1, dingodile: 1, ripper_roo: 2, uka_uka: 1, pawn: 3 },
+    },
+  ],
+  pieces: [
+    'crash', 'coco', 'crunch', 'aku_aku', 'tawna', 'cortex', 'n_gin', 'tiny', 'dingodile', 'ripper_roo', 'uka_uka', 'polar', 'pura',
+    'brio', 'brio_monster', 'n_tropy',
+  ],
+});
+
+/** Placement symbols for Crash pieces: Armenian lower case for the enemy, upper case for the player. */
+const CRASH_ORDER: PieceType[] = [
+  'crash', 'coco', 'crunch', 'aku_aku', 'tawna', 'cortex', 'n_gin', 'tiny', 'dingodile', 'ripper_roo', 'uka_uka', 'polar', 'pura',
+  'brio', 'brio_monster', 'n_tropy',
+];
+const ARMENIAN = 'աբգդեզէըթժիլխծկհ';
+export const CRASH_LEGEND: Record<string, [PieceType, Side]> = Object.fromEntries(
+  CRASH_ORDER.flatMap((t, i) => [
+    [ARMENIAN[i], [t, 'enemy']],
+    [ARMENIAN[i].toUpperCase(), [t, 'player']],
+  ]),
+);
+
 /** Placement symbols for Digital Duo pieces: hiragana for the enemy, katakana for the player. */
 export const DUO_LEGEND: Record<string, [PieceType, Side]> = {
   み: ['miku', 'enemy'],
@@ -155,7 +197,7 @@ export const pieceAllowed = (t: PieceType, packs: readonly string[]) => {
 export const enabledPacks = (packs: readonly string[]) => PACKS.filter((p) => packs.includes(p.id));
 
 /** Packs that are on unless the player switches them off. */
-export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic', 'duo'];
+export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic', 'duo', 'crash'];
 
 /**
  * Placement symbols for Zelda pieces in board layouts: digits are enemy

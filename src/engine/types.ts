@@ -136,6 +136,23 @@ export type PieceType =
   // Digital Duo Pack
   | 'miku'
   | 'teto'
+  // Crash Bandicoot Pack
+  | 'crash'
+  | 'coco'
+  | 'crunch'
+  | 'aku_aku'
+  | 'tawna'
+  | 'cortex'
+  | 'n_gin'
+  | 'tiny'
+  | 'dingodile'
+  | 'ripper_roo'
+  | 'uka_uka'
+  | 'polar'
+  | 'pura'
+  | 'brio'
+  | 'brio_monster'
+  | 'n_tropy'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -194,6 +211,18 @@ export type ActionKind =
   | 'missiles' // Death Egg Robot (Phase 2)
   | 'burningAura' // Burning Blaze
   | 'harmony' // Hatsune Miku: Digital Harmony
+  | 'hack' // Coco: Hacking
+  | 'maskAttach' // Aku Aku: Guardian Mask
+  | 'maskDetach' // set a riding Aku Aku down
+  | 'grapple' // Tawna: Grappling Hook
+  | 'rayGun' // Cortex
+  | 'gnMissile' // N. Gin: Missile Launcher
+  | 'vacuum' // Dingodile: Vacuum Cannon
+  | 'darkProtection' // Uka Uka
+  | 'mutagen' // N. Brio: Mutagenic Potion
+  | 'transform' // N. Brio: Monster Transformation
+  | 'tropyWarp' // N. Tropy: Temporal Distortion
+  | 'timeRewind' // N. Tropy: Time Reversal
   | 'upgrade'
   | 'pass';
 
@@ -457,6 +486,8 @@ export interface GameState {
   rotations: number;
   /** Collapsed Stalfos waiting to reassemble. */
   bones: Bones[];
+  /** Aku Aku riding on a friendly piece (Guardian Mask): off the board until set down. */
+  masks?: { hostId: string; piece: Piece }[];
 }
 
 /** A Stalfos that has collapsed into a pile of bones (Reassembly). */

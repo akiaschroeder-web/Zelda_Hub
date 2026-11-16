@@ -26,6 +26,7 @@ import {
   statusOf,
   suppressed,
 } from './core';
+import { crashAuraPresent, crashRangeBonus, tropyPhase } from './crash';
 import { PIECE_STATS, ZELDA_TYPES, deathEggPhase, footprint, ganonPhase, sizeOf } from './pieces';
 import { haunted, heavyDirs, phantomSteps } from './bosses';
 import { Coord, GameState, Piece, PieceType, forward, sameCoord } from './types';
@@ -210,6 +211,58 @@ function basePatterns(type: PieceType): Pattern[] {
         { kind: 'slide', dirs: DIAG, max: 2 },
         { kind: 'slide', dirs: ORTHO, max: 1 },
       ];
+    // Crash Bandicoot Pack
+    case 'crash':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
+    case 'coco':
+    case 'pura':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 3 },
+        { kind: 'slide', dirs: ORTHO, max: type === 'pura' ? 2 : 1 },
+      ];
+    case 'crunch':
+    case 'brio_monster':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
+    case 'aku_aku':
+    case 'uka_uka':
+      return [
+        {
+          kind: 'leap',
+          offsets: ALL_DIRS.flatMap((d) => [d, scale(d, 2), scale(d, 3)]),
+          rule: 'line',
+          ...(type === 'aku_aku' ? { capture: false } : {}),
+        },
+      ];
+    case 'tawna':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+        { kind: 'leap', offsets: DIAG.map((d) => scale(d, 2)), rule: 'line' },
+      ];
+    case 'cortex':
+    case 'brio':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 2 },
+        { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
+    case 'n_gin':
+      return [{ kind: 'slide', dirs: ORTHO, max: 2 }];
+    case 'tiny':
+      return [
+        { kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'free' },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
+    case 'dingodile':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 2 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
+    case 'ripper_roo':
+      return [{ kind: 'leap', offsets: [...KNIGHT_JUMPS, ...LONG_KNIGHT], rule: 'free' }];
+    case 'polar':
+      return [{ kind: 'slide', dirs: ORTHO, max: 4 }];
     case 'miku':
       return [
         { kind: 'slide', dirs: DIAG, max: 3 },
@@ -314,6 +367,11 @@ const adjacentToGap = (s: GameState, c: Coord) =>
 
 /** Total bonus (or penalty) to finite movement ranges for this piece right now. */
 export function rangeBonus(s: GameState, p: Piece, dir: Coord): number {
+  const crash = crashAuraPresent(s) ? crashRangeBonus(s, p) : 0;
+  return crash + baseRangeBonus(s, p, dir);
+}
+
+function baseRangeBonus(s: GameState, p: Piece, dir: Coord): number {
   if (p.upgrades.length === 0 && p.statuses.length === 0 && !anyHas(s, 'royal_rally') && !anyHas(s, 'siege_presence')) return 0;
   let b = 0;
   if (has(p, 'extended_stride')) b += 1;
@@ -613,6 +671,9 @@ function patternsFor(s: GameState, p: Piece): Pattern[] {
     const copied = statusOf(p, 'copying')?.source as PieceType | undefined;
     if (copied && copied !== 'pawn' && PIECE_STATS[copied]?.size === 1) pats = [...pats, ...basePatterns(copied)];
   }
+  // Crash: Slide Jump, every 3 turns — exactly three squares orthogonally over anything (no capture).
+  if (p.type === 'crash' && (p.counters.slideJumpCd ?? 0) <= 0 && canUseMoveAbilities(s, p))
+    pats = [...pats, { kind: 'leap', offsets: ORTHO.map((d) => scale(d, 3)), rule: 'free', capture: false, uses: ['slide_jump'] }];
   // Epona started her turn next to Malon: the 3-by-2 jump too.
   if (p.type === 'epona' && p.counters.malonBoost) pats = [...pats, { kind: 'leap', offsets: WIDE_KNIGHT, rule: 'free' }];
   if (p.upgrades.length === 0) return p.type === 'decoy' ? pats.map((pt) => ({ ...pt, capture: false })) : pats;
@@ -833,11 +894,16 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
     const to = add(p.pos, d);
     const r = check(to);
     if (r) out.push({ to, ...r });
-    // Ganondorf (Phases 1-2) and the critical Death Egg Robot move up to two squares; the first step must be clear.
-    if (((p.type === 'ganondorf' && ganonPhase(p) < 3) || egg === 3) && r && !r.targets.length && !r.shove && !r.walls) {
-      const to2 = add(to, d);
-      const r2 = check(to2);
-      if (r2 && !r2.shove && !r2.walls) out.push({ to: to2, ...r2 });
+    // Ganondorf (Phases 1-2) and the critical Death Egg Robot move up to two squares, N. Tropy two
+    // (three at 1 HP); every step before the last must be clear.
+    const reach = p.type === 'n_tropy' ? (tropyPhase(p) === 3 ? 3 : 2) : (p.type === 'ganondorf' && ganonPhase(p) < 3) || egg === 3 ? 2 : 1;
+    let prev = r;
+    let at = to;
+    for (let k = 2; k <= reach && prev && !prev.targets.length && !prev.shove && !prev.walls; k++) {
+      at = add(at, d);
+      const rk = check(at);
+      if (rk && !rk.shove && !rk.walls) out.push({ to: at, ...rk });
+      prev = rk;
     }
     if (ready(p, 'living_avalanche') && r && !r.shove && canUseMoveAbilities(s, p)) {
       const to2 = add(to, d);

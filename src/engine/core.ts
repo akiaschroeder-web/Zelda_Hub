@@ -8,6 +8,7 @@
 import { inBounds, isHole, isStandable, terrainAt } from './board';
 import { BOSS_TYPES, PIECE_STATS, deathEggPhase, footprint, sizeOf } from './pieces';
 import { eggmanEscapeSquare } from './sonic';
+import { crashNegates, crashOnCaptured, crashReduction } from './crash';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { etherealEscape, haunted } from './bosses';
 import {
@@ -163,6 +164,7 @@ export function cloneState(s: GameState): GameState {
     keys: { ...(s.keys ?? { player: 0, enemy: 0 }) },
     rotations: s.rotations ?? 0,
     bones: (s.bones ?? []).map((b) => ({ ...b, piece: clonePiece(b.piece), at: { ...b.at } })),
+    masks: (s.masks ?? []).map((mk) => ({ ...mk, piece: clonePiece(mk.piece) })),
   };
 }
 
@@ -305,11 +307,13 @@ function findInterceptor(s: GameState, target: Piece, amount: number, source?: P
     return (
       (lethal ? friends.find((a) => ready(a, 'royal_sacrifice')) : undefined) ??
       friends.find((a) => ready(a, 'royal_guard') && pieceDistance(a, target) <= reach(a)) ??
-      friends.find((a) => ready(a, 'royal_protection') && pieceDistance(a, target) <= reach(a))
+      friends.find((a) => ready(a, 'royal_protection') && pieceDistance(a, target) <= reach(a)) ??
+      friends.find((a) => a.type === 'crunch' && (a.counters.bodyguardCd ?? 0) <= 0 && adjacent(a, target))
     );
   }
   return (
     friends.find((a) => a.type === 'guardian' && !hasUsed(a, 'intercept') && adjacent(a, target)) ??
+    friends.find((a) => a.type === 'crunch' && (a.counters.bodyguardCd ?? 0) <= 0 && adjacent(a, target)) ??
     friends.find((a) => a.type === 'warden' && !hasUsed(a, 'warden_intercept') && adjacent(a, target)) ??
     (lethal ? friends.find((a) => ready(a, 'sacrificial_guard') && adjacent(a, target)) : undefined) ??
     friends.find(
@@ -321,6 +325,8 @@ function findInterceptor(s: GameState, target: Piece, amount: number, source?: P
 
 /** Which once-per-battle id an interceptor spends. */
 function interceptId(a: Piece, target: Piece): string {
+  if (a.type === 'crunch' && (a.counters.bodyguardCd ?? 0) <= 0 && !(target.type === 'king' && (ready(a, 'royal_sacrifice') || ready(a, 'royal_guard') || ready(a, 'royal_protection'))))
+    return 'bodyguard';
   if (target.type === 'king') {
     if (ready(a, 'royal_sacrifice')) return 'royal_sacrifice';
     if (ready(a, 'royal_guard')) return 'royal_guard';
@@ -365,6 +371,8 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
       return { kind: 'survived', dealt: 0 };
     }
   }
+  // Crash Pack: Aku Aku's Protective Spirit, Ripper Roo's Unpredictable, Coco's and Pura's dodges.
+  if (direct(ctx.kind) && !ctx.pure && !ctx.lethal && crashNegates(s, target, source, amount)) return { kind: 'survived', dealt: 0 };
   // Rouge: Stealth — the first attack on her misses, as long as she hasn't captured anything.
   if (direct(ctx.kind) && target.type === 'rouge' && !hasUsed(target, 'stealth') && !target.counters.captures && !ctx.trueSight && amount > 0) {
     markUsed(target, 'stealth');
@@ -423,7 +431,9 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   if (ctx.allowIntercept && direct(ctx.kind) && !ctx.lethal) {
     const guard = findInterceptor(s, target, amount, source);
     if (guard) {
-      markUsed(guard, interceptId(guard, target));
+      const spent = interceptId(guard, target);
+      if (spent === 'bodyguard') guard.counters.bodyguardCd = 3;
+      else markUsed(guard, spent);
       log(s, `${nameOf(guard)} intercepts the hit.`);
       // Royal Protection takes exactly one damage.
       const taken = interceptId(guard, target) === 'royal_protection' ? 1 : amount;
@@ -467,6 +477,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
     markUsed(target, 'carapace');
     dmg -= 1;
   }
+  dmg = crashReduction(s, target, dmg);
   if (dmg > 0 && ready(target, 'iron_shell')) {
     markUsed(target, 'iron_shell');
     dmg -= 1;
@@ -657,6 +668,7 @@ export function emptyZoneSquare(s: GameState, side: Side): Coord | undefined {
 export function capture(s: GameState, p: Piece, ctx: { sourceId?: string; kind: DamageKind }) {
   if (!s.pieces.includes(p)) return;
   s.pieces = s.pieces.filter((o) => o !== p);
+  crashOnCaptured(s, p);
   // Like Like: Engulf — a piece it captures is swallowed rather than removed.
   const holder = getPiece(s, ctx.sourceId);
   if (
