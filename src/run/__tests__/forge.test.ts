@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RUN_CONFIG } from '../config';
 import { UPGRADE_BY_ID } from '../../engine/upgrades/catalog';
 import { UPGRADE_RECIPES, equipFromStash, extractUpgrade, forgePieces, forgeUpgrades, pickForgeOffer } from '../forge';
 import { buyPotion, drinkBattlePotion, usePrebattlePotion } from '../potions';
@@ -79,7 +80,7 @@ describe('the Potion Shop', () => {
     run = buyPotion(run, 1);
     expect(run.potions).toEqual(['expansion']);
     expect(run.elixirs).toEqual(['elixir_ap4']);
-    expect(run.armyPoints).toBe(36);
+    expect(run.armyPoints).toBe(RUN_CONFIG.armyPoints + 4);
   });
 
   it('pre-battle potions change that battle: Free Deployment, Reinforcement, Fortification', () => {

@@ -453,8 +453,8 @@ describe('shop prices', () => {
     expect(shopDiscount('legendary', 0)).toBe(0);
   });
 
-  it('a new run starts with 32 Army Points', () => {
-    expect(RUN_CONFIG.armyPoints).toBe(32);
+  it('a new run starts with 50 Army Points', () => {
+    expect(RUN_CONFIG.armyPoints).toBe(50);
   });
 });
 

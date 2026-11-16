@@ -6,7 +6,7 @@ import { PieceType } from '../engine/types';
  */
 export const RUN_CONFIG = {
   /** Army Points available for deployment in each battle. */
-  armyPoints: 32,
+  armyPoints: 50,
   /** Gold at the start of a run. */
   startingGold: 40,
   /** The roster a new run starts with. The King is always included and costs 0. */
