@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { UPGRADE_BY_ID } from '../../engine/upgrades/catalog';
-import { equipFromStash, extractUpgrade, forgePieces, forgeUpgrades, pickForgeOffer } from '../forge';
+import { UPGRADE_RECIPES, equipFromStash, extractUpgrade, forgePieces, forgeUpgrades, pickForgeOffer } from '../forge';
 import { buyPotion, drinkBattlePotion, usePrebattlePotion } from '../potions';
 import { rarityOf } from '../rewards';
 import { RunState, autoDeploy, deployZone, deploymentCost, makeRosterPiece, newRun, rerollReward, startBattle } from '../run';
@@ -127,5 +127,15 @@ describe('the Potion Shop', () => {
     const restored = drinkBattlePotion(healed, 'restoration', target.id);
     expect(restored.potions).toEqual([]);
     expect(restored.activeBattle!.pieces.find((q) => q.id === target.id)!.hp).toBe(target.maxHp);
+  });
+
+  it('upgrade forging climbs every rarity, Legendary and Mythical included', () => {
+    expect(UPGRADE_RECIPES).toEqual({
+      common: { into: 'uncommon', count: 3 },
+      uncommon: { into: 'rare', count: 3 },
+      rare: { into: 'epic', count: 3 },
+      epic: { into: 'legendary', count: 3 },
+      legendary: { into: 'mythical', count: 4 },
+    });
   });
 });

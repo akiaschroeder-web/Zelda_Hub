@@ -31,8 +31,8 @@ const RARITY_LABEL: Record<string, string> = {
   common: 'Common',
   uncommon: 'Uncommon',
   rare: 'Rare',
-  epic: 'Epic (Legendary)',
-  boss: 'Boss (Mythical)',
+  epic: 'Epic',
+  boss: 'Boss',
   legendary: 'Legendary',
   mythical: 'Mythical',
 };
@@ -171,7 +171,7 @@ function ForgeView({ run }: { run: RunState }) {
             <Panel>
               <Text style={text.heading}>MELT UPGRADES DOWN</Text>
               <Text style={[text.dim, { marginTop: 4 }]}>
-                3 Common → Uncommon · 3 Uncommon → Rare · 3 Rare or 3 Epic → Legendary · 4 Legendary → Mythical. Uses upgrades in your
+                3 Common → Uncommon · 3 Uncommon → Rare · 3 Rare → Epic · 3 Epic → Legendary · 4 Legendary → Mythical. Uses upgrades in your
                 stash (extract them from pieces first).
               </Text>
               {stash.length === 0 && <Text style={[text.dim, { marginTop: 8 }]}>Your stash is empty.</Text>}

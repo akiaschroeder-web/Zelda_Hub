@@ -2,9 +2,8 @@
  * The Forge: sacrifice pieces or upgrades of one rarity for one of the next
  * rarity up, take an upgrade off a piece to keep it, or put a kept upgrade on.
  *
- * Piece rarities: Common → Uncommon → Rare → Epic ("Legendary") → Boss
- * ("Mythical"). Upgrade rarities: Common → Uncommon → Rare (and Epic) →
- * Legendary → Mythical.
+ * Piece rarities: Common → Uncommon → Rare → Epic → Boss. Upgrade rarities:
+ * Common → Uncommon → Rare → Epic → Legendary → Mythical.
  */
 import { BOSS_TYPES, EMERALD_FORMS, MASTER_EMERALD_FORMS } from '../engine/pieces';
 import { PieceType } from '../engine/types';
@@ -27,7 +26,7 @@ export const PIECE_RECIPES: Partial<Record<Rarity, { into: Rarity; count: number
 export const UPGRADE_RECIPES: Partial<Record<UpgradeRarity, { into: UpgradeRarity; count: number }>> = {
   common: { into: 'uncommon', count: 3 },
   uncommon: { into: 'rare', count: 3 },
-  rare: { into: 'legendary', count: 3 },
+  rare: { into: 'epic', count: 3 },
   epic: { into: 'legendary', count: 3 },
   legendary: { into: 'mythical', count: 4 },
 };
