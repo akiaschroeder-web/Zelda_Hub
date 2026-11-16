@@ -25,6 +25,7 @@ import {
   setTerrain,
 } from './core';
 import { PIECE_STATS, footprint, sizeOf } from './pieces';
+import { applyCrateTile } from './crates';
 import { Coord, GameState, Move, Piece, Terrain, Tile, endOfTurn, sameCoord } from './types';
 
 /** Plies a Floor Master stays inactive after grabbing a piece (3 rounds). */
@@ -127,6 +128,11 @@ function applyTile(s: GameState, p: Piece, t: Tile, triggered: Set<Tile>): boole
     }
     case 'switch':
       rotateTerrain(s);
+      return false;
+    case 'tnt':
+    case 'nitro':
+    case 'bounce':
+      applyCrateTile(s, p, t);
       return false;
     case 'spring': {
       // Exactly 3 squares, over anything. An enemy there takes 1 and the piece stays put.

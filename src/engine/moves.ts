@@ -51,6 +51,8 @@ import { zeldaAfterMove, zeldaBeforeMove, zeldaTurnEnd, zeldaTurnStart } from '.
 import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { baguetteBonus, duoMoves, resolveDuo, tetoDuetBonus } from './duo';
+import { cratesTurnEnd, nitroProximity } from './crates';
+import { crashUpgradeAfterMove, crashUpgradeAttackBonus, crashUpgradeBeforeMove, crashUpgradeTurnEnd, dedupeUpgradeSteps } from './crashUpgrades';
 import { crashAfterAttack, crashAfterMove, crashAttackBonus, crashMoves, crashTurnEnd, intimidated, resolveCrash } from './crash';
 import { resolveSonic, sonicAfterMove, sonicBeforeMove, sonicMoves, sonicTurnEnd, sonicTurnStart } from './sonic';
 import { ATTACK_UPGRADES, drillThrough, flameRing, spendSonicAction } from './sonicUpgrades';
@@ -386,7 +388,7 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
   // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
   if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
   if (p.type === 'king' && !p.hasMoved && !bound) moves.push(...castleMoves(state, p));
-  return intimidated(state, p, moves);
+  return dedupeUpgradeSteps(intimidated(state, p, moves));
 }
 
 /**
@@ -433,6 +435,10 @@ function fitsBonus(m: Move, b: Bonus): boolean {
   if (b.pieceId && m.pieceId !== b.pieceId) return false;
   if (b.maxDistance !== undefined && (m.action || distance(m.from, m.to) > b.maxDistance)) return false;
   if (b.to && (m.action || !sameCoord(m.to, b.to))) return false;
+  // Bounce Crate jumps, Tawna's diagonal hop and Time Relic only allow their own move.
+  if (b.source === 'bounce_crate' && m.param !== 'bounce') return false;
+  if (b.source === 'acrobatic_strike' && m.param !== 'acrobatic') return false;
+  if (b.source === 'time_relic') return m.action === 'upgrade' && m.upgrade === 'time_relic';
   // Super Silver's second lift: only another Psychokinesis.
   if (b.source === 'super_pk' && m.action !== 'psychokinesis') return false;
   if (b.filter === 'nonCapturing') return !m.targets?.length && (!m.action || m.action === 'teleport');
@@ -512,7 +518,7 @@ export function legalMoves(state: GameState, side: Side = state.turn): Move[] {
     for (const m of pseudoMovesFor(state, p)) {
       if (bonus && !fitsBonus(m, bonus)) continue;
       if (bonus && ((m.upgrade && FREE_ACTIONS.has(m.upgrade)) || (m.action && FREE_BOSS_ACTIONS.has(m.action)))) continue; // no chaining free actions
-      if (state.rules.checkRules && m.upgrade !== 'time_reversal' && m.action !== 'rewind') {
+      if (state.rules.checkRules && m.upgrade !== 'time_reversal' && m.upgrade !== 'time_relic' && m.action !== 'rewind') {
         if (leavesKingInCheck(state, m, side)) continue;
       }
       out.push(m);
@@ -592,7 +598,7 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (p.type === 'motobug' && m.from.y === m.to.y && Math.abs(m.to.x - m.from.x) >= 3) dmg += 1;
   if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
   // Digital Duo: Teto's duet and the Baguette boost the first attack of the battle.
-  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m);
+  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m) + crashUpgradeAttackBonus(p, m);
   // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
   if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
     dmg += 1;
@@ -1023,6 +1029,21 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
       return restored;
     }
   }
+  // Time Relic: take back the move just made and choose again.
+  if (m.action === 'upgrade' && m.upgrade === 'time_relic') {
+    const snap = state.snapshot[side];
+    if (snap) {
+      const restored = cloneState(snap);
+      restored.snapshot = { ...state.snapshot, [side]: undefined };
+      restored.positionHistory = state.positionHistory;
+      restored.runFlags = [...state.runFlags];
+      const user = getPiece(restored, m.pieceId);
+      if (user) markUsed(user, 'time_relic');
+      restored.log = ['Time Relic! The move is taken back.'];
+      freeze(restored);
+      return restored;
+    }
+  }
   if (m.action === 'upgrade' && m.upgrade === 'time_reversal') {
     const snap = state.snapshot[side];
     if (snap) {
@@ -1040,7 +1061,7 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   const s = cloneState(state);
   const mainMove = s.bonus.length === 0;
   const rewinder = state.pieces.some((p) => p.side !== side && p.type === 'chronarch' && !hasUsed(p, 'rewind'));
-  if (mainMove && (rewinder || state.pieces.some((p) => p.side === side && ready(p, 'time_reversal')))) {
+  if (mainMove && (rewinder || state.pieces.some((p) => p.side === side && (ready(p, 'time_reversal') || ready(p, 'time_relic'))))) {
     s.snapshot = { ...s.snapshot, [side]: snapshotOf(state) };
   }
   const entry = s.bonus.shift();
@@ -1049,10 +1070,13 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   zeldaBeforeMove(s, m);
   sonicBeforeMove(s, m);
   drillThrough(s, m);
+  crashUpgradeBeforeMove(s, m);
   resolve(s, m, entry);
   zeldaAfterMove(s, m, from);
   sonicAfterMove(s, m, from, entry);
   crashAfterMove(s, m, from, entry, s.captured.length > state.captured.length);
+  crashUpgradeAfterMove(s, m, from, entry, s.captured.length - state.captured.length, mainMove);
+  nitroProximity(s, m, from);
   tilesAfterMove(s, m, from, state);
 
   // Doppelganger: a borrowed ability starts the Stolen Talent cooldown.
@@ -1171,6 +1195,8 @@ function endTurn(s: GameState) {
   zeldaTurnEnd(s, side);
   sonicTurnEnd(s, side);
   crashTurnEnd(s, side);
+  crashUpgradeTurnEnd(s, side);
+  cratesTurnEnd(s);
 
   // Expiry at the end of this ply.
   const ply = s.ply;

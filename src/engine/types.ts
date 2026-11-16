@@ -27,7 +27,13 @@ export type TileKind =
   | 'dash'
   | 'crumble'
   | 'monitor'
-  | 'starPost';
+  | 'starPost'
+  // Crash Bandicoot Pack: TNT, Nitro and Bounce Crates (special spaces), and crates placed by upgrades
+  | 'tnt'
+  | 'nitro'
+  | 'bounce'
+  | 'tntCrate'
+  | 'nitroCrate';
 
 export interface Tile {
   kind: TileKind;
@@ -40,6 +46,8 @@ export interface Tile {
   dir?: Coord;
   /** Star Post: the piece that claimed it. */
   claimedBy?: string;
+  /** TNT: explodes at the end of this ply once lit. */
+  fuse?: number;
 }
 
 export type PieceType =

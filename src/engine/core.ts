@@ -9,6 +9,7 @@ import { inBounds, isHole, isStandable, terrainAt } from './board';
 import { BOSS_TYPES, PIECE_STATS, deathEggPhase, footprint, sizeOf } from './pieces';
 import { eggmanEscapeSquare } from './sonic';
 import { crashNegates, crashOnCaptured, crashReduction } from './crash';
+import { crateSmashed } from './crates';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { etherealEscape, haunted } from './bosses';
 import {
@@ -591,6 +592,17 @@ function preventDeath(s: GameState, p: Piece): boolean {
       return true;
     }
   }
+  // Checkpoint Crate: once per battle, back to its starting square with 1 HP.
+  if (ready(p, 'checkpoint_crate')) {
+    const home = isEmpty(s, p.startPos) ? p.startPos : nearestEmpty(s, p.startPos, 16);
+    if (home) {
+      markUsed(p, 'checkpoint_crate');
+      p.hp = 1;
+      p.pos = { ...home };
+      log(s, `${nameOf(p)} respawns at its checkpoint!`);
+      return true;
+    }
+  }
   if (ready(p, 'bottled_fairy')) {
     markUsed(p, 'bottled_fairy');
     p.hp = 1;
@@ -873,6 +885,7 @@ export function destroyCracked(s: GameState, c: Coord, by?: Piece): boolean {
   if (terrainAt(s.board, c) !== 'cracked') return false;
   if (!setTerrain(s, c, 'normal')) return false;
   s.destroyedWalls.push({ ...c });
+  crateSmashed(s, c);
   if (by && has(by, 'siege_charge')) addStatus(by, { kind: 'damageBuff', amount: 1, until: null, source: 'siege_charge' });
   return true;
 }

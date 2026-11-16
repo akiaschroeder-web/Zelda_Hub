@@ -395,6 +395,45 @@ const DUO_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity, c
   [306, 'duet_microphone', 'Duet Microphone', 'rare', 'support', 'Every 4 turns, instead of moving, pick a friendly piece within 2: both get +1 movement range and +1 attack damage until the end of their next turn.'],
 ];
 
+/** Crash Bandicoot Pack upgrades. */
+const CRASH_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity, category: UpgradeCategory, text: string][] = [
+  // Classic power-ups
+  [307, 'aku_aku_mask', 'Aku Aku Mask', 'common', 'defense', 'Ignores the first point of damage it takes each battle.'],
+  [308, 'golden_aku_aku', 'Golden Aku Aku', 'uncommon', 'defense', 'Ignores the first 2 points of damage it takes each battle.'],
+  [309, 'wumpa_fruit', 'Wumpa Fruit', 'common', 'support', 'Every third capture restores 1 HP.'],
+  [310, 'super_belly_flop', 'Super Belly Flop', 'rare', 'offense', 'Every 3 turns, instead of moving, jump exactly 2 squares in any direction (over anything) and deal 1 damage to every enemy next to where it lands.'],
+  [311, 'death_tornado_spin', 'Death Tornado Spin', 'rare', 'offense', 'Every 3 turns, after a capture, may move again up to 2 squares — and this move can capture.'],
+  [312, 'double_jump', 'Double Jump', 'uncommon', 'movement', 'Every 3 turns, after a move that captures nothing, may make another move that captures nothing.'],
+  [313, 'fruit_bazooka', 'Fruit Bazooka', 'uncommon', 'offense', 'Every 3 turns, instead of moving, 1 damage to the first piece within 5 in an orthogonal line, if it is an enemy.'],
+  [314, 'crash_dash', 'Crash Dash', 'common', 'movement', 'Slides one square further.'],
+  // Crates & hazards
+  [315, 'wooden_crate', 'Wooden Crate', 'common', 'walls', 'Every 3 turns, instead of moving, put a cracked wall on an adjacent empty square.'],
+  [316, 'iron_crate', 'Iron Crate', 'uncommon', 'walls', 'Every 4 turns, instead of moving, put a wall on an adjacent empty square.'],
+  [317, 'tnt_crate', 'TNT Crate', 'rare', 'walls', 'Every 4 turns, instead of moving, put a TNT Crate on an adjacent empty square. It blocks the way and explodes after 2 turns: 1 damage to everything around it, and nearby cracked walls are smashed.'],
+  [318, 'nitro_crate', 'Nitro Crate', 'rare', 'walls', 'Every 4 turns, instead of moving, put a Nitro Crate on an adjacent empty square. It blocks the way and explodes when any piece moves next to it: 1 damage to everything around it.'],
+  [319, 'bounce_crate', 'Bounce Crate', 'common', 'movement', 'Every 3 turns, may jump exactly 3 squares orthogonally over anything, onto an empty square.'],
+  [320, 'checkpoint_crate', 'Checkpoint Crate', 'rare', 'defense', 'Once per battle, instead of being captured, returns to its starting square (or the nearest free one) with 1 HP.'],
+  [321, 'arrow_crate', 'Arrow Crate', 'common', 'movement', 'After sliding 2 or more squares in a straight line, may slide one more square the same way.'],
+  // Quantum Masks
+  [322, 'lani_loli', 'Lani-Loli — Phase Mask', 'legendary', 'legendary', 'Every 3 turns, a slide may pass through walls and pieces (it must end on an empty square).'],
+  [323, 'akano', 'Akano — Dark Matter Mask', 'legendary', 'offense', 'Every 3 turns, may charge up to 4 squares in any direction, smashing the cracked walls on the way; a capture with the charge deals 2 damage.'],
+  [324, 'kupuna_wa', 'Kupuna-Wa — Time Mask', 'rare', 'status', "Every 4 turns, instead of moving, an enemy within 3 can't move or use abilities on its next turn. Bosses are immune."],
+  [325, 'ika_ika', 'Ika-Ika — Gravity Mask', 'rare', 'status', 'Every 3 turns, instead of moving, move an adjacent 1×1 enemy one square in any direction. Bosses are immune.'],
+  // Villain technology & gear
+  [326, 'cortex_ray_gun', 'Cortex Ray Gun', 'uncommon', 'offense', 'Every 3 turns, instead of moving, 1 damage to the first piece within 4 in a diagonal line, if it is an enemy.'],
+  [327, 'n_gins_rockets', "N. Gin's Rockets", 'rare', 'offense', 'Every 4 turns, instead of moving, 1 damage to an enemy within 4, over pieces but not through walls.'],
+  [328, 'vacuum_cannon', 'Vacuum Cannon', 'uncommon', 'status', 'Every 3 turns, instead of moving, pull a 1×1 enemy within 3 one square closer. Bosses are immune.'],
+  [329, 'grappling_hook', 'Grappling Hook', 'uncommon', 'movement', 'Every 3 turns, instead of moving, swing to an empty square next to a wall or cracked wall within 4, over pieces and gaps.'],
+  [330, 'mutagen_potion', 'Mutagen Potion', 'legendary', 'defense', 'Once per battle, instead of moving, its maximum HP becomes 3 (if lower) for 3 turns and it heals to full. Extra HP is lost when it wears off.'],
+  [331, 'time_relic', 'Time Relic', 'legendary', 'legendary', 'Once per battle, right after this piece moves, take the whole move back and choose again.'],
+  // Racing & special
+  [332, 'turbo_boost', 'Turbo Boost', 'uncommon', 'movement', 'Every 3 turns, one slide may go up to twice as far (no jumping over anything).'],
+  [333, 'bowling_bomb', 'Bowling Bomb', 'rare', 'offense', 'Every 4 turns, instead of moving, roll a bomb up to 4 squares orthogonally. It stops at the first piece or wall and explodes: 1 damage to every piece within 1, and adjacent cracked walls are smashed.'],
+  [334, 'warp_orb', 'Warp Orb', 'legendary', 'offense', 'Every 5 turns, instead of moving, 1 damage to the enemy farthest away (not the King), whatever is in between.'],
+  [335, 'clear_gem', 'Clear Gem', 'uncommon', 'defense', '+1 maximum HP (up to 3).'],
+  [336, 'power_crystal', 'Power Crystal', 'mythical', 'legendary', '+1 maximum HP (up to 3), slides two squares further and +1 damage on every attack. Crystal Surge: once per battle, after a capture, may move again — and this move can capture.'],
+];
+
 /** Upgrades that depend on systems the game doesn't have yet. Never offered. */
 export const EXCLUDED: Record<string, string> = {
   free_rotation: 'Pieces have no facing.',
@@ -472,6 +511,17 @@ export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, R
       slots: slotsFor(rarity),
       cost: COST[rarity],
       pack: 'duo',
+    })),
+    CRASH_ROWS.map(([num, id, name, rarity, category, text]): UpgradeInfo => ({
+      num,
+      id,
+      name,
+      rarity,
+      category,
+      text,
+      slots: slotsFor(rarity),
+      cost: COST[rarity],
+      pack: 'crash',
     })),
   )
   .sort((a, b) => a.num - b.num);

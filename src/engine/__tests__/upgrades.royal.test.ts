@@ -230,14 +230,17 @@ describe('Legendary upgrades', () => {
 });
 
 describe('upgrade catalog', () => {
-  it('has all 240 base upgrades plus 33 Zelda, 30 Sonic and 3 Digital Duo upgrades, with unique numbers and ids', () => {
+  it('has all 240 base upgrades plus 33 Zelda, 30 Sonic and 3 Digital Duo and 30 Crash upgrades, with unique numbers and ids', () => {
     expect(UPGRADES.filter((u) => !u.pack)).toHaveLength(240);
     expect(UPGRADES.filter((u) => u.pack === 'zelda')).toHaveLength(33);
     expect(UPGRADES.filter((u) => u.pack === 'sonic')).toHaveLength(30);
     expect(UPGRADES.filter((u) => u.pack === 'duo').map((u) => u.id)).toEqual(['leek', 'baguette', 'duet_microphone']);
-    expect(UPGRADES.filter((u) => u.rarity === 'mythical').map((u) => u.id).sort()).toEqual(['chaos_emeralds', 'triforce_courage', 'triforce_power', 'triforce_wisdom']);
-    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(306);
-    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(306);
+    const crash = UPGRADES.filter((u) => u.pack === 'crash');
+    expect(crash).toHaveLength(30);
+    expect(['common', 'uncommon', 'rare', 'legendary', 'mythical'].map((r) => crash.filter((u) => u.rarity === r).length)).toEqual([6, 9, 9, 5, 1]);
+    expect(UPGRADES.filter((u) => u.rarity === 'mythical').map((u) => u.id).sort()).toEqual(['chaos_emeralds', 'power_crystal', 'triforce_courage', 'triforce_power', 'triforce_wisdom']);
+    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(336);
+    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(336);
     expect(UPGRADES.filter((u) => u.excluded).map((u) => u.id).sort()).toEqual(
       ['anchor_feet', 'board_dominion', 'free_rotation', 'gap_sense', 'terrain_adaptation', 'wall_breaker'].sort(),
     );

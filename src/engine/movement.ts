@@ -27,6 +27,7 @@ import {
   suppressed,
 } from './core';
 import { crashAuraPresent, crashRangeBonus, tropyPhase } from './crash';
+import { crashUpgradeRange, crashUpgradeSteps } from './crashUpgrades';
 import { PIECE_STATS, ZELDA_TYPES, deathEggPhase, footprint, ganonPhase, sizeOf } from './pieces';
 import { haunted, heavyDirs, phantomSteps } from './bosses';
 import { Coord, GameState, Piece, PieceType, forward, sameCoord } from './types';
@@ -376,6 +377,7 @@ function baseRangeBonus(s: GameState, p: Piece, dir: Coord): number {
   let b = 0;
   if (has(p, 'extended_stride')) b += 1;
   if (has(p, 'speed_shoes')) b += 1;
+  b += crashUpgradeRange(p);
   if (has(p, 'chaos_emeralds')) b += 1;
   if (has(p, 'purple_frenzy')) b += Math.min(3, p.counters.frenzy ?? 0);
   if (has(p, 'momentum') && p.streak >= 2) b += 1;
@@ -757,6 +759,12 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
     }
   }
 
+  if (p.upgrades.length && !crippled) {
+    const slides = patternsFor(s, p).flatMap((pat) =>
+      pat.kind === 'slide' && Number.isFinite(pat.max) && !pat.uses ? pat.dirs.map((dir) => ({ dir, max: Math.max(1, pat.max + rangeBonus(s, p, dir)) })) : [],
+    );
+    out.push(...crashUpgradeSteps(s, p, slides));
+  }
   if (p.type === 'phantom_king' && !crippled) out.push(...phantomSteps(s, p));
   if (p.type === 'midna' && twilightCharged(p)) out.push(...twilightSteps(s, p));
   if (p.type === 'goron' && !confused) out.push(...rollingCharge(s, p));

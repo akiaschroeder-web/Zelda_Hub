@@ -29,6 +29,7 @@ import {
   sign,
   sub,
 } from './core';
+import { bounceSquares } from './crates';
 import { PIECE_STATS, footprint, sizeOf } from './pieces';
 import { Bonus, Coord, GameState, Move, Piece, Side, endOfTurn, sameCoord } from './types';
 
@@ -172,8 +173,11 @@ export function crashMoves(s: GameState, p: Piece): Move[] {
   if (p.type === 'tawna' && s.bonus[0]?.source === 'acrobatic_strike' && s.bonus[0].pieceId === p.id)
     for (const d of DIAG) {
       const c = add(p.pos, d);
-      if (isEmpty(s, c)) out.push({ ...base, to: c });
+      if (isEmpty(s, c)) out.push({ ...base, to: c, param: 'acrobatic' });
     }
+  // Bounce Crate: the bonus jump, exactly two squares any direction.
+  if (s.bonus[0]?.source === 'bounce_crate' && s.bonus[0].pieceId === p.id)
+    for (const c of bounceSquares(s, p)) out.push({ ...base, to: c, param: 'bounce' });
   // A piece wearing Aku Aku may set him down on an empty square next to it instead of moving.
   if (maskOn(s, p.id))
     for (const d of ALL_DIRS) {

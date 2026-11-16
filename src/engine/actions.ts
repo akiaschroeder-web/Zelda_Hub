@@ -50,6 +50,7 @@ import { haunted } from './bosses';
 import { isZeldaAction, resolveZeldaUpgrade, zeldaUpgradeActions } from './zeldaUpgrades';
 import { isSonicAction, resolveSonicUpgrade, sonicUpgradeActions } from './sonicUpgrades';
 import { duoUpgradeActions, isDuoAction, resolveDuoUpgrade } from './duo';
+import { crashUpgradeActions, isCrashAction, resolveCrashUpgrade } from './crashUpgrades';
 import { peelOutSquares } from './movement';
 import { Coord, GameState, Move, Piece, PieceType, Side, endOfTurn, opponent, sameCoord, shieldTotal } from './types';
 
@@ -277,6 +278,7 @@ export function upgradeActions(s: GameState, p: Piece): Move[] {
   moves.push(...zeldaUpgradeActions(s, p));
   moves.push(...sonicUpgradeActions(s, p, () => peelOutSquares(s, p)));
   moves.push(...duoUpgradeActions(s, p));
+  moves.push(...crashUpgradeActions(s, p));
 
   return moves.filter((m) => {
     if ((hasStatus(p, 'bound') || suppressed(s, p)) && MOVEMENT_ACTIONS.has(m.upgrade!)) return false;
@@ -306,6 +308,10 @@ export function resolveUpgradeAction(s: GameState, m: Move): void {
   }
   if (isDuoAction(id)) {
     resolveDuoUpgrade(s, m);
+    return;
+  }
+  if (isCrashAction(id)) {
+    resolveCrashUpgrade(s, m);
     return;
   }
 

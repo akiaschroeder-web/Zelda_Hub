@@ -10,7 +10,7 @@ const KING_TARGETING = ['royal_guard', 'royal_escort', 'royal_protection'];
 const KING_ALLOWED = new Set(['royal_resilience', 'royal_resurrection']);
 
 /** Upgrades that need a finite movement range to do anything. */
-const FINITE = ['extended_stride', 'quick_march', 'momentum', 'long_retreat', 'cliff_runner', 'edge_walker', 'speed_shoes', 'super_peel_out', 'purple_frenzy'];
+const FINITE = ['crash_dash', 'turbo_boost', 'arrow_crate', 'lani_loli', 'extended_stride', 'quick_march', 'momentum', 'long_retreat', 'cliff_runner', 'edge_walker', 'speed_shoes', 'super_peel_out', 'purple_frenzy'];
 /** Upgrades that need the piece to make moving attacks (bounceback). */
 const BOUNCERS = [
   'reduced_recoil',
@@ -27,6 +27,10 @@ const BOUNCERS = [
 ];
 /** Upgrades that only make sense on a 1x1 piece. */
 const SMALL_ONLY = [
+  'super_belly_flop',
+  'bounce_crate',
+  'akano',
+  'grappling_hook',
   'diagonal_step',
   'orthogonal_step',
   'side_step',

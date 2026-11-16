@@ -30,7 +30,7 @@ export function maxHpFor(type: PieceType, upgrades: string[] = [], bonus = 0): n
   if (upgrades.includes('colossal_endurance')) hp += 2;
   if (upgrades.includes('triforce_power')) hp += 1;
   // Chaos Drive and the Chaos Emeralds: +1, but only up to 3.
-  for (const u of ['chaos_drive', 'chaos_emeralds']) if (upgrades.includes(u) && hp < 3) hp += 1;
+  for (const u of ['chaos_drive', 'chaos_emeralds', 'clear_gem', 'power_crystal']) if (upgrades.includes(u) && hp < 3) hp += 1;
   return hp;
 }
 
@@ -40,6 +40,9 @@ function battleStart(state: GameState) {
   for (const p of state.pieces) {
     const friends = state.pieces.filter((o) => o.side === p.side && o.id !== p.id);
     if (has(p, 'thick_armor')) lasting(p);
+    // Aku Aku Mask and Golden Aku Aku: the first one or two points of damage each battle.
+    if (has(p, 'aku_aku_mask')) lasting(p);
+    if (has(p, 'golden_aku_aku')) lasting(p, 2);
     if (has(p, 'heavy_armor')) {
       lasting(p);
       lasting(p);
