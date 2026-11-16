@@ -482,7 +482,7 @@ const METROID_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarit
   [372, 'morph_ball', 'Morph Ball', 'rare', 'movement', 'Every 3 turns, one slide may roll through pieces and walls, ending on an empty square.'],
   [373, 'morph_ball_bomb', 'Morph Ball Bomb', 'common', 'walls', 'Every 3 turns, instead of moving, 1 damage to every adjacent enemy, and adjacent cracked walls are smashed.'],
   [374, 'space_jump', 'Space Jump', 'rare', 'movement', 'Every 3 turns, may move again after a move (the second move can capture nothing).'],
-  [375, 'speed_booster', 'Speed Booster', 'uncommon', 'movement', 'Slides two squares further.'],
+  [375, 'speed_booster', 'Speed Booster', 'uncommon', 'movement', 'Slides two squares further orthogonally.'],
   [376, 'shinespark', 'Shinespark', 'legendary', 'movement', 'Every 4 turns, may launch up to 6 squares in a straight line over pieces and gaps, smashing cracked walls (walls stop it); landing on an enemy deals 2.'],
   [377, 'varia_suit', 'Varia Suit', 'uncommon', 'defense', '+1 maximum HP (up to 3), and the first point of damage each battle is ignored.'],
   [378, 'gravity_suit', 'Gravity Suit', 'rare', 'defense', "Crosses gaps when sliding, and enemy abilities can't move it."],

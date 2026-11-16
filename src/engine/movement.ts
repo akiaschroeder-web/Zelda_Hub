@@ -440,7 +440,7 @@ const adjacentToGap = (s: GameState, c: Coord) =>
 export function rangeBonus(s: GameState, p: Piece, dir: Coord): number {
   const crash = crashAuraPresent(s) ? crashRangeBonus(s, p) : 0;
   const mario = marioAuraPresent(s) ? marioRangeBonus(s, p) : 0;
-  return crash + mario + metroidRangeBonus(s, p) + baseRangeBonus(s, p, dir);
+  return crash + mario + metroidRangeBonus(s, p, dir) + baseRangeBonus(s, p, dir);
 }
 
 function baseRangeBonus(s: GameState, p: Piece, dir: Coord): number {

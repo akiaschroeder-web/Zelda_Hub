@@ -158,10 +158,10 @@ export function ridleySteps(s: GameState, p: Piece): RidleyStep[] {
   return out;
 }
 
-/** Extra sliding range: Speed Booster +2, Metroid Suit +1, E.M.M.I.'s Pursuit +1. */
-export function metroidRangeBonus(s: GameState, p: Piece): number {
+/** Extra sliding range: Speed Booster +2 (orthogonal slides), Metroid Suit +1, E.M.M.I.'s Pursuit +1. */
+export function metroidRangeBonus(s: GameState, p: Piece, dir: Coord): number {
   let b = 0;
-  if (has(p, 'speed_booster')) b += 2;
+  if (has(p, 'speed_booster') && (dir.x === 0 || dir.y === 0)) b += 2;
   if (has(p, 'metroid_suit')) b += 1;
   if (p.type === 'emmi' && s.pieces.some((e) => e.side !== p.side && pieceDistance(e, p) <= 3)) b += 1;
   return b;
