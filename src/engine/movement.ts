@@ -760,8 +760,12 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
   }
 
   if (p.upgrades.length && !crippled) {
+    // Finite slides (with range bonuses); unlimited ones reach across the board (Lani-Loli only).
+    const across = Math.max(s.board.width, s.board.height);
     const slides = patternsFor(s, p).flatMap((pat) =>
-      pat.kind === 'slide' && Number.isFinite(pat.max) && !pat.uses ? pat.dirs.map((dir) => ({ dir, max: Math.max(1, pat.max + rangeBonus(s, p, dir)) })) : [],
+      pat.kind === 'slide' && !pat.uses
+        ? pat.dirs.map((dir) => ({ dir, max: Number.isFinite(pat.max) ? Math.max(1, pat.max + rangeBonus(s, p, dir)) : across, unlimited: !Number.isFinite(pat.max) }))
+        : [],
     );
     out.push(...crashUpgradeSteps(s, p, slides));
   }

@@ -330,6 +330,14 @@ function PieceArt({ p, cell }: { p: Piece; cell: number }) {
         </View>
       )}
       {p.temp && <View style={[StyleSheet.absoluteFill, styles.tempRing]} />}
+      {/* Aku Aku riding on this piece (Guardian Mask). */}
+      {!!p.counters.akuHost && (
+        <Image
+          source={PIECE_IMAGES[p.side].aku_aku}
+          style={{ position: 'absolute', left: 0, top: 0, width: cell * 0.42, height: cell * 0.42 }}
+          resizeMode="contain"
+        />
+      )}
     </>
   );
 }
@@ -345,6 +353,11 @@ const TILE_ART: Partial<Record<Tile['kind'], ImageSourcePropType>> = {
   dash: require('../../assets/tiles/dash.png'),
   monitor: require('../../assets/tiles/monitor.png'),
   starPost: require('../../assets/tiles/star_post.png'),
+  tnt: require('../../assets/tiles/tnt.png'),
+  nitro: require('../../assets/tiles/nitro.png'),
+  bounce: require('../../assets/tiles/bounce_crate.png'),
+  tntCrate: require('../../assets/tiles/tnt.png'),
+  nitroCrate: require('../../assets/tiles/nitro.png'),
 };
 /** Which way an arrow pointing up has to turn to face `dir`. */
 const facing = (dir?: Coord) => (!dir ? '0deg' : dir.y < 0 ? '0deg' : dir.x > 0 ? '90deg' : dir.y > 0 ? '180deg' : '270deg');
@@ -363,7 +376,15 @@ function TileIcon({ tile, size, resting, small }: { tile: Tile; size: number; re
   const art = TILE_ART[tile.kind];
   const warp = tile.kind === 'warp';
   const box = size * (small ? 0.34 : 0.8);
-  const ringColor = warp ? (tile.pair === 'V' ? '#3cbec8' : '#f0c83c') : tile.kind === 'starPost' && tile.claimedBy ? '#f0c83c' : null;
+  const ringColor = warp
+    ? tile.pair === 'V'
+      ? '#3cbec8'
+      : '#f0c83c'
+    : tile.kind === 'starPost' && tile.claimedBy
+      ? '#f0c83c'
+      : tile.fuse !== undefined
+        ? '#ff3b2f' // lit TNT
+        : null;
   return (
     <View
       style={[

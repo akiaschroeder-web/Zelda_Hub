@@ -251,7 +251,7 @@ export interface CrashStep {
 }
 
 /** Extra movement from Bounce Crate, Turbo Boost, Lani-Loli and Akano. `slides` are the piece's finite slides. */
-export function crashUpgradeSteps(s: GameState, p: Piece, slides: { dir: Coord; max: number }[]): CrashStep[] {
+export function crashUpgradeSteps(s: GameState, p: Piece, slides: { dir: Coord; max: number; unlimited?: boolean }[]): CrashStep[] {
   if (!p.upgrades.length || sizeOf(p) !== 1 || hasStatus(p, 'bound')) return [];
   const out: CrashStep[] = [];
   if (charged(p, 'bounce_crate'))
@@ -260,7 +260,7 @@ export function crashUpgradeSteps(s: GameState, p: Piece, slides: { dir: Coord; 
       if (isStandable(s.board, c) && isEmpty(s, c)) out.push({ to: c, capture: false, quiet: true, leap: true, uses: ['bounce_crate'] });
     }
   if (charged(p, 'turbo_boost'))
-    for (const { dir, max } of slides)
+    for (const { dir, max } of slides.filter((sl) => !sl.unlimited))
       for (let k = 1; k <= max * 2; k++) {
         const c = add(p.pos, scale(dir, k));
         if (!isStandable(s.board, c)) break;

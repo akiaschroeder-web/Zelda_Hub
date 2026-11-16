@@ -222,6 +222,11 @@ const cd = (p: Piece, key: string, name: string) =>
 
 /** Live state of Zelda Pack abilities for the info panel. */
 function zeldaNotes(p: Piece): string {
+  if (p.counters.akuHost) return ' Aku Aku is riding on it: his Protective Spirit guards only this piece.' + zeldaTypeNotes(p);
+  return zeldaTypeNotes(p);
+}
+
+function zeldaTypeNotes(p: Piece): string {
   switch (p.type) {
     case 'link':
       return p.hp === 1 ? " Hero's Courage is active." : '';
@@ -323,6 +328,19 @@ function describeSpace(state: GameState, c: Coord): { title: string; text: strin
       return { title: 'Crumbling Platform', text: 'Safe to stand on, but the moment it is left empty it collapses into a gap for good.' };
     case 'monitor':
       return { title: 'Item Monitor', text: 'The first piece to land here breaks it for a bonus: Speed Shoes (+1 range for 3 turns), a Shield, a Power Boost (+1 damage on its next attack) or Recovery (heal 1).' };
+    case 'tnt':
+      return {
+        title: 'TNT Crate',
+        text: `A piece landing here lights it: after 3 of that side's turns it explodes, dealing 1 to every piece in the 3×3 around it and smashing cracked walls there. Explosions set off other crates nearby.${tile.fuse !== undefined ? ` Lit — goes off in ${Math.max(1, Math.ceil((tile.fuse - state.ply + 1) / 2))} turn(s)!` : ''}`,
+      };
+    case 'nitro':
+      return { title: 'Nitro Crate', text: 'Explodes the moment a piece lands on it: 1 damage to that piece and everything next to it, and nearby cracked walls are smashed. Jumping over it is safe.' };
+    case 'bounce':
+      return { title: 'Bounce Crate', text: 'A 1×1 piece landing here may jump exactly 2 squares in any direction, over anything, onto an empty square (no capture). Once per turn; it never breaks.' };
+    case 'tntCrate':
+      return { title: 'TNT Crate (placed)', text: "Blocks the way like a cracked wall and explodes when its fuse runs out (2 of its owner's turns) or when it's smashed: 1 damage to everything around it." };
+    case 'nitroCrate':
+      return { title: 'Nitro Crate (placed)', text: 'Blocks the way like a cracked wall and explodes as soon as any piece moves next to it, or when smashed: 1 damage to everything around it.' };
     case 'starPost':
       return {
         title: 'Star Post',

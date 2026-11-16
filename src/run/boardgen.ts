@@ -207,6 +207,20 @@ function attempt(rng: Rng, spec: BoardSpec, simple: boolean, plain = false): Gen
     }
   }
 
+  // 4c. Crash Pack special spaces: TNT (X), Nitro (Z) and Bounce Crates (B), mirrored for fairness.
+  if (!simple && spec.packs?.includes('crash') && rng.chance(boss ? 0.4 : 0.5)) {
+    const kinds = rng.shuffle(['X', 'Z', 'B']).slice(0, rng.int(1, 2));
+    for (const k of kinds) {
+      const free = middle.flatMap((y) => g[y].map((c, x) => ({ x, y, c }))).filter((o) => o.c === '.');
+      if (!free.length) break;
+      const c = rng.pick(free);
+      set(c.x, c.y, k);
+      const mx = n - 1 - c.x;
+      const my = n - 1 - c.y;
+      if (at(mx, my) === '.') set(mx, my, k);
+    }
+  }
+
   // 5. The armies must be able to reach each other (cracked walls and doors count as passable).
   if (!connected(g)) return null;
 

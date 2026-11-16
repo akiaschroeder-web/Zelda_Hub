@@ -64,7 +64,7 @@ export function parseBoard(rows: string[]): Board {
   const enemyZone: Coord[] = [];
   const tiles: Tile[] = [];
   const TILE_CHARS: Record<string, Tile['kind']> = {
-    K: 'key', S: 'switch', F: 'floorMaster', H: 'heart', W: 'warp', V: 'warp', '%': 'crumble', M: 'monitor', T: 'starPost',
+    K: 'key', S: 'switch', F: 'floorMaster', H: 'heart', W: 'warp', V: 'warp', '%': 'crumble', M: 'monitor', T: 'starPost', X: 'tnt', Z: 'nitro', B: 'bounce',
   };
   for (let y = 0; y < height; y++) {
     const row: Terrain[] = [];

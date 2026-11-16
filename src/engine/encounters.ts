@@ -1,4 +1,4 @@
-import { DUO_LEGEND, SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
+import { CRASH_LEGEND, DUO_LEGEND, SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
 import { EncounterDef } from './setup';
 
 /**
@@ -427,6 +427,60 @@ export const ENCOUNTERS: EncounterDef[] = [
       '6,6': ['leek'],
       '5,0': ['baguette'],
       '3,0': ['duet_microphone'],
+    },
+  },
+  {
+    id: 'wumpa_island',
+    name: 'Wumpa Island',
+    description:
+      'Crash Bandicoot Pack: Crash, Coco, Crunch, Aku Aku, Tawna, Polar and Pura against Cortex, N. Gin, N. Brio, Tiny Tiger, Dingodile, Ripper Roo and Uka Uka. Tap a piece to read what it does.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', '..+..+..', '.#....#.', '.#....#.', '..+..+..', '........', '........'],
+    pieces: ['ժըզիkծթէ', 'pppppppp', '........', '........', '........', '........', 'PPPPPPPP', 'ԵԳԱԴKԲԼԽ'],
+    legend: CRASH_LEGEND,
+  },
+  {
+    id: 'crate_factory',
+    name: 'Crate Factory',
+    description:
+      'Crash Bandicoot Pack spaces: TNT Crates (lit by stepping on them, they explode 3 turns later), Nitro Crates (explode on landing) and Bounce Crates (an extra jump). Tap a crate to read it.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', '..X..Z..', '.B.++.B.', '.B.++.B.', '..Z..X..', '........', '........'],
+    pieces: ['rnbqkbnr', 'pppppppp', '........', '........', '........', '........', 'PPPPPPPP', 'RNBQKBNR'],
+    legend: CRASH_LEGEND,
+  },
+  {
+    id: 'crash_upgrades',
+    name: 'Crash Arsenal',
+    description:
+      'Crash Bandicoot Pack upgrades on a standard army: crates, Quantum Masks, villain gadgets and the Power Crystal. Tap a piece to read its upgrades; tap it again for its actions.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', '..+..#..', '........', '........', '..#..+..', '........', '........'],
+    pieces: ['rnbqkbnr', 'pppppppp', '........', '........', '........', '........', 'PPPPPPPP', 'RNBQKBNR'],
+    legend: CRASH_LEGEND,
+    upgrades: {
+      '0,7': ['tnt_crate', 'nitro_crate'],
+      '1,7': ['akano', 'aku_aku_mask'],
+      '2,7': ['cortex_ray_gun', 'bounce_crate'],
+      '3,7': ['power_crystal'],
+      '5,7': ['lani_loli'],
+      '6,7': ['super_belly_flop', 'double_jump'],
+      '7,7': ['bowling_bomb', 'iron_crate'],
+      '0,6': ['clear_gem'],
+      '1,6': ['wooden_crate'],
+      '2,6': ['fruit_bazooka'],
+      '3,6': ['kupuna_wa'],
+      '4,6': ['golden_aku_aku'],
+      '5,6': ['ika_ika'],
+      '6,6': ['grappling_hook'],
+      '7,6': ['wumpa_fruit'],
+      '0,0': ['checkpoint_crate'],
+      '1,0': ['death_tornado_spin'],
+      '2,0': ['n_gins_rockets'],
+      '3,0': ['mutagen_potion'],
+      '5,0': ['vacuum_cannon'],
+      '6,0': ['time_relic'],
+      '7,0': ['warp_orb'],
     },
   },
 ];

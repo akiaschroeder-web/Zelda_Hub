@@ -272,3 +272,63 @@ describe('Crash Bandicoot Pack pieces', () => {
     expect(terrainAt(u.board, { x: 0, y: 0 })).toBe('normal');
   });
 });
+
+describe('Crash Pack special spaces', () => {
+  it('TNT Crate: lit by stepping on it, explodes after 3 turns, hitting the 3×3 and smashing cracked walls', () => {
+    const terrain = blank({ 4: '...X+...' });
+    let s = make(board({ ...kings, 3: { 2: 'p' }, 6: { 3: 'R' } }), {}, opts(terrain));
+    s = play(s, 3, 6, 3, 4);
+    const tnt = s.tiles.find((t) => t.kind === 'tnt')!;
+    expect(tnt.fuse).toBeDefined();
+    s = play(s, 2, 3, 2, 4);
+    s = play(s, 3, 4, 3, 7);
+    for (let i = 0; i < 6 && s.tiles.some((t) => t.kind === 'tnt'); i++) s = wait(s);
+    expect(s.tiles.some((t) => t.kind === 'tnt')).toBe(false);
+    expect(terrainAt(s.board, { x: 4, y: 4 })).toBe('normal');
+    expect(s.pieces.some((p) => p.type === 'pawn')).toBe(false);
+  });
+
+  it('Nitro Crate explodes as soon as a piece lands on it; jumping over is safe', () => {
+    const terrain = blank({ 4: '...Z....' });
+    let s = make(board({ ...kings, 3: { 4: 'p' }, 6: { 3: 'R' } }), {}, opts(terrain));
+    s = play(s, 3, 6, 3, 4);
+    expect(s.tiles.some((t) => t.kind === 'nitro')).toBe(false);
+    expect(s.pieces.some((p) => p.type === 'rook')).toBe(false);
+    expect(s.pieces.some((p) => p.type === 'pawn')).toBe(false);
+    // A Knight jumping over a Nitro Crate leaves it alone.
+    let t = make(board({ ...kings, 6: { 3: 'N' } }), {}, opts(blank({ 5: '...Z....' })));
+    t = play(t, 3, 6, 4, 4);
+    expect(t.tiles.some((x) => x.kind === 'nitro')).toBe(true);
+  });
+
+  it('Bounce Crate: landing on it offers one jump of exactly two squares (no capture), and it stays', () => {
+    const terrain = blank({ 4: '...B....' });
+    let s = make(board({ ...kings, 2: { 5: 'p' }, 6: { 3: 'R' } }), {}, opts(terrain));
+    s = play(s, 3, 6, 3, 4);
+    expect(s.bonus[0]?.source).toBe('bounce_crate');
+    const jumps = legalMoves(s).filter((m) => m.param === 'bounce').map((m) => `${m.to.x},${m.to.y}`);
+    expect(jumps).toContain('1,2');
+    expect(jumps).not.toContain('5,2'); // the pawn's square: no capture
+    s = applyMove(s, legalMoves(s).find((m) => m.param === 'bounce' && m.to.x === 1 && m.to.y === 2)!);
+    expect(at(s, 1, 2)?.type).toBe('rook');
+    expect(s.tiles.some((t) => t.kind === 'bounce')).toBe(true);
+  });
+});
+
+describe('sandbox battles', () => {
+  it("the Crash and Digital Duo sandbox battles' upgrades fit the pieces that carry them", async () => {
+    const { ENCOUNTERS } = await import('../encounters');
+    const { createEncounter } = await import('../setup');
+    const { ineligibleReason } = await import('../upgrades/eligibility');
+    for (const e of ENCOUNTERS.filter((e) => ['wumpa_island', 'crate_factory', 'crash_upgrades', 'digital_duo'].includes(e.id))) {
+      const s = createEncounter(e);
+      for (const [sq, ids] of Object.entries(e.upgrades ?? {})) {
+        const [x, y] = sq.split(',').map(Number);
+        const p = at(s, x, y);
+        expect(p, `${e.id}: no piece at ${sq}`).toBeDefined();
+        // Showcase battles may go over the slot limit to show more at once.
+        for (const id of ids) expect(ineligibleReason(id, p!.type, []), `${e.id} ${sq} ${id}`).toBeNull();
+      }
+    }
+  });
+});

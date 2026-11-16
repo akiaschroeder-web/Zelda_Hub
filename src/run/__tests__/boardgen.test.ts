@@ -64,3 +64,14 @@ describe('Sonic Pack spaces on generated boards', () => {
     for (const re of [/[↑↓←→]/, /[⇧⇩⇦⇨]/, /%/, /M/, /T/]) expect(on).toMatch(re);
   });
 });
+
+describe('Crash Pack spaces on generated boards', () => {
+  it('appear only with the Crash Pack on, and the boards stay playable', () => {
+    const rng = new Rng(22);
+    const off = Array.from({ length: 200 }, () => generateBoard(rng).terrain.join('')).join('');
+    expect(off).not.toMatch(/[XZB]/);
+    const boards = Array.from({ length: 200 }, () => generateBoard(rng, { packs: ['crash'] }));
+    const on = boards.map((b) => b.terrain.join('')).join('');
+    for (const re of [/X/, /Z/, /B/]) expect(on).toMatch(re);
+  });
+});

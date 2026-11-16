@@ -220,6 +220,7 @@ export function resolveCrash(s: GameState, m: Move): boolean {
       if (target) {
         s.pieces = s.pieces.filter((o) => o.id !== p.id);
         s.masks = [...masksOf(s), { hostId: target.id, piece: p }];
+        target.counters.akuHost = 1; // for the board to show the mask
         log(s, `Aku Aku settles onto the ${PIECE_STATS[target.type].name}.`);
       }
       return true;
@@ -227,6 +228,7 @@ export function resolveCrash(s: GameState, m: Move): boolean {
       const mask = maskOn(s, p.id);
       if (mask) {
         s.masks = masksOf(s).filter((x) => x !== mask);
+        delete p.counters.akuHost;
         mask.piece.pos = { ...m.to };
         s.pieces.push(mask.piece);
         log(s, 'Aku Aku floats free.');
