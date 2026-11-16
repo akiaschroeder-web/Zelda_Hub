@@ -11,6 +11,7 @@ import { eggmanEscapeSquare } from './sonic';
 import { crashNegates, crashOnCaptured, crashReduction } from './crash';
 import { crateSmashed } from './crates';
 import { marioAfterHit, marioNegates, marioReduction } from './mario';
+import { popBubble, tanookiCounter } from './marioUpgrades';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { etherealEscape, haunted } from './bosses';
 import {
@@ -352,6 +353,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   // Kings are only ever hurt by direct attacks, so check stays the one thing to watch.
   if (target.type === 'king' && !direct(ctx.kind)) return { kind: 'immune' };
   if (!ctx.pure && (hasStatus(target, 'immune') || protectedByZone(s, target))) {
+    if (ctx.kind === 'attack') tanookiCounter(s, target, source);
     log(s, `${nameOf(target)} is protected.`);
     return { kind: 'immune' };
   }
@@ -517,6 +519,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   target.shields = target.shields.filter((sh) => sh.strength > 0);
 
   target.hp -= dmg;
+  if (dmg > 0) popBubble(target);
   if (direct(ctx.kind)) {
     target.hitsTaken += 1;
     if (source) target.lastAttackerId = source.id;
@@ -597,14 +600,16 @@ function preventDeath(s: GameState, p: Piece): boolean {
       return true;
     }
   }
-  // Checkpoint Crate: once per battle, back to its starting square with 1 HP.
-  if (ready(p, 'checkpoint_crate')) {
+  // Checkpoint Crate and 1-Up Mushroom: once per battle, back to its starting square with 1 HP.
+  const respawn = ready(p, 'checkpoint_crate') ? 'checkpoint_crate' : ready(p, 'one_up_mushroom') ? 'one_up_mushroom' : null;
+  if (respawn) {
     const home = isEmpty(s, p.startPos) ? p.startPos : nearestEmpty(s, p.startPos, 16);
     if (home) {
-      markUsed(p, 'checkpoint_crate');
+      markUsed(p, respawn);
       p.hp = 1;
       p.pos = { ...home };
-      log(s, `${nameOf(p)} respawns at its checkpoint!`);
+      p.counters.mega = 0;
+      log(s, respawn === 'one_up_mushroom' ? `1-Up! ${nameOf(p)} is back at its starting square.` : `${nameOf(p)} respawns at its checkpoint!`);
       return true;
     }
   }

@@ -29,6 +29,7 @@ import {
 import { crashAuraPresent, crashRangeBonus, tropyPhase } from './crash';
 import { crashUpgradeRange, crashUpgradeSteps } from './crashUpgrades';
 import { bowserPhase, marioAuraPresent, marioRangeBonus, marioSteps } from './mario';
+import { marioUpgradeRange, marioUpgradeSteps } from './marioUpgrades';
 import { PIECE_STATS, ZELDA_TYPES, deathEggPhase, footprint, ganonPhase, sizeOf } from './pieces';
 import { haunted, heavyDirs, phantomSteps } from './bosses';
 import { Coord, GameState, Piece, PieceType, forward, sameCoord } from './types';
@@ -425,7 +426,7 @@ function baseRangeBonus(s: GameState, p: Piece, dir: Coord): number {
   let b = 0;
   if (has(p, 'extended_stride')) b += 1;
   if (has(p, 'speed_shoes')) b += 1;
-  b += crashUpgradeRange(p);
+  b += crashUpgradeRange(p) + marioUpgradeRange(p);
   if (has(p, 'chaos_emeralds')) b += 1;
   if (has(p, 'purple_frenzy')) b += Math.min(3, p.counters.frenzy ?? 0);
   if (has(p, 'momentum') && p.streak >= 2) b += 1;
@@ -452,7 +453,7 @@ interface Crossing {
 function crossingFor(p: Piece): Crossing {
   return {
     // Silver levitates over any run of gaps.
-    gaps: p.type === 'peach' || p.type === 'silver' || p.type === 'super_silver' || p.type === 'burning_blaze' || has(p, 'hover_wisp') ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
+    gaps: p.type === 'peach' || has(p, 'super_leaf') || has(p, 'bee_mushroom') || (p.counters.wonderTurns ?? 0) > 0 || p.type === 'silver' || p.type === 'super_silver' || p.type === 'burning_blaze' || has(p, 'hover_wisp') ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
     walls: has(p, 'yellow_drill') ? 99 : has(p, 'extended_phasing') ? 2 : has(p, 'phasing') ? 1 : 0,
   };
 }
@@ -716,11 +717,10 @@ function patternsFor(s: GameState, p: Piece): Pattern[] {
   if ((p.type === 'link' && p.hp === 1) || (p.type === 'darknut' && p.counters.armorBroken))
     pats = pats.map((pt) => (pt.kind === 'slide' && pt.max === 2 ? { ...pt, max: 3 } : pt));
   // Metal Sonic: Overdrive at 1 HP (+1 range) and Copycat (also moves like the last enemy that hurt him).
-  if (p.type === 'metal_sonic') {
-    if (p.hp === 1) pats = pats.map((pt) => (pt.kind === 'slide' && Number.isFinite(pt.max) ? { ...pt, max: pt.max + 1 } : pt));
-    const copied = statusOf(p, 'copying')?.source as PieceType | undefined;
-    if (copied && copied !== 'pawn' && PIECE_STATS[copied]?.size === 1) pats = [...pats, ...basePatterns(copied)];
-  }
+  if (p.type === 'metal_sonic' && p.hp === 1) pats = pats.map((pt) => (pt.kind === 'slide' && Number.isFinite(pt.max) ? { ...pt, max: pt.max + 1 } : pt));
+  // Copycat (Metal Sonic) and Cappy: also move like the piece copied.
+  const copied = p.statuses.length ? (statusOf(p, 'copying')?.source as PieceType | undefined) : undefined;
+  if (copied && copied !== 'pawn' && PIECE_STATS[copied]?.size === 1) pats = [...pats, ...basePatterns(copied)];
   // Crash: Slide Jump, every 3 turns — exactly three squares orthogonally over anything (no capture).
   if (p.type === 'crash' && (p.counters.slideJumpCd ?? 0) <= 0 && canUseMoveAbilities(s, p))
     pats = [...pats, { kind: 'leap', offsets: ORTHO.map((d) => scale(d, 3)), rule: 'free', capture: false, uses: ['slide_jump'] }];
@@ -734,7 +734,7 @@ function patternsFor(s: GameState, p: Piece): Pattern[] {
   if (has(p, 'backward_advance') && type === 'pawn')
     pats.push({ kind: 'slide', dirs: [{ x: 0, y: -forward(p.side) }], max: 1, capture: false });
   if (has(p, 'short_hop')) pats.push({ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'line' });
-  if (has(p, 'bounce_bracelet')) pats.push({ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'free' });
+  if (has(p, 'bounce_bracelet') || has(p, 'frog_suit')) pats.push({ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'free' });
   if (has(p, 'long_leap')) {
     if (type === 'knight' || type === 'chancellor') pats.push({ kind: 'leap', offsets: LONG_KNIGHT, rule: 'rect' });
     if (type === 'lancer') pats.push({ kind: 'leap', offsets: ORTHO.map((d) => scale(d, 4)), rule: 'line' });
@@ -770,7 +770,7 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
       let max = finite ? Math.max(1, pat.max + bonus) : Infinity;
       if (confused) max = 1;
       // Skulltulas and Pink Spikes walk over walls as if they were floor.
-      const squares = p.type === 'skulltula' || has(p, 'pink_spikes') ? crawl(s, p.pos, dir, max) : walk(s, p.pos, dir, max, cross);
+      const squares = p.type === 'skulltula' || has(p, 'pink_spikes') || has(p, 'super_bell') ? crawl(s, p.pos, dir, max) : walk(s, p.pos, dir, max, cross);
       const quiet = pat.quiet !== false;
       for (const q of squares) out.push({ to: q.to, capture, quiet, leap: false, uses: pat.uses, crossedGap: q.crossedGap });
       // Wall Climber / Master of the Void: once per battle, cross obstacles further.
@@ -817,6 +817,7 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
         : [],
     );
     out.push(...crashUpgradeSteps(s, p, slides));
+    out.push(...marioUpgradeSteps(s, p, slides));
   }
   if (p.type === 'phantom_king' && !crippled) out.push(...phantomSteps(s, p));
   if (p.type === 'midna' && twilightCharged(p)) out.push(...twilightSteps(s, p));
@@ -938,7 +939,9 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
     for (const c of footprint(p, to)) {
       const t = terrainAt(s.board, c);
       // The Colossus (Siege Breaker) and Crushing Entry flatten cracked walls in the way.
-      if (t === 'cracked' && (has(p, 'crushing_entry') || p.type === 'colossus' || p.type === 'death_egg')) walls.push(c);
+      if (t === 'cracked' && (has(p, 'crushing_entry') || p.type === 'colossus' || p.type === 'death_egg' || p.counters.mega)) walls.push(c);
+      // A Mega Mushroom giant flattens solid walls too.
+      else if (t === 'wall' && p.counters.mega) walls.push(c);
       // Death Egg Robot (Phase 2+): Crushing Advance flattens solid walls too.
       else if (t === 'wall' && egg >= 2) walls.push(c);
       else if (t !== 'normal') return null;
@@ -965,6 +968,8 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
           : 2
         : p.type === 'bowser'
           ? (diagonal ? 1 : 2) + (bowserPhase(p) === 3 ? 1 : 0)
+          : p.counters.mega
+            ? 2
           : (p.type === 'ganondorf' && ganonPhase(p) < 3) || egg === 3
             ? 2
             : 1;

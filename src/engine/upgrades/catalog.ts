@@ -434,6 +434,44 @@ const CRASH_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity,
   [336, 'power_crystal', 'Power Crystal', 'mythical', 'legendary', '+1 maximum HP (up to 3), slides two squares further and +1 damage on every attack. Crystal Surge: once per battle, after a capture, may move again — and this move can capture.'],
 ];
 
+/** Super Mario Pack upgrades. */
+const MARIO_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity, category: UpgradeCategory, text: string][] = [
+  // Classic power-ups
+  [337, 'super_mushroom', 'Super Mushroom', 'common', 'defense', '+1 maximum HP (up to 3).'],
+  [338, 'fire_flower', 'Fire Flower', 'common', 'offense', 'Every 3 turns, instead of moving, a fireball: 1 damage to the first piece within 3 in an orthogonal line, if it is an enemy.'],
+  [339, 'ice_flower', 'Ice Flower', 'uncommon', 'status', "Every 3 turns, instead of moving, 1 damage to the first piece within 3 in an orthogonal line, if it is an enemy; if it survives, it can't move on its next turn."],
+  [340, 'super_star', 'Super Star', 'legendary', 'defense', 'Once per battle, instead of moving: invincible through its next 2 turns, with +1 damage on attacks while it lasts.'],
+  [341, 'one_up_mushroom', '1-Up Mushroom', 'uncommon', 'defense', 'The first time it would be captured each battle, it comes back on its starting square (or the nearest free one) with 1 HP.'],
+  [342, 'mini_mushroom', 'Mini Mushroom', 'uncommon', 'movement', 'Slides pass through pieces and walls (ending on an empty square), but its attacks deal at most 1.'],
+  [343, 'mega_mushroom', 'Mega Mushroom', 'mythical', 'legendary', 'Once per battle, instead of moving, a 1×1 piece grows to 2×2 for 3 turns (needs the room): 3 max HP, up to 2 squares any direction, 2 damage, flattening walls it walks onto. No crossing gaps.'],
+  // Transformation suits
+  [344, 'super_leaf', 'Super Leaf', 'uncommon', 'movement', 'Glides over gaps. Every 3 turns, may jump exactly 3 squares diagonally over anything.'],
+  [345, 'tanooki_suit', 'Tanooki Suit', 'rare', 'defense', 'Every 4 turns, instead of moving, it becomes a statue until its next turn: it takes no damage, and an adjacent enemy that attacks it takes 1.'],
+  [346, 'frog_suit', 'Frog Suit', 'common', 'movement', 'May also jump exactly 2 squares orthogonally, over the square between.'],
+  [347, 'hammer_suit', 'Hammer Suit', 'uncommon', 'offense', 'Every 2 turns, instead of moving, 1 damage to an enemy up to 3 squares away orthogonally, over at most one piece or wall.'],
+  [348, 'super_bell', 'Super Bell', 'rare', 'movement', 'Climbs: slides onto and across walls and cracked walls. Every 3 turns, instead of moving, pounces to an empty square next to a wall within 3.'],
+  [349, 'double_cherry', 'Double Cherry', 'rare', 'summon', 'Once per battle, instead of moving, a 1 HP copy of the piece (no upgrades) appears on an adjacent empty square for the rest of the battle.'],
+  [350, 'boomerang_flower', 'Boomerang Flower', 'uncommon', 'offense', 'Every 3 turns, instead of moving, 1 damage to an enemy up to 3 squares away orthogonally, over other pieces but not walls.'],
+  [351, 'bee_mushroom', 'Bee Mushroom', 'rare', 'movement', 'Flies over gaps. Every 3 turns, instead of moving, flies to any empty square within 3, over anything.'],
+  // Special abilities & equipment
+  [352, 'cappy', 'Cappy', 'legendary', 'legendary', 'Every 4 turns, instead of moving, capture a 1×1 enemy on its last HP within 2 (not bosses or Kings), take its square, and also move like it for 2 turns.'],
+  [353, 'spin_attack', 'Spin Attack', 'common', 'offense', 'Every 3 turns, instead of moving, 1 damage to an adjacent enemy.'],
+  [354, 'p_wing', 'P-Wing', 'legendary', 'movement', 'Every 3 turns, may fly to any square within 5 over anything — and capture there.'],
+  [355, 'propeller_mushroom', 'Propeller Mushroom', 'rare', 'movement', 'Every 3 turns, may jump exactly 4 squares orthogonally over anything; landing on an enemy deals 2.'],
+  [356, 'cloud_flower', 'Cloud Flower', 'uncommon', 'terrain', 'Every 4 turns, instead of moving, a cloud bridges a gap square within 3 for 3 turns.'],
+  [357, 'bubble_flower', 'Bubble Flower', 'uncommon', 'status', "Every 3 turns, instead of moving, bubble an enemy within 3 (not bosses): it can't move or use abilities on its next turn, unless it takes damage."],
+  [358, 'drill_mushroom', 'Drill Mushroom', 'rare', 'walls', 'Slides bore through cracked walls, smashing them. Every 3 turns, one slide may also pass through a single wall.'],
+  [359, 'elephant_fruit', 'Elephant Fruit', 'rare', 'offense', '+1 maximum HP (up to 3). Every 3 turns, instead of moving, 1 damage to every adjacent enemy.'],
+  // Mushroom Kingdom items
+  [360, 'p_switch', 'P-Switch', 'rare', 'walls', 'Every 4 turns, instead of moving: open up to 3 cracked walls within 3 into floor, or raise cracked walls on up to 3 empty squares in a line beside it. Either lasts 3 turns.'],
+  [361, 'pow_block', 'POW Block', 'legendary', 'offense', 'Every 4 turns, instead of moving, 1 damage to every enemy within 2, and the cracked walls there are smashed.'],
+  [362, 'red_shell', 'Red Shell', 'uncommon', 'offense', 'Every 3 turns, instead of moving, 1 damage to the nearest enemy within 4 orthogonally, over pieces but not walls.'],
+  [363, 'spiny_shell', 'Spiny Shell', 'legendary', 'offense', 'Once per battle, instead of moving, 2 damage to the enemy with the most HP anywhere on the board (not the King).'],
+  [364, 'super_horn', 'Super Horn', 'rare', 'bounce', "Every 3 turns, instead of moving, push every adjacent enemy one square away (not bosses); any that can't be pushed take 1."],
+  [365, 'gold_coin', 'Gold Coin', 'common', 'support', 'Each enemy it captures earns 8 bonus gold if you win the battle.'],
+  [366, 'wonder_flower', 'Wonder Flower', 'mythical', 'legendary', 'Once per battle, instead of moving, a Wonder Effect for 3 turns: slides 2 squares further over pieces and gaps, +1 damage, and after a capture it may hop one square.'],
+];
+
 /** Upgrades that depend on systems the game doesn't have yet. Never offered. */
 export const EXCLUDED: Record<string, string> = {
   free_rotation: 'Pieces have no facing.',
@@ -522,6 +560,17 @@ export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, R
       slots: slotsFor(rarity),
       cost: COST[rarity],
       pack: 'crash',
+    })),
+    MARIO_ROWS.map(([num, id, name, rarity, category, text]): UpgradeInfo => ({
+      num,
+      id,
+      name,
+      rarity,
+      category,
+      text,
+      slots: slotsFor(rarity),
+      cost: COST[rarity],
+      pack: 'mario',
     })),
   )
   .sort((a, b) => a.num - b.num);

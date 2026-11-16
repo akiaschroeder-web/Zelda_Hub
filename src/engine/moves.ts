@@ -52,6 +52,7 @@ import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { baguetteBonus, duoMoves, resolveDuo, tetoDuetBonus } from './duo';
 import { cratesTurnEnd, nitroProximity } from './crates';
+import { marioDamageCap, marioUpgradeAfterMove, marioUpgradeAttackBonus, marioUpgradeBeforeMove, marioUpgradeTurnEnd } from './marioUpgrades';
 import { marioAfterMove, marioAttackBonus, marioFilterMoves, marioMoves, resolveMario } from './mario';
 import { crashUpgradeAfterMove, crashUpgradeAttackBonus, crashUpgradeBeforeMove, crashUpgradeTurnEnd, dedupeUpgradeSteps } from './crashUpgrades';
 import { crashAfterAttack, crashAfterMove, crashAttackBonus, crashMoves, crashTurnEnd, intimidated, resolveCrash } from './crash';
@@ -601,7 +602,7 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (p.type === 'motobug' && m.from.y === m.to.y && Math.abs(m.to.x - m.from.x) >= 3) dmg += 1;
   if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
   // Digital Duo: Teto's duet and the Baguette boost the first attack of the battle.
-  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m) + crashUpgradeAttackBonus(p, m) + marioAttackBonus(s, p, t, m);
+  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m) + crashUpgradeAttackBonus(p, m) + marioAttackBonus(s, p, t, m) + marioUpgradeAttackBonus(p, m);
   // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
   if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
     dmg += 1;
@@ -631,7 +632,7 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
     if (vul.count <= 0) removeStatus(t, 'vulnerable');
   }
   if (statusOf(p, 'weakened')) dmg -= 1;
-  return Math.max(0, dmg);
+  return Math.max(0, marioDamageCap(p, dmg));
 }
 
 const alive = (s: GameState, id: string) => s.pieces.some((p) => p.id === id);
@@ -1075,12 +1076,14 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   sonicBeforeMove(s, m);
   drillThrough(s, m);
   crashUpgradeBeforeMove(s, m);
+  marioUpgradeBeforeMove(s, m);
   resolve(s, m, entry);
   zeldaAfterMove(s, m, from);
   sonicAfterMove(s, m, from, entry);
   crashAfterMove(s, m, from, entry, s.captured.length > state.captured.length);
   crashUpgradeAfterMove(s, m, from, entry, s.captured.length - state.captured.length, mainMove);
   marioAfterMove(s, m, from, entry, s.captured.length - state.captured.length);
+  marioUpgradeAfterMove(s, m, entry, s.captured.length - state.captured.length);
   nitroProximity(s, m, from);
   tilesAfterMove(s, m, from, state);
 
@@ -1201,6 +1204,7 @@ function endTurn(s: GameState) {
   sonicTurnEnd(s, side);
   crashTurnEnd(s, side);
   crashUpgradeTurnEnd(s, side);
+  marioUpgradeTurnEnd(s, side);
   cratesTurnEnd(s);
 
   // Expiry at the end of this ply.

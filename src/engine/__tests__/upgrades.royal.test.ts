@@ -237,10 +237,12 @@ describe('upgrade catalog', () => {
     expect(UPGRADES.filter((u) => u.pack === 'duo').map((u) => u.id)).toEqual(['leek', 'baguette', 'duet_microphone']);
     const crash = UPGRADES.filter((u) => u.pack === 'crash');
     expect(crash).toHaveLength(30);
+    const mario = UPGRADES.filter((u) => u.pack === 'mario');
+    expect(['common', 'uncommon', 'rare', 'legendary', 'mythical'].map((r) => mario.filter((u) => u.rarity === r).length)).toEqual([5, 9, 9, 5, 2]);
     expect(['common', 'uncommon', 'rare', 'legendary', 'mythical'].map((r) => crash.filter((u) => u.rarity === r).length)).toEqual([6, 9, 9, 5, 1]);
-    expect(UPGRADES.filter((u) => u.rarity === 'mythical').map((u) => u.id).sort()).toEqual(['chaos_emeralds', 'power_crystal', 'triforce_courage', 'triforce_power', 'triforce_wisdom']);
-    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(336);
-    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(336);
+    expect(UPGRADES.filter((u) => u.rarity === 'mythical').map((u) => u.id).sort()).toEqual(['chaos_emeralds', 'mega_mushroom', 'power_crystal', 'triforce_courage', 'triforce_power', 'triforce_wisdom', 'wonder_flower']);
+    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(366);
+    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(366);
     expect(UPGRADES.filter((u) => u.excluded).map((u) => u.id).sort()).toEqual(
       ['anchor_feet', 'board_dominion', 'free_rotation', 'gap_sense', 'terrain_adaptation', 'wall_breaker'].sort(),
     );

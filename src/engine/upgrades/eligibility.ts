@@ -27,6 +27,18 @@ const BOUNCERS = [
 ];
 /** Upgrades that only make sense on a 1x1 piece. */
 const SMALL_ONLY = [
+  'mega_mushroom',
+  'super_leaf',
+  'frog_suit',
+  'super_bell',
+  'double_cherry',
+  'bee_mushroom',
+  'cappy',
+  'p_wing',
+  'propeller_mushroom',
+  'mini_mushroom',
+  'drill_mushroom',
+  'wonder_flower',
   'super_belly_flop',
   'bounce_crate',
   'akano',

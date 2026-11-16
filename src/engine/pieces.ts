@@ -487,7 +487,8 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
   },
 };
 
-export const sizeOf = (p: Piece): number => PIECE_STATS[p.type].size;
+/** Footprint size (a Mega Mushroom makes a 1×1 piece 2×2 for a while). */
+export const sizeOf = (p: Piece): number => (p.counters?.mega ? 2 : PIECE_STATS[p.type].size);
 
 export const BOSS_TYPES = new Set<PieceType>([
   'colossus', 'empress', 'necromancer', 'stormbringer', 'watcher',

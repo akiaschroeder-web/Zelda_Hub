@@ -197,7 +197,7 @@ export function marioMoves(s: GameState, p: Piece): Move[] {
 }
 
 /** Enemies a Hammer Bro can hit: up to 3 orthogonally, over at most one piece or wall. */
-function hammerTargets(s: GameState, p: Piece): Piece[] {
+export function hammerTargets(s: GameState, p: Piece): Piece[] {
   const out: Piece[] = [];
   for (const d of ORTHO) {
     let obstacles = 0;
