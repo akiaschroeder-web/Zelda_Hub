@@ -1,7 +1,7 @@
 import { PieceType } from '../engine/types';
 import { Rng } from './rng';
 
-export type NodeType = 'battle' | 'elite' | 'boss' | 'shop' | 'event' | 'treasure' | 'recruit' | 'forge' | 'potion';
+export type NodeType = 'battle' | 'elite' | 'boss' | 'shop' | 'event' | 'treasure' | 'recruit' | 'forge' | 'potion' | 'bounty';
 
 export interface MapNode {
   id: string;
@@ -30,6 +30,7 @@ export const NODE_INFO: Record<NodeType, { label: string; icon: string; blurb: s
   recruit: { label: 'Recruit', icon: '🛡️', blurb: 'Choose a new piece to join your army.' },
   forge: { label: 'Forge', icon: '⚒️', blurb: 'Melt pieces or upgrades down into rarer ones; take upgrades off or put them on.' },
   potion: { label: 'Potion Shop', icon: '🧪', blurb: 'Potions to keep for later, and permanent elixirs.' },
+  bounty: { label: 'Bounty Board', icon: '🎯', blurb: 'Choose a wanted enemy piece; capture one to collect the reward.' },
 };
 
 /** Floors per act before the boss. */
@@ -37,7 +38,7 @@ export const FLOORS_PER_ACT = 6;
 
 function floorType(rng: Rng, floor: number): NodeType {
   if (floor === 0) return 'battle';
-  if (floor === FLOORS_PER_ACT - 1) return rng.weighted<NodeType>({ recruit: 3, shop: 3, treasure: 2, event: 2, forge: 2, potion: 2 });
+  if (floor === FLOORS_PER_ACT - 1) return rng.weighted<NodeType>({ recruit: 3, shop: 3, treasure: 2, event: 2, forge: 2, potion: 2, bounty: 2 });
   return rng.weighted<NodeType>({
     battle: 45,
     event: 15,
@@ -47,6 +48,7 @@ function floorType(rng: Rng, floor: number): NodeType {
     recruit: 12,
     forge: floor >= 1 ? 6 : 0,
     potion: floor >= 1 ? 6 : 0,
+    bounty: floor >= 1 && floor <= FLOORS_PER_ACT - 3 ? 6 : 0,
   });
 }
 

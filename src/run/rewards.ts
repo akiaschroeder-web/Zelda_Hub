@@ -1,3 +1,4 @@
+import type { Bounty } from './bounty';
 import { BOSS_TYPES, PIECE_STATS } from '../engine/pieces';
 import { PieceType } from '../engine/types';
 import { UPGRADES, UPGRADE_BY_ID, UpgradeRarity } from '../engine/upgrades/catalog';
@@ -128,6 +129,8 @@ export interface PendingReward {
   source?: 'battle' | 'elite' | 'boss' | 'draw' | 'treasure' | 'recruit';
   /** Already rerolled once. */
   rerolled?: boolean;
+  /** A bounty this battle paid out (its gold and Army Points are already in the totals above). */
+  bounty?: Bounty;
 }
 
 /** Roll a recruitable piece type. Later acts shift odds upward. */

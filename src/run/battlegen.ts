@@ -164,6 +164,16 @@ function buyArmy(rng: Rng, archetype: ArchetypeInfo, budget: number, act: number
   return army;
 }
 
+/** Every piece type enemy armies can field with these packs (not Kings or Pawns). */
+export function enemyPieceTypes(packs: readonly string[]): PieceType[] {
+  const styles: ArchetypeInfo[] = [...Object.values(ARCHETYPES), ...enabledPacks(packs).flatMap((p) => p.archetypes)];
+  const types = new Set(styles.flatMap((st) => Object.keys(st.weights) as PieceType[]));
+  types.add('juggernaut'); // elite armies
+  types.delete('king');
+  types.delete('pawn');
+  return [...types];
+}
+
 export function generateBattle(
   rng: Rng,
   act: number,
@@ -172,6 +182,7 @@ export function generateBattle(
   id: string,
   unlockedBosses: PieceType[] = [],
   packs: readonly string[] = [],
+  bounty?: PieceType,
 ): RunBattle {
   // Content packs add their own boards and army styles alongside the base ones.
   // Every battle gets freshly generated ground.
@@ -185,6 +196,11 @@ export function generateBattle(
   const budget = enemyBudget(act, floor, kind) - (withBoss ? 10 : 0);
   const army = buyArmy(rng, info, budget, act, kind === 'elite');
   if (withBoss) army.splice(1, 0, rng.pick(smallBosses));
+  // An active bounty's target turns up in some battles (in place of the last piece bought).
+  if (bounty && !army.includes(bounty) && rng.chance(0.4)) {
+    if (army.length > 3) army.pop();
+    army.splice(1, 0, bounty);
+  }
   return {
     id,
     kind,

@@ -72,6 +72,8 @@ export function RunProvider({ children }: { children: ReactNode }) {
             elixirs: saved.elixirs ?? [],
             potionShop: saved.potionShop ?? null,
             forgeOffer: saved.forgeOffer ?? null,
+            bounty: saved.bounty ?? null,
+            bountyBoard: saved.bountyBoard ?? null,
           });
       })
       .catch(() => {

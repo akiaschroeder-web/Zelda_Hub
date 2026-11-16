@@ -103,6 +103,11 @@ function DeployView({ run }: { run: RunState }) {
         {battle.description}{' '}
         {battle.rules.checkRules ? 'Checkmate the enemy King.' : 'Destroy every enemy piece; no check rules.'}
       </Text>
+      {run.bounty && battle.enemies.some((e) => e.type === run.bounty!.target) && (
+        <Text style={[text.body, { color: COLORS.gold, textAlign: 'center' }]}>
+          🎯 Your bounty target is here: capture the {PIECE_STATS[run.bounty.target].name}!
+        </Text>
+      )}
       <View style={styles.counters}>
         <Text style={[styles.counter, over && { color: COLORS.danger }]}>
           Army Points {cost}/{ap}

@@ -12,6 +12,7 @@ import { ActMap, MapNode, findNode, generateAct } from './map';
 import { PendingReward, RewardOption, ShopItem, battleReward, generateShop, recruitReward, rollUpgrade, treasureReward } from './rewards';
 import { PotionShopItem, battleArmyPoints, extraDeployRows, generatePotionShop, goldMultiplier, spendPotion } from './potions';
 import { Rng, randomSeed } from './rng';
+import { Bounty, bountyCaptured, generateBountyBoard } from './bounty';
 
 /** One piece the player owns. Its uid is also its id on the battlefield. */
 export interface RosterPiece {
@@ -41,7 +42,7 @@ export interface DeployedPiece {
 }
 
 /** Which screen the run is on. */
-export type RunPhase = 'map' | 'deploy' | 'battle' | 'reward' | 'shop' | 'event' | 'forge' | 'potions';
+export type RunPhase = 'map' | 'deploy' | 'battle' | 'reward' | 'shop' | 'event' | 'forge' | 'potions' | 'bounty';
 
 export interface RunState {
   version: 3;
@@ -91,6 +92,10 @@ export interface RunState {
   forgeOffer: { kind: 'piece' | 'upgrade'; options: string[] } | null;
   /** Forge: what the last forging produced (for the screen to show). */
   forgeResult?: string | null;
+  /** The bounty being hunted, if any. */
+  bounty: Bounty | null;
+  /** Bounty Board offers, while visiting one. */
+  bountyBoard: Bounty[] | null;
 }
 
 /** Acts with their own boss tier; from the fourth act on, any boss can appear. */
@@ -154,11 +159,14 @@ export function newRun(seed = randomSeed(), packs: readonly string[] = []): RunS
     elixirs: [],
     potionShop: null,
     forgeOffer: null,
+    bounty: null,
+    bountyBoard: null,
   };
 }
 
 /** The route each phase lives on. */
-export const ROUTES: Record<RunPhase, '/map' | '/deploy' | '/battle' | '/reward' | '/shop' | '/event' | '/forge' | '/potions'> = {
+export const ROUTES: Record<RunPhase, '/map' | '/deploy' | '/battle' | '/reward' | '/shop' | '/event' | '/forge' | '/potions' | '/bounty'> = {
+  bounty: '/bounty',
   forge: '/forge',
   potions: '/potions',
   map: '/map',
@@ -192,7 +200,7 @@ export function enterNode(run: RunState, nodeId: string): RunState {
     switch (node.type) {
       case 'battle':
       case 'elite':
-        return { phase: 'deploy', battle: generateBattle(rng, run.act, node.floor, node.type, node.id, run.unlockedBosses, run.packs) };
+        return { phase: 'deploy', battle: generateBattle(rng, run.act, node.floor, node.type, node.id, run.unlockedBosses, run.packs, run.bounty?.target) };
       case 'boss':
         return { phase: 'deploy', battle: bossBattle(run.act, node.id, rng, node.boss, run.packs) };
       case 'shop':
@@ -205,6 +213,8 @@ export function enterNode(run: RunState, nodeId: string): RunState {
         return { phase: 'forge', forgeOffer: null, forgeResult: null };
       case 'potion':
         return { phase: 'potions', potionShop: generatePotionShop(rng, run) };
+      case 'bounty':
+        return { phase: 'bounty', bountyBoard: generateBountyBoard(rng, run) };
       case 'event': {
         const usable = EVENTS.filter((e) => !e.available || e.available(run));
         return { phase: 'event', event: { id: rng.pick(usable).id, outcome: null } };
@@ -492,6 +502,20 @@ export function finishBattle(run: RunState, final: GameState): RunState {
     if (offer) r.options.push({ kind: 'piece', type: offer });
     return r;
   });
+  // Bounty: capturing the wanted piece pays out now.
+  if (run.bounty && bountyCaptured(run, final)) {
+    const b = run.bounty;
+    return {
+      ...after,
+      unlockedBosses,
+      rng: rngState,
+      phase: 'reward',
+      reward: { ...reward, gold: reward.gold + b.gold, armyPoints: reward.armyPoints + b.armyPoints, bounty: b },
+      stash: b.upgrade ? [...after.stash, b.upgrade] : after.stash,
+      bounty: null,
+      boosts: [],
+    };
+  }
   return { ...after, unlockedBosses, rng: rngState, phase: 'reward', reward, boosts: [] };
 }
 

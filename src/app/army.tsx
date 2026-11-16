@@ -4,6 +4,9 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PIECE_STATS } from '../engine/pieces';
 import { UPGRADE_BY_ID, UPGRADE_SLOTS } from '../engine/upgrades/catalog';
 import { ELIXIR_BY_ID, POTION_BY_ID } from '../run/potions';
+import { equipFromStash } from '../run/forge';
+import { bountyPayText } from '../run/bounty';
+import UpgradeTargetPicker from '../ui/UpgradeTargetPicker';
 import { costOf, livingFortressBonus } from '../run/run';
 import { UPGRADE_RARITY_COLORS } from '../ui/OptionCard';
 import { useRun } from '../run/RunContext';
@@ -13,8 +16,10 @@ import { COLORS } from '../ui/theme';
 
 /** Your roster and the fallen. Reached from the map; read-only. */
 export default function Army() {
-  const { loaded, run } = useRun();
+  const { loaded, run, update } = useRun();
   const [picked, setPicked] = useState<string | null>(null);
+  const [stashIndex, setStashIndex] = useState<number | null>(null);
+  const [stashTarget, setStashTarget] = useState<string | null>(null);
   if (!loaded) return null;
   if (!run) return <Redirect href="/" />;
   const roster = [...run.roster].sort(byRank);
@@ -61,6 +66,14 @@ export default function Army() {
           </Panel>
         );
       })()}
+      {run.bounty && (
+        <Panel>
+          <Text style={text.heading}>🎯 BOUNTY</Text>
+          <Text style={[text.body, { marginTop: 4 }]}>
+            Wanted: {PIECE_STATS[run.bounty.target].name} — {bountyPayText(run.bounty, (id) => UPGRADE_BY_ID[id]?.name ?? id)}
+          </Text>
+        </Panel>
+      )}
       {(run.potions.length > 0 || run.elixirs.length > 0 || run.stash.length > 0) && (
         <Panel>
           <Text style={text.heading}>INVENTORY</Text>
@@ -75,10 +88,33 @@ export default function Army() {
               {ELIXIR_BY_ID[id].icon} {ELIXIR_BY_ID[id].name} <Text style={text.dim}>— {ELIXIR_BY_ID[id].text}</Text>
             </Text>
           ))}
-          {run.stash.length > 0 && (
-            <Text style={[text.dim, { marginTop: 6 }]}>
-              Upgrade stash (equip at a Forge): {run.stash.map((u) => UPGRADE_BY_ID[u].name).join(', ')}
+          {run.stash.length > 0 && <Text style={[text.dim, { marginTop: 8 }]}>UPGRADE STASH — tap one to put it on a piece:</Text>}
+          {run.stash.map((u, i) => (
+            <Text
+              key={i}
+              onPress={() => {
+                setStashIndex(stashIndex === i ? null : i);
+                setStashTarget(null);
+              }}
+              style={[text.body, { marginTop: 4, color: UPGRADE_RARITY_COLORS[UPGRADE_BY_ID[u].rarity], fontWeight: stashIndex === i ? '800' : '600' }]}
+            >
+              {stashIndex === i ? '▸ ' : ''}✦ {UPGRADE_BY_ID[u].name} <Text style={text.dim}>— {UPGRADE_BY_ID[u].text}</Text>
             </Text>
+          ))}
+          {stashIndex !== null && run.stash[stashIndex] && run.status === 'active' && (
+            <View style={{ marginTop: 10, gap: 8 }}>
+              <UpgradeTargetPicker run={run} upgradeId={run.stash[stashIndex]} selected={stashTarget} onSelect={setStashTarget} />
+              <Button
+                label={stashTarget ? 'Equip' : 'Choose a piece'}
+                primary
+                disabled={!stashTarget}
+                onPress={() => {
+                  update((r) => equipFromStash(r, stashIndex, stashTarget!));
+                  setStashIndex(null);
+                  setStashTarget(null);
+                }}
+              />
+            </View>
           )}
         </Panel>
       )}

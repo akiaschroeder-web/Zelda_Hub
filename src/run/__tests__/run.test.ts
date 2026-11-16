@@ -10,6 +10,7 @@ import { FLOORS_PER_ACT, generateAct } from '../map';
 import { Rng } from '../rng';
 import { buyPotion } from '../potions';
 import { leaveForge } from '../forge';
+import { pickBounty } from '../bounty';
 import {
   RunState,
   leavePotionShop,
@@ -252,6 +253,9 @@ function simulateRun(seed: number): RunState {
       }
       case 'forge':
         run = leaveForge(run);
+        break;
+      case 'bounty':
+        run = pickBounty(run, 0);
         break;
       case 'event': {
         const ev = currentEvent(run)!;

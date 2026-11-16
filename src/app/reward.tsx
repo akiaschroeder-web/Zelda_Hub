@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PIECE_STATS } from '../engine/pieces';
+import { UPGRADE_BY_ID } from '../engine/upgrades/catalog';
 import { claimReward, rerollReward } from '../run/run';
 import { useRun } from '../run/RunContext';
 import OptionCard from '../ui/OptionCard';
@@ -35,6 +36,15 @@ export default function RewardScreen() {
               <Text style={[text.body, { color: COLORS.gold, textAlign: 'center' }]}>
                 Second Life saved: {run.lastResult!.saved!.map((p) => PIECE_STATS[p.type].name).join(', ')}
               </Text>
+            )}
+            {r.bounty && (
+              <Panel>
+                <Text style={styles.gain}>🎯 Bounty collected: {PIECE_STATS[r.bounty.target].name}</Text>
+                <Text style={text.body}>
+                  {r.bounty.gold} gold{r.bounty.armyPoints ? `, +${r.bounty.armyPoints} Army Points` : ''}
+                  {r.bounty.upgrade ? `, and ${UPGRADE_BY_ID[r.bounty.upgrade]?.name} (in your stash — equip it from the Army screen)` : ''}
+                </Text>
+              </Panel>
             )}
             {(r.gold > 0 || r.armyPoints > 0) && (
               <Panel>

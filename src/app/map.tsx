@@ -24,6 +24,7 @@ function RunHeader({ run }: { run: RunState }) {
       <Text style={styles.stat}>💰 {run.gold}</Text>
       <Text style={styles.stat}>⚑ {run.armyPoints} AP</Text>
       {run.potions.length > 0 && <Text style={styles.stat}>🧪 {run.potions.length}</Text>}
+      {run.bounty && <Text style={styles.stat}>🎯 {PIECE_STATS[run.bounty.target].name}</Text>}
       <Text style={styles.stat}>♟ {run.roster.length}</Text>
     </View>
   );
@@ -181,7 +182,7 @@ function MapView({ run }: { run: RunState }) {
           </>
         ) : (
           <Text style={[text.dim, { textAlign: 'center' }]}>
-            Tap a glowing node to choose your path. ⚔️ battle · 💀 elite · 🛡️ recruit · 🛒 shop · ❓ event · 💰 treasure · ⚒️ forge · 🧪 potions · 👑 boss
+            Tap a glowing node to choose your path. ⚔️ battle · 💀 elite · 🛡️ recruit · 🛒 shop · ❓ event · 💰 treasure · ⚒️ forge · 🧪 potions · 🎯 bounty · 👑 boss
           </Text>
         )}
         <View style={styles.footerButtons}>
