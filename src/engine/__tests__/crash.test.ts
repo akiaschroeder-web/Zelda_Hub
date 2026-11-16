@@ -320,7 +320,7 @@ describe('sandbox battles', () => {
     const { ENCOUNTERS } = await import('../encounters');
     const { createEncounter } = await import('../setup');
     const { ineligibleReason } = await import('../upgrades/eligibility');
-    for (const e of ENCOUNTERS.filter((e) => ['wumpa_island', 'crate_factory', 'crash_upgrades', 'digital_duo'].includes(e.id))) {
+    for (const e of ENCOUNTERS.filter((e) => ['wumpa_island', 'crate_factory', 'crash_upgrades', 'digital_duo', 'mushroom_kingdom', 'power_up_panic'].includes(e.id))) {
       const s = createEncounter(e);
       for (const [sq, ids] of Object.entries(e.upgrades ?? {})) {
         const [x, y] = sq.split(',').map(Number);

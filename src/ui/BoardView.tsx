@@ -358,7 +358,15 @@ const TILE_ART: Partial<Record<Tile['kind'], ImageSourcePropType>> = {
   bounce: require('../../assets/tiles/bounce_crate.png'),
   tntCrate: require('../../assets/tiles/tnt.png'),
   nitroCrate: require('../../assets/tiles/nitro.png'),
+  qblock: require('../../assets/tiles/qblock.png'),
+  emptyBlock: require('../../assets/tiles/empty_block.png'),
+  brick: require('../../assets/tiles/brick.png'),
+  note: require('../../assets/tiles/note_block.png'),
+  lava: require('../../assets/tiles/lava.png'),
+  donut: require('../../assets/tiles/donut.png'),
 };
+/** Spaces whose art fills the whole square (blocks and floor). */
+const FULL_TILES = new Set<Tile['kind']>(['qblock', 'emptyBlock', 'brick', 'lava', 'donut']);
 /** Which way an arrow pointing up has to turn to face `dir`. */
 const facing = (dir?: Coord) => (!dir ? '0deg' : dir.y < 0 ? '0deg' : dir.x > 0 ? '90deg' : dir.y > 0 ? '180deg' : '270deg');
 
@@ -374,6 +382,12 @@ function TileIcon({ tile, size, resting, small }: { tile: Tile; size: number; re
       </View>
     );
   const art = TILE_ART[tile.kind];
+  if (art && FULL_TILES.has(tile.kind))
+    return (
+      <View style={[StyleSheet.absoluteFill, { opacity: tile.kind === 'donut' && tile.collapse !== undefined ? 0.65 : 1 }]}>
+        <Image source={art} style={{ position: 'absolute', left: 0, top: 0, width: size, height: size }} resizeMode="stretch" />
+      </View>
+    );
   const warp = tile.kind === 'warp';
   const box = size * (small ? 0.34 : 0.8);
   const ringColor = warp

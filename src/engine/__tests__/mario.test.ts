@@ -202,3 +202,55 @@ describe('Super Mario Pack pieces', () => {
     expect(hasStatus(u.pieces.find((p) => p.type === 'bowser')!, 'stunned')).toBe(false);
   });
 });
+
+describe('Super Mario Pack special spaces', () => {
+  it('? Block: hit it from next door for a reward; it becomes an Empty Block that still blocks', () => {
+    let s = make(board({ ...kings, 5: { 3: 'N' } }), {}, opts(blank({ 4: '...Q....' })));
+    expect(terrainAt(s.board, { x: 3, y: 4 })).toBe('wall');
+    s = action(s, 3, 5, 'hitBlock', 3, 4);
+    expect(s.tiles.find((t) => t.pos.x === 3 && t.pos.y === 4)?.kind).toBe('emptyBlock');
+    expect(terrainAt(s.board, { x: 3, y: 4 })).toBe('wall');
+    const k = s.pieces.find((p) => p.type === 'knight')!;
+    const rewarded = (s.goldBonus ?? 0) > 0 || k.hp > 1 || k.shields.length > 0 || k.statuses.some((st) => st.kind === 'damageBuff') || k.maxHp === k.hp;
+    expect(rewarded).toBe(true);
+    s = wait(s);
+    expect(legalMoves(s).some((m) => m.action === 'hitBlock')).toBe(false);
+  });
+
+  it('Brick Block: smashed like a cracked wall; a hidden Mushroom heals the breaker', () => {
+    let s = make(board({ ...kings, 5: { 3: 'S' } }), {}, opts(blank({ 4: '...j....' })));
+    setHp(s, 3, 5, 1, 2);
+    s = action(s, 3, 5, 'demolish', 3, 4);
+    expect(terrainAt(s.board, { x: 3, y: 4 })).toBe('normal');
+    expect(s.tiles.some((t) => t.kind === 'brick')).toBe(false);
+    expect(at(s, 3, 5)?.hp).toBe(2);
+  });
+
+  it('Note Block: landing offers one 3-square bounce, no capture', () => {
+    let s = make(board({ ...kings, 6: { 3: 'R' } }), {}, opts(blank({ 4: '...N....' })));
+    s = play(s, 3, 6, 3, 4);
+    expect(s.bonus[0]?.source).toBe('note_block');
+    s = applyMove(s, legalMoves(s).find((m) => m.param === 'note' && m.to.x === 6 && m.to.y === 1)!);
+    expect(at(s, 6, 1)?.type).toBe('rook');
+  });
+
+  it('Lava burns a piece that lands on it, and again if it stays', () => {
+    let s = make(board({ ...kings, 6: { 3: sym('koopa') } }), {}, opts(blank({ 4: '...O....' })));
+    s = play(s, 3, 6, 3, 4);
+    expect(at(s, 3, 4)?.hp).toBe(1);
+    s = wait(s); // enemy
+    s = wait(s); // the Koopa stays put (the King moves)
+    expect(s.pieces.some((p) => p.type === 'koopa')).toBe(false);
+  });
+
+  it('Donut Block: falls at the end of the next turn, knocking off whoever is still there', () => {
+    let s = make(board({ ...kings, 6: { 3: sym('koopa') } }), {}, opts(blank({ 4: '...D....', 3: '___.____' })));
+    s = play(s, 3, 6, 3, 4);
+    expect(s.tiles.find((t) => t.kind === 'donut')?.collapse).toBeDefined();
+    s = wait(wait(s));
+    expect(terrainAt(s.board, { x: 3, y: 4 })).toBe('gap');
+    const koopa = s.pieces.find((p) => p.type === 'koopa')!;
+    expect(koopa.hp).toBe(1);
+    expect(koopa.pos).not.toEqual({ x: 3, y: 4 });
+  });
+});

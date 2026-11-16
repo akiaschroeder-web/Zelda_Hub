@@ -12,6 +12,7 @@ import { crashNegates, crashOnCaptured, crashReduction } from './crash';
 import { crateSmashed } from './crates';
 import { marioAfterHit, marioNegates, marioReduction } from './mario';
 import { popBubble, tanookiCounter } from './marioUpgrades';
+import { brickSmashed } from './marioSpaces';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { etherealEscape, haunted } from './bosses';
 import {
@@ -896,6 +897,7 @@ export function destroyCracked(s: GameState, c: Coord, by?: Piece): boolean {
   if (!setTerrain(s, c, 'normal')) return false;
   s.destroyedWalls.push({ ...c });
   crateSmashed(s, c);
+  brickSmashed(s, c, by);
   if (by && has(by, 'siege_charge')) addStatus(by, { kind: 'damageBuff', amount: 1, until: null, source: 'siege_charge' });
   return true;
 }

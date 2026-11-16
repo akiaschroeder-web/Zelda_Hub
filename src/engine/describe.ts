@@ -105,6 +105,8 @@ export function actionLabel(state: GameState, m: Move): string {
     }
     case 'fireBreath':
       return 'Fire Breath';
+    case 'hitBlock':
+      return 'Hit the ? Block';
     case 'groundSlam':
       return 'Ground Slam';
     case 'hack':

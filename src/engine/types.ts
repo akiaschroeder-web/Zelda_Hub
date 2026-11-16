@@ -33,7 +33,14 @@ export type TileKind =
   | 'nitro'
   | 'bounce'
   | 'tntCrate'
-  | 'nitroCrate';
+  | 'nitroCrate'
+  // Super Mario Pack
+  | 'qblock'
+  | 'emptyBlock'
+  | 'brick'
+  | 'note'
+  | 'lava'
+  | 'donut';
 
 export interface Tile {
   kind: TileKind;
@@ -48,6 +55,10 @@ export interface Tile {
   claimedBy?: string;
   /** TNT: explodes at the end of this ply once lit. */
   fuse?: number;
+  /** Brick Block: hides a Mushroom. */
+  mushroom?: boolean;
+  /** Donut Block: falls at the end of this ply once stood on. */
+  collapse?: number;
 }
 
 export type PieceType =
@@ -256,6 +267,7 @@ export type ActionKind =
   | 'hammer' // Hammer Bro
   | 'fireBreath' // Bowser
   | 'groundSlam' // Bowser (Phase 3)
+  | 'hitBlock' // hit a ? Block
   | 'upgrade'
   | 'pass';
 

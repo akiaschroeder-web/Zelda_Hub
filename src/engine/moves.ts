@@ -52,6 +52,7 @@ import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { baguetteBonus, duoMoves, resolveDuo, tetoDuetBonus } from './duo';
 import { cratesTurnEnd, nitroProximity } from './crates';
+import { marioSpaceMoves, marioSpacesTurnEnd, noteMoves, resolveHitBlock } from './marioSpaces';
 import { marioDamageCap, marioUpgradeAfterMove, marioUpgradeAttackBonus, marioUpgradeBeforeMove, marioUpgradeTurnEnd } from './marioUpgrades';
 import { marioAfterMove, marioAttackBonus, marioFilterMoves, marioMoves, resolveMario } from './mario';
 import { crashUpgradeAfterMove, crashUpgradeAttackBonus, crashUpgradeBeforeMove, crashUpgradeTurnEnd, dedupeUpgradeSteps } from './crashUpgrades';
@@ -387,6 +388,8 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...duoMoves(state, p),
     ...crashMoves(state, p),
     ...marioMoves(state, p),
+    ...marioSpaceMoves(state, p),
+    ...noteMoves(state, p),
   ];
   // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
   if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
@@ -442,6 +445,7 @@ function fitsBonus(m: Move, b: Bonus): boolean {
   if (b.source === 'bounce_crate' && m.param !== 'bounce') return false;
   if (b.source === 'acrobatic_strike' && m.param !== 'acrobatic') return false;
   if ((b.source === 'stomp' || b.source === 'quick_delivery') && m.param !== b.source) return false;
+  if (b.source === 'note_block' && m.param !== 'note') return false;
   if (b.source === 'time_relic') return m.action === 'upgrade' && m.upgrade === 'time_relic';
   // Super Silver's second lift: only another Psychokinesis.
   if (b.source === 'super_pk' && m.action !== 'psychokinesis') return false;
@@ -910,6 +914,7 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
   if (resolveDuo(s, m)) return;
   if (resolveCrash(s, m)) return;
   if (resolveMario(s, m)) return;
+  if (resolveHitBlock(s, m)) return;
   // Homing Attack / Cyan Laser ending on an enemy: a real attack, with bounceback.
   if (m.action === 'upgrade' && ATTACK_UPGRADES.has(m.upgrade!) && m.targets?.length) {
     spendSonicAction(p, m.upgrade!);
@@ -1206,6 +1211,7 @@ function endTurn(s: GameState) {
   crashUpgradeTurnEnd(s, side);
   marioUpgradeTurnEnd(s, side);
   cratesTurnEnd(s);
+  marioSpacesTurnEnd(s, side);
 
   // Expiry at the end of this ply.
   const ply = s.ply;

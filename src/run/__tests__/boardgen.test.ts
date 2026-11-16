@@ -75,3 +75,13 @@ describe('Crash Pack spaces on generated boards', () => {
     for (const re of [/X/, /Z/, /B/]) expect(on).toMatch(re);
   });
 });
+
+describe('Super Mario Pack spaces on generated boards', () => {
+  it('appear only with the Mario Pack on', () => {
+    const rng = new Rng(23);
+    const off = Array.from({ length: 200 }, () => generateBoard(rng).terrain.join('')).join('');
+    expect(off).not.toMatch(/[QJjNOD]/);
+    const on = Array.from({ length: 300 }, () => generateBoard(rng, { packs: ['mario'] }).terrain.join('')).join('');
+    for (const re of [/Q/, /[Jj]/, /N/, /O/, /D/]) expect(on).toMatch(re);
+  });
+});

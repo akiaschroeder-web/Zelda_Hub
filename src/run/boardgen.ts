@@ -221,6 +221,29 @@ function attempt(rng: Rng, spec: BoardSpec, simple: boolean, plain = false): Gen
     }
   }
 
+  // 4d. Super Mario Pack spaces: ? Blocks (Q), Brick Blocks (J, j hides a Mushroom), Note Blocks (N),
+  // Lava (O) and Donut Blocks (D, which replace gap squares). Mirrored for fairness.
+  if (!simple && spec.packs?.includes('mario') && rng.chance(boss ? 0.4 : 0.55)) {
+    const kinds = rng.shuffle(['Q', 'J', 'N', 'O', 'D']).slice(0, rng.int(1, 3));
+    const mirror = (x: number, y: number, ch: string, over = '.') => {
+      set(x, y, ch);
+      if (at(n - 1 - x, n - 1 - y) === over) set(n - 1 - x, n - 1 - y, ch);
+    };
+    for (const k of kinds) {
+      if (k === 'D') {
+        const gaps = middle.flatMap((y) => g[y].map((c, x) => ({ x, y, c }))).filter((o) => o.c === '_');
+        for (const c of rng.shuffle(gaps).slice(0, rng.int(1, 2))) mirror(c.x, c.y, 'D', '_');
+        continue;
+      }
+      for (let i = 0; i < (k === 'O' || k === 'J' ? rng.int(1, 2) : 1); i++) {
+        const free = middle.flatMap((y) => g[y].map((c, x) => ({ x, y, c }))).filter((o) => o.c === '.');
+        if (!free.length) break;
+        const c = rng.pick(free);
+        mirror(c.x, c.y, k === 'J' && rng.chance(0.3) ? 'j' : k);
+      }
+    }
+  }
+
   // 5. The armies must be able to reach each other (cracked walls and doors count as passable).
   if (!connected(g)) return null;
 
@@ -286,7 +309,7 @@ function carveShape(rng: Rng, g: string[][], shape: Shape) {
 /** Can the player's zone reach the enemy's? Walls block; cracked walls, doors and spaces don't. */
 function connected(g: string[][]): boolean {
   const n = g.length;
-  const passable = (ch: string) => ch !== '#' && ch !== '_' && ch !== '-';  // springs, panels, platforms and doors are all passable
+  const passable = (ch: string) => ch !== '#' && ch !== '_' && ch !== '-' && ch !== 'Q';  // springs, panels, platforms and doors are all passable
   const start: [number, number][] = [];
   g.forEach((r, y) => r.forEach((ch, x) => ch === 'd' && start.push([x, y])));
   if (!start.length) return false;

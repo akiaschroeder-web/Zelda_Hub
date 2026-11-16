@@ -39,7 +39,7 @@ export function crateSmashed(s: GameState, c: Coord) {
 
 /** End of a ply: lit TNT whose fuse has run out explodes. */
 export function cratesTurnEnd(s: GameState) {
-  for (const t of (s.tiles ?? []).filter((t) => t.fuse !== undefined && t.fuse <= s.ply)) explode(s, t);
+  for (const t of (s.tiles ?? []).filter((t) => EXPLOSIVE.has(t.kind) && t.fuse !== undefined && t.fuse <= s.ply)) explode(s, t);
 }
 
 /** A placed Nitro Crate goes off when a piece moves next to it. */

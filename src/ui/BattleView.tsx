@@ -97,6 +97,7 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   hammer: 'rgba(230, 110, 60, 0.95)',
   fireBreath: 'rgba(240, 90, 60, 0.95)',
   groundSlam: 'rgba(120, 80, 40, 0.95)',
+  hitBlock: 'rgba(240, 200, 40, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -375,6 +376,21 @@ function describeSpace(state: GameState, c: Coord): { title: string; text: strin
       return { title: 'Crumbling Platform', text: 'Safe to stand on, but the moment it is left empty it collapses into a gap for good.' };
     case 'monitor':
       return { title: 'Item Monitor', text: 'The first piece to land here breaks it for a bonus: Speed Shoes (+1 range for 3 turns), a Shield, a Power Boost (+1 damage on its next attack) or Recovery (heal 1).' };
+    case 'qblock':
+      return { title: '? Block', text: 'Blocks the way. A piece next to it can hit it instead of moving for a surprise: a Coin (+10 gold), a Mushroom (heal 1), a Star (ignore the next point of damage) or a Fire Flower (+1 damage on its next attack). Then it is an Empty Block.' };
+    case 'emptyBlock':
+      return { title: 'Empty Block', text: 'Already hit. It still blocks the way.' };
+    case 'brick':
+      return { title: 'Brick Block', text: 'Blocks the way like a cracked wall and can be smashed the same way. Half the time a coin flies out (+5 gold), and some hide a Mushroom that heals the piece that breaks them.' };
+    case 'note':
+      return { title: 'Note Block', text: 'A 1×1 piece landing here may bounce exactly 3 squares in any direction, over anything, onto an empty square (no capture). Once per turn; it never breaks.' };
+    case 'lava':
+      return { title: 'Lava', text: 'Any piece that lands here takes 1 damage, and 1 more at the end of any turn it starts and ends here. Jumping over it is safe.' };
+    case 'donut':
+      return {
+        title: 'Donut Block',
+        text: `A platform over a gap. When a piece lands on it, it starts to shake and falls at the end of that piece's next turn: anyone still on it takes 1 and is knocked to the nearest free square.${tile.collapse !== undefined ? ' Shaking!' : ''}`,
+      };
     case 'tnt':
       return {
         title: 'TNT Crate',

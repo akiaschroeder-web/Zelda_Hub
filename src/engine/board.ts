@@ -64,7 +64,7 @@ export function parseBoard(rows: string[]): Board {
   const enemyZone: Coord[] = [];
   const tiles: Tile[] = [];
   const TILE_CHARS: Record<string, Tile['kind']> = {
-    K: 'key', S: 'switch', F: 'floorMaster', H: 'heart', W: 'warp', V: 'warp', '%': 'crumble', M: 'monitor', T: 'starPost', X: 'tnt', Z: 'nitro', B: 'bounce',
+    K: 'key', S: 'switch', F: 'floorMaster', H: 'heart', W: 'warp', V: 'warp', '%': 'crumble', M: 'monitor', T: 'starPost', X: 'tnt', Z: 'nitro', B: 'bounce', N: 'note', O: 'lava', D: 'donut',
   };
   for (let y = 0; y < height; y++) {
     const row: Terrain[] = [];
@@ -75,6 +75,14 @@ export function parseBoard(rows: string[]): Board {
       else if (ch === ' ' || ch === '_') row.push('gap');
       else if (ch === 'L') row.push('door');
       else if (ch === '-') row.push('void');
+      // Super Mario Pack: ? Blocks sit on wall squares, Brick Blocks on cracked walls (j hides a Mushroom).
+      else if (ch === 'Q') {
+        row.push('wall');
+        tiles.push({ kind: 'qblock', pos: { x, y } });
+      } else if (ch === 'J' || ch === 'j') {
+        row.push('cracked');
+        tiles.push({ kind: 'brick', pos: { x, y }, ...(ch === 'j' ? { mushroom: true } : {}) });
+      }
       else if (TILE_CHARS[ch]) {
         row.push('normal');
         tiles.push({ kind: TILE_CHARS[ch], pos: { x, y }, ...(ch === 'W' || ch === 'V' ? { pair: ch } : {}) });
