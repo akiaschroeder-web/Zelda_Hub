@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CRASH_LEGEND } from '../../content/packs';
 import { terrainAt } from '../board';
 import { hasStatus } from '../core';
-import { applyMove, legalMoves } from '../moves';
+import { applyMove } from '../moves';
 import { canTake } from '../upgrades/eligibility';
 import { GameState } from '../types';
 import { act, at, covers, dests, hasAction, make, movesAt, play, shields, wait } from './upgradeHelpers';
