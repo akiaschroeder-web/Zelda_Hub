@@ -9,7 +9,8 @@ import { enabledPacks } from '../content/packs';
 import { RUN_CONFIG } from './config';
 import { EVENTS, EventDef } from './events';
 import { ActMap, MapNode, findNode, generateAct } from './map';
-import { PendingReward, RewardOption, ShopItem, battleReward, generateShop, recruitReward, treasureReward } from './rewards';
+import { PendingReward, RewardOption, ShopItem, battleReward, generateShop, recruitReward, rollUpgrade, treasureReward } from './rewards';
+import { PotionShopItem, battleArmyPoints, extraDeployRows, generatePotionShop, goldMultiplier, spendPotion } from './potions';
 import { Rng, randomSeed } from './rng';
 
 /** One piece the player owns. Its uid is also its id on the battlefield. */
@@ -40,7 +41,7 @@ export interface DeployedPiece {
 }
 
 /** Which screen the run is on. */
-export type RunPhase = 'map' | 'deploy' | 'battle' | 'reward' | 'shop' | 'event';
+export type RunPhase = 'map' | 'deploy' | 'battle' | 'reward' | 'shop' | 'event' | 'forge' | 'potions';
 
 export interface RunState {
   version: 3;
@@ -76,6 +77,20 @@ export interface RunState {
   unlockedBosses: PieceType[];
   /** Content packs that were on when the run started. */
   packs: string[];
+  /** Upgrades kept off any piece (extracted or forged), ready to equip. */
+  stash: string[];
+  /** Potions owned and not yet used. */
+  potions: string[];
+  /** Pre-battle potions drunk for the coming battle (cleared when it ends). */
+  boosts: string[];
+  /** Permanent elixirs bought this run. */
+  elixirs: string[];
+  /** Potion Shop stock, while visiting one. */
+  potionShop: PotionShopItem[] | null;
+  /** Forge: three paid-for choices waiting to be picked. */
+  forgeOffer: { kind: 'piece' | 'upgrade'; options: string[] } | null;
+  /** Forge: what the last forging produced (for the screen to show). */
+  forgeResult?: string | null;
 }
 
 /** Acts with their own boss tier; from the fourth act on, any boss can appear. */
@@ -133,11 +148,19 @@ export function newRun(seed = randomSeed(), packs: readonly string[] = []): RunS
     runFlags: [],
     unlockedBosses: [],
     packs: [...packs],
+    stash: [],
+    potions: [],
+    boosts: [],
+    elixirs: [],
+    potionShop: null,
+    forgeOffer: null,
   };
 }
 
 /** The route each phase lives on. */
-export const ROUTES: Record<RunPhase, '/map' | '/deploy' | '/battle' | '/reward' | '/shop' | '/event'> = {
+export const ROUTES: Record<RunPhase, '/map' | '/deploy' | '/battle' | '/reward' | '/shop' | '/event' | '/forge' | '/potions'> = {
+  forge: '/forge',
+  potions: '/potions',
   map: '/map',
   deploy: '/deploy',
   battle: '/battle',
@@ -175,9 +198,13 @@ export function enterNode(run: RunState, nodeId: string): RunState {
       case 'shop':
         return { phase: 'shop', shop: generateShop(rng, run.act, run.roster, run.packs) };
       case 'treasure':
-        return { phase: 'reward', reward: treasureReward(rng, run.act, run.roster, run.packs) };
+        return { phase: 'reward', reward: withInsight(rng, run, { ...treasureReward(rng, run.act, run.roster, run.packs), source: 'treasure' }) };
       case 'recruit':
-        return { phase: 'reward', reward: recruitReward(rng, run.act, run.packs) };
+        return { phase: 'reward', reward: { ...recruitReward(rng, run.act, run.packs), source: 'recruit' } };
+      case 'forge':
+        return { phase: 'forge', forgeOffer: null, forgeResult: null };
+      case 'potion':
+        return { phase: 'potions', potionShop: generatePotionShop(rng, run) };
       case 'event': {
         const usable = EVENTS.filter((e) => !e.available || e.available(run));
         return { phase: 'event', event: { id: rng.pick(usable).id, outcome: null } };
@@ -267,14 +294,33 @@ export const leaveEvent = (run: RunState): RunState => leaveNode(run);
 export const costOf = (r: { type: PieceType; upgrades?: string[] }) => PIECE_STATS[r.type].cost + upgradeCost(r.upgrades ?? []);
 
 export function deploymentCost(run: RunState, deployed: DeployedPiece[]): number {
+  // Free Deployment potion: nothing costs anything this battle.
+  if ((run.boosts ?? []).includes('free_deployment')) return 0;
   return deployed.reduce((sum, d) => {
     const piece = run.roster.find((r) => r.uid === d.uid);
     return sum + (piece ? costOf(piece) : 0);
   }, 0);
 }
 
-export function deployZone(battle: RunBattle): Coord[] {
-  return parseBoard(battle.terrain).deployZone ?? [];
+/**
+ * The player's deployment squares. Reinforcement and the Elixir of Ranks add
+ * rows in front of the usual zone (open squares only, never the enemy's).
+ */
+export function deployZone(battle: RunBattle, run?: Pick<RunState, 'boosts' | 'elixirs'>): Coord[] {
+  const board = parseBoard(battle.terrain);
+  const zone = [...(board.deployZone ?? [])];
+  const extra = run ? extraDeployRows(run) : 0;
+  if (!extra || !zone.length) return zone;
+  const enemy = new Set([...(board.enemyZone ?? []).map(coordKey), ...battle.enemies.flatMap((e) => footprint({ type: e.type } as Piece, e).map(coordKey))]);
+  let y = Math.min(...zone.map((c) => c.y));
+  for (let added = 0; added < extra && y > 0; ) {
+    y--;
+    const row = Array.from({ length: board.width }, (_, x) => ({ x, y })).filter((c) => isStandable(board, c) && !enemy.has(coordKey(c)));
+    if (!row.length) continue;
+    zone.push(...row);
+    added++;
+  }
+  return zone;
 }
 
 /** Every square a deployed piece would cover. */
@@ -285,7 +331,7 @@ function cellsOf(run: RunState, d: DeployedPiece): Coord[] {
 
 /** Can this roster piece be placed with its top-left corner at (x, y)? */
 export function canPlace(run: RunState, battle: RunBattle, deployed: DeployedPiece[], uid: string, at: Coord): boolean {
-  const zone = new Set(deployZone(battle).map(coordKey));
+  const zone = new Set(deployZone(battle, run).map(coordKey));
   const board = parseBoard(battle.terrain);
   const taken = new Set(deployed.filter((d) => d.uid !== uid).flatMap((d) => cellsOf(run, d).map(coordKey)));
   return cellsOf(run, { uid, ...at }).every(
@@ -313,7 +359,15 @@ function buildBattle(run: RunState, battle: RunBattle, deployed: DeployedPiece[]
     }),
     ...battle.enemies.map((e) => ({ ...e, side: 'enemy' as const })),
   ];
-  return createGame(parseBoard(battle.terrain), placements, battle.rules, run.runFlags);
+  const game = createGame(parseBoard(battle.terrain), placements, battle.rules, run.runFlags);
+  // Pre-battle potions.
+  const boosts = run.boosts ?? [];
+  for (const p of game.pieces.filter((p) => p.side === 'player')) {
+    if (boosts.includes('fortification')) p.shields.push({ strength: 1, expires: null });
+    if (boosts.includes('strength')) p.statuses.push({ kind: 'damageBuff', amount: 1, until: null, source: 'potion' });
+    if (boosts.includes('swiftness')) p.statuses.push({ kind: 'rangeBuff', amount: 1, until: null, source: 'potion' });
+  }
+  return game;
 }
 
 /** Problems that stop the battle from starting; empty when the deployment is valid. */
@@ -322,7 +376,8 @@ export function deploymentErrors(run: RunState, battle: RunBattle, deployed: Dep
   const king = run.roster.find((r) => r.type === 'king');
   if (king && !deployed.some((d) => d.uid === king.uid)) errors.push('Your King must take the field.');
   const cost = deploymentCost(run, deployed);
-  if (cost > run.armyPoints) errors.push(`Over budget: ${cost}/${run.armyPoints} Army Points.`);
+  const ap = battleArmyPoints(run);
+  if (cost > ap) errors.push(`Over budget: ${cost}/${ap} Army Points.`);
   for (const d of deployed) {
     if (!run.roster.some((r) => r.uid === d.uid)) errors.push('A deployed piece is not in your roster.');
     else if (!canPlace(run, battle, deployed, d.uid, d)) errors.push('A piece is outside the deployment zone or overlapping.');
@@ -337,7 +392,7 @@ export function deploymentErrors(run: RunState, battle: RunBattle, deployed: Dep
 export function autoDeploy(run: RunState, battle: RunBattle): DeployedPiece[] {
   const width = battle.terrain[0].length;
   const mid = (width - 1) / 2;
-  const zone = deployZone(battle).sort((a, b) => b.y - a.y || Math.abs(a.x - mid) - Math.abs(b.x - mid));
+  const zone = deployZone(battle, run).sort((a, b) => b.y - a.y || Math.abs(a.x - mid) - Math.abs(b.x - mid));
   const deployed: DeployedPiece[] = [];
   let points = 0;
   const order = [...run.roster].sort((a, b) =>
@@ -345,7 +400,7 @@ export function autoDeploy(run: RunState, battle: RunBattle): DeployedPiece[] {
   );
   for (const piece of order) {
     const cost = costOf(piece);
-    if (points + cost > run.armyPoints) continue;
+    if (points + cost > battleArmyPoints(run)) continue;
     // Pawns go in front (the zone row furthest forward).
     const candidates = piece.type === 'pawn' ? [...zone].sort((a, b) => a.y - b.y) : zone;
     // Under check rules, skip squares that would attack the enemy King before the battle starts.
@@ -427,7 +482,9 @@ export function finishBattle(run: RunState, final: GameState): RunState {
   const source = final.result.kind === 'draw' ? 'draw' : battle.kind;
   const unlockedBosses = battle.boss && !run.unlockedBosses.includes(battle.boss) ? [...run.unlockedBosses, battle.boss] : run.unlockedBosses;
   const [reward, rngState] = withRng(run, (rng) => {
-    const r = battleReward(rng, source, run.act, battle.name, roster, run.packs);
+    const r: PendingReward = withInsight(rng, run, { ...battleReward(rng, source, run.act, battle.name, roster, run.packs), source });
+    // Fortune potion and the Elixir of Plenty.
+    r.gold = Math.round(r.gold * goldMultiplier(run));
     // Boss Pieces are rare finds: a defeated boss sometimes offers itself, and
     // later elites occasionally offer any boss already beaten.
     const offer =
@@ -435,5 +492,34 @@ export function finishBattle(run: RunState, final: GameState): RunState {
     if (offer) r.options.push({ kind: 'piece', type: offer });
     return r;
   });
-  return { ...after, unlockedBosses, rng: rngState, phase: 'reward', reward };
+  return { ...after, unlockedBosses, rng: rngState, phase: 'reward', reward, boosts: [] };
 }
+
+/** Elixir of Insight: one more upgrade to choose from. */
+function withInsight(rng: Rng, run: RunState, r: PendingReward): PendingReward {
+  if (!(run.elixirs ?? []).includes('elixir_insight')) return r;
+  const taken = r.options.flatMap((o) => (o.kind === 'upgrade' ? [o.id] : []));
+  const id = rollUpgrade(rng, 'treasure', run.act, run.roster, taken, run.packs);
+  return id ? { ...r, options: [...r.options, { kind: 'upgrade', id }] } : r;
+}
+
+/** Second Chances potion: new choices for the reward on screen (gold and Army Points stay). */
+export function rerollReward(run: RunState): RunState {
+  const r = run.reward;
+  if (run.phase !== 'reward' || !r || r.rerolled) throw new Error('Nothing to reroll');
+  const spent = spendPotion(run, 'second_chances');
+  const [fresh, rng] = withRng(spent, (g) => {
+    const kind = r.source ?? 'battle';
+    const base =
+      kind === 'treasure'
+        ? treasureReward(g, run.act, run.roster, run.packs)
+        : kind === 'recruit'
+          ? recruitReward(g, run.act, run.packs)
+          : battleReward(g, kind, run.act, run.battle?.name ?? '', run.roster, run.packs);
+    return kind === 'recruit' ? base : withInsight(g, run, base);
+  });
+  return { ...spent, rng, reward: { ...r, options: fresh.options, rerolled: true } };
+}
+
+/** Leave the Potion Shop. */
+export const leavePotionShop = (run: RunState): RunState => ({ ...run, phase: 'map', potionShop: null });

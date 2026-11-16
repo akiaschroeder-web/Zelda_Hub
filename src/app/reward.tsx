@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PIECE_STATS } from '../engine/pieces';
-import { claimReward } from '../run/run';
+import { claimReward, rerollReward } from '../run/run';
 import { useRun } from '../run/RunContext';
 import OptionCard from '../ui/OptionCard';
 import UpgradeTargetPicker from '../ui/UpgradeTargetPicker';
@@ -60,6 +60,16 @@ export default function RewardScreen() {
               <UpgradeTargetPicker run={run} upgradeId={chosen.id} selected={target} onSelect={setTarget} />
             )}
             <View style={{ gap: 8, marginTop: 6 }}>
+              {r.options.length > 0 && !r.rerolled && run.potions.includes('second_chances') && (
+                <Button
+                  label={`🎲 Second Chances: reroll (×${run.potions.filter((p) => p === 'second_chances').length})`}
+                  onPress={() => {
+                    setChoice(null);
+                    setTarget(null);
+                    update(rerollReward);
+                  }}
+                />
+              )}
               {r.options.length > 0 && (
                 <Button
                   label={choice === null ? 'Choose a reward' : needsTarget && !target ? 'Choose a piece' : 'Take it'}

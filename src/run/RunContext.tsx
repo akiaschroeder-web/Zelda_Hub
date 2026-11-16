@@ -61,7 +61,18 @@ export function RunProvider({ children }: { children: ReactNode }) {
         if (!raw) return;
         const saved = JSON.parse(raw) as RunState;
         // Runs saved before content packs existed simply have none.
-        if (saved?.version === 3 && Array.isArray(saved.unlockedBosses)) setRun({ ...saved, packs: saved.packs ?? [] });
+        // Fields added since a run was saved get their starting values.
+        if (saved?.version === 3 && Array.isArray(saved.unlockedBosses))
+          setRun({
+            ...saved,
+            packs: saved.packs ?? [],
+            stash: saved.stash ?? [],
+            potions: saved.potions ?? [],
+            boosts: saved.boosts ?? [],
+            elixirs: saved.elixirs ?? [],
+            potionShop: saved.potionShop ?? null,
+            forgeOffer: saved.forgeOffer ?? null,
+          });
       })
       .catch(() => {
         /* A corrupt or unreadable save just means no run to continue. */

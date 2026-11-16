@@ -124,6 +124,10 @@ export interface PendingReward {
   armyPoints: number;
   /** Pick one of these (or skip). */
   options: RewardOption[];
+  /** What kind of reward this is (for Second Chances rerolls). */
+  source?: 'battle' | 'elite' | 'boss' | 'draw' | 'treasure' | 'recruit';
+  /** Already rerolled once. */
+  rerolled?: boolean;
 }
 
 /** Roll a recruitable piece type. Later acts shift odds upward. */

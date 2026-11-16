@@ -8,8 +8,11 @@ import { RUN_CONFIG } from '../config';
 import { EVENTS } from '../events';
 import { FLOORS_PER_ACT, generateAct } from '../map';
 import { Rng } from '../rng';
+import { buyPotion } from '../potions';
+import { leaveForge } from '../forge';
 import {
   RunState,
+  leavePotionShop,
   autoDeploy,
   availableNodes,
   buy,
@@ -241,6 +244,15 @@ function simulateRun(seed: number): RunState {
         run = leaveShop(run);
         break;
       }
+      case 'potions': {
+        const i = run.potionShop!.findIndex((it) => !it.sold && it.price <= run.gold);
+        if (i >= 0) run = buyPotion(run, i);
+        run = leavePotionShop(run);
+        break;
+      }
+      case 'forge':
+        run = leaveForge(run);
+        break;
       case 'event': {
         const ev = currentEvent(run)!;
         const i = ev.choices.findIndex((c) => !c.available || c.available(run));

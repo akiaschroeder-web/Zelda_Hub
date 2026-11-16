@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PIECE_STATS } from '../engine/pieces';
 import { UPGRADE_BY_ID, UPGRADE_SLOTS } from '../engine/upgrades/catalog';
+import { ELIXIR_BY_ID, POTION_BY_ID } from '../run/potions';
 import { costOf, livingFortressBonus } from '../run/run';
 import { UPGRADE_RARITY_COLORS } from '../ui/OptionCard';
 import { useRun } from '../run/RunContext';
@@ -60,6 +61,27 @@ export default function Army() {
           </Panel>
         );
       })()}
+      {(run.potions.length > 0 || run.elixirs.length > 0 || run.stash.length > 0) && (
+        <Panel>
+          <Text style={text.heading}>INVENTORY</Text>
+          {[...new Set(run.potions)].map((id) => (
+            <Text key={id} style={[text.body, { marginTop: 6 }]}>
+              {POTION_BY_ID[id].icon} {POTION_BY_ID[id].name} ×{run.potions.filter((p) => p === id).length}{' '}
+              <Text style={text.dim}>— {POTION_BY_ID[id].text}</Text>
+            </Text>
+          ))}
+          {run.elixirs.map((id) => (
+            <Text key={id} style={[text.body, { marginTop: 6, color: COLORS.gold }]}>
+              {ELIXIR_BY_ID[id].icon} {ELIXIR_BY_ID[id].name} <Text style={text.dim}>— {ELIXIR_BY_ID[id].text}</Text>
+            </Text>
+          ))}
+          {run.stash.length > 0 && (
+            <Text style={[text.dim, { marginTop: 6 }]}>
+              Upgrade stash (equip at a Forge): {run.stash.map((u) => UPGRADE_BY_ID[u].name).join(', ')}
+            </Text>
+          )}
+        </Panel>
+      )}
       {run.fallen.length > 0 && (
         <Panel>
           <Text style={text.heading}>FALLEN · {run.fallen.length}</Text>

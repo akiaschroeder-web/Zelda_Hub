@@ -16,6 +16,7 @@ import {
   startBattle,
 } from '../run/run';
 import { NODE_INFO } from '../run/map';
+import { POTION_BY_ID, battleArmyPoints, usePrebattlePotion as drinkPotion } from '../run/potions';
 import RunGuard from '../ui/RunGuard';
 import { useRun } from '../run/RunContext';
 import BoardView, { Marker } from '../ui/BoardView';
@@ -53,14 +54,15 @@ function DeployView({ run }: { run: RunState }) {
     asPiece(d.uid, typeOf(d.uid), { x: d.x, y: d.y }, run.roster.find((r) => r.uid === d.uid)!.upgrades),
   );
   const cost = deploymentCost(run, deployed);
-  const zone = deployZone(battle);
+  const zone = deployZone(battle, run);
+  const ap = battleArmyPoints(run);
   const squaresUsed = fielded.reduce((n, p) => n + footprint(p).length, 0);
   const errors = deploymentErrors(run, battle, deployed);
   const reserve = run.roster.filter((r) => !deployed.some((d) => d.uid === r.uid)).sort(byRank);
 
   const pieceAt = (c: Coord) => fielded.find((p) => footprint(p).some((f) => f.x === c.x && f.y === c.y));
   const pieceCost = (uid: string) => costOf(run.roster.find((r) => r.uid === uid)!);
-  const fits = (uid: string) => cost - (deployed.some((d) => d.uid === uid) ? pieceCost(uid) : 0) + pieceCost(uid) <= run.armyPoints;
+  const fits = (uid: string) => cost - (deployed.some((d) => d.uid === uid) ? pieceCost(uid) : 0) + pieceCost(uid) <= ap;
 
   const onSquare = (c: Coord) => {
     const occupant = pieceAt(c);
@@ -87,7 +89,8 @@ function DeployView({ run }: { run: RunState }) {
   }
 
   const cell = Math.floor(Math.min(Math.min(width - 24, 560) / board.width, (height * 0.48) / board.height));
-  const over = cost > run.armyPoints;
+  const over = cost > ap;
+  const bag = [...new Set(run.potions.filter((id) => POTION_BY_ID[id]?.use === 'deploy'))];
 
   return (
     <ScrollView style={{ backgroundColor: COLORS.background }} contentContainerStyle={styles.screen}>
@@ -102,7 +105,7 @@ function DeployView({ run }: { run: RunState }) {
       </Text>
       <View style={styles.counters}>
         <Text style={[styles.counter, over && { color: COLORS.danger }]}>
-          Army Points {cost}/{run.armyPoints}
+          Army Points {cost}/{ap}
         </Text>
         <Text style={styles.counter}>
           Squares {squaresUsed}/{zone.length}
@@ -143,6 +146,30 @@ function DeployView({ run }: { run: RunState }) {
         <Text style={text.dim}>{"Reserve pieces sit this battle out and can't be captured."}</Text>
       </View>
 
+      {(bag.length > 0 || run.boosts.length > 0) && (
+        <View style={{ width: '100%' }}>
+          <Text style={text.heading}>POTIONS</Text>
+          {run.boosts.length > 0 && (
+            <Text style={[text.body, { color: COLORS.gold, marginTop: 4 }]}>
+              Active: {run.boosts.map((b) => `${POTION_BY_ID[b].icon} ${POTION_BY_ID[b].name}`).join(', ')}
+            </Text>
+          )}
+          <View style={styles.potions}>
+            {bag
+              .filter((id) => !run.boosts.includes(id))
+              .map((id) => (
+                <Button
+                  key={id}
+                  small
+                  label={`${POTION_BY_ID[id].icon} ${POTION_BY_ID[id].name} ×${run.potions.filter((p) => p === id).length}`}
+                  onPress={() => update((r) => drinkPotion(r, id))}
+                />
+              ))}
+          </View>
+          {bag.some((id) => !run.boosts.includes(id)) && <Text style={text.dim}>Tap a potion to drink it for this battle.</Text>}
+        </View>
+      )}
+
       {errors.length > 0 && <Text style={styles.error}>{errors[0]}</Text>}
 
       <View style={styles.buttons}>
@@ -170,4 +197,5 @@ const styles = StyleSheet.create({
   tray: { gap: 6, paddingVertical: 8 },
   error: { color: COLORS.danger, fontSize: 13, textAlign: 'center' },
   buttons: { flexDirection: 'row', gap: 8 },
+  potions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: 6 },
 });
