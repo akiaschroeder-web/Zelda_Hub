@@ -241,10 +241,12 @@ describe('upgrade catalog', () => {
     expect(['common', 'uncommon', 'rare', 'legendary', 'mythical'].map((r) => mario.filter((u) => u.rarity === r).length)).toEqual([5, 9, 9, 5, 2]);
     const metroid = UPGRADES.filter((u) => u.pack === 'metroid');
     expect(['common', 'uncommon', 'rare', 'legendary', 'mythical'].map((r) => metroid.filter((u) => u.rarity === r).length)).toEqual([2, 5, 4, 3, 1]);
+    const ben = UPGRADES.filter((u) => u.pack === 'ben10');
+    expect(['common', 'uncommon', 'rare', 'legendary', 'mythical'].map((r) => ben.filter((u) => u.rarity === r).length)).toEqual([4, 9, 10, 5, 2]);
     expect(['common', 'uncommon', 'rare', 'legendary', 'mythical'].map((r) => crash.filter((u) => u.rarity === r).length)).toEqual([6, 9, 9, 5, 1]);
-    expect(UPGRADES.filter((u) => u.rarity === 'mythical').map((u) => u.id).sort()).toEqual(['chaos_emeralds', 'mega_mushroom', 'metroid_suit', 'power_crystal', 'triforce_courage', 'triforce_power', 'triforce_wisdom', 'wonder_flower']);
-    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(381);
-    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(381);
+    expect(UPGRADES.filter((u) => u.rarity === 'mythical').map((u) => u.id).sort()).toEqual(['chaos_emeralds', 'dna_fusion', 'master_control', 'mega_mushroom', 'metroid_suit', 'power_crystal', 'triforce_courage', 'triforce_power', 'triforce_wisdom', 'wonder_flower']);
+    expect(new Set(UPGRADES.map((u) => u.num)).size).toBe(411);
+    expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(411);
     expect(UPGRADES.filter((u) => u.excluded).map((u) => u.id).sort()).toEqual(
       ['anchor_feet', 'board_dominion', 'free_rotation', 'gap_sense', 'terrain_adaptation', 'wall_breaker'].sort(),
     );

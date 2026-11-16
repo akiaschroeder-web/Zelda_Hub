@@ -491,6 +491,44 @@ const METROID_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarit
   [381, 'metroid_suit', 'Metroid Suit', 'mythical', 'legendary', '+1 maximum HP (up to 3), slides one square further, +1 damage, and heals 1 on every capture. Hyper Beam: once per battle, instead of moving, 2 damage to every enemy up to 5 squares in a straight line (walls stop it).'],
 ];
 
+/** Ben 10 Pack upgrades. */
+const BEN10_ROWS: [num: number, id: string, name: string, rarity: UpgradeRarity, category: UpgradeCategory, text: string][] = [
+  // Omnitrix technology
+  [382, 'omnitrix_dial', 'Omnitrix Dial', 'common', 'movement', "Slides one square further. On Ben: the Omnitrix recharges in 3 turns instead of 4."],
+  [383, 'omnitrix_recharge', 'Omnitrix Recharge', 'uncommon', 'support', "Every 4 turns, instead of moving, its longest cooldown drops by 1. On Ben: the Omnitrix's drops by 2."],
+  [384, 'omnitrix_scanner', 'Omnitrix Scanner', 'uncommon', 'movement', 'Every 3 turns, instead of moving, scan an enemy within 3 (not bosses): on its next turn the piece can also move like it.'],
+  [385, 'master_control', 'Omnitrix Master Control', 'mythical', 'legendary', '+1 maximum HP (up to 3) and slides one square further. On Ben: no Omnitrix cooldown, transformations last until he changes back, and he can switch forms once a turn instead of moving.'],
+  [386, 'omnitrix_failsafe', 'Omnitrix Failsafe', 'legendary', 'defense', 'Once per battle, instead of being captured, it survives with 1 HP. On Ben in human form: he turns into an alien at full health instead.'],
+  [387, 'dna_repair', 'Omnitrix DNA Repair', 'rare', 'support', 'Every 4 turns, instead of moving, heal 1. On Ben: every alien form starts at full health.'],
+  // Alien abilities
+  [388, 'pyronite_flames', 'Pyronite Flames', 'uncommon', 'offense', 'Every 3 turns, instead of moving, 1 damage to the first piece within 3 orthogonally, if it is an enemy — and 1 to another enemy next to it.'],
+  [389, 'vulpimancer_instincts', 'Vulpimancer Instincts', 'common', 'defense', 'Once per battle, when an enemy moves next to it, it leaps to the safest adjacent square.'],
+  [390, 'petrosapien_crystals', 'Petrosapien Crystals', 'rare', 'walls', '+1 maximum HP (up to 3). Every 4 turns, instead of moving, raise a cracked wall on an empty square within 2.'],
+  [391, 'kineceleran_speed', 'Kineceleran Speed', 'rare', 'movement', 'Slides two squares further. Every 3 turns, may make a second move that captures nothing.'],
+  [392, 'galvan_intelligence', 'Galvan Intelligence', 'uncommon', 'status', 'Slips through pieces (not walls) to an empty square. Every 4 turns, instead of moving, a machine within 3 is disabled for its next turn (not bosses).'],
+  [393, 'tetramand_strength', 'Tetramand Strength', 'rare', 'offense', '+1 damage on attacks. Can knock down an adjacent cracked wall instead of moving.'],
+  [394, 'lepidopterran_wings', 'Lepidopterran Wings', 'uncommon', 'movement', 'Flies over gaps and may land on them. Every 3 turns, may jump exactly 3 squares diagonally over anything.'],
+  [395, 'piscciss_jaws', 'Piscciss Volann Jaws', 'common', 'offense', 'Its first attack each battle deals +1. If that attack captures, it may then step one square.'],
+  [396, 'galvanic_mechamorph', 'Galvanic Mechamorph Upgrade', 'rare', 'support', "Every 3 turns, instead of moving, an adjacent friendly machine gets +1 damage and +1 range for its next 2 turns. On Upgrade: his fusion also repairs 1 HP."],
+  [397, 'ectonurite_phasing', 'Ectonurite Phasing', 'rare', 'defense', 'Drifts through walls, cracked walls and pieces to an empty square. The first ranged attack on it each battle passes through.'],
+  [398, 'pelarota_armor', 'Arburian Pelarota Armor', 'uncommon', 'defense', 'Ignores the first point of damage each battle. An attack after rolling 3+ squares in a line deals +1.'],
+  [399, 'tokustar_energy', "To'kustar Cosmic Energy", 'legendary', 'offense', 'Every 4 turns, instead of moving, 2 damage to every enemy up to 6 squares in an orthogonal line (walls stop it). On Way Big: his Cosmic Ray recharges a turn sooner and reaches 2 further.'],
+  // Plumber equipment
+  [400, 'plumber_badge', 'Plumber Badge', 'common', 'support', 'Friendly pieces next to it slide one square further.'],
+  [401, 'plumber_blaster', 'Plumber Blaster', 'uncommon', 'offense', 'Every 3 turns, instead of moving, 1 damage to the first piece within 4 orthogonally, if it is an enemy.'],
+  [402, 'plumber_armor', 'Plumber Armor', 'uncommon', 'defense', '+1 maximum HP (up to 3).'],
+  [403, 'null_void_projector', 'Null Void Projector', 'legendary', 'status', "Once per battle, instead of moving, banish an enemy within 3 (not bosses or Kings) for 2 of its turns; it then returns to its square, or the nearest free one."],
+  [404, 'plumber_restraints', 'Plumber Restraints', 'rare', 'status', "Every 3 turns, instead of moving, an enemy within 3 (not bosses) can't move for its next 2 turns (it can still act)."],
+  [405, 'plumber_teleporter', 'Plumber Teleporter', 'rare', 'movement', 'Every 4 turns, instead of moving, teleport to any empty square within 4.'],
+  // Villain tech & artifacts
+  [406, 'kevins_absorption', "Kevin's Energy Absorption", 'rare', 'offense', 'Every 3 turns, surviving an attack gives +1 damage on its next attack. On Kevin 11: he also heals 1.'],
+  [407, 'vilgax_cybernetics', "Vilgax's Cybernetic Enhancements", 'legendary', 'offense', "+1 maximum HP (up to 3), slides one square further and +1 damage. On Vilgax: his area attack recharges a turn sooner."],
+  [408, 'charm_of_luck', 'Charm of Luck', 'uncommon', 'defense', 'Once per battle, the first attack that would hurt it has a 50% chance to miss — and then it steps to an adjacent square.'],
+  [409, 'charm_of_telekinesis', 'Charm of Telekinesis', 'rare', 'status', 'Every 3 turns, instead of moving, move a 1×1 enemy within 3 (not bosses) one square in any direction.'],
+  [410, 'ascalon', 'Ascalon', 'legendary', 'offense', '+1 damage on attacks, and its slides cut through cracked walls. Once per battle, instead of moving, 2 damage to the first piece within 3 in any straight line, if it is an enemy.'],
+  [411, 'dna_fusion', 'Omnitrix DNA Fusion', 'mythical', 'legendary', "Once per battle, instead of moving: for 3 turns it also moves like two different friendly 1×1 pieces within 3, and gets +1 maximum HP (up to 3) and heals 1. On Ben as an alien: he fuses with a second alien, keeping his form's abilities and adding its moves, for 3 turns."],
+];
+
 /** Upgrades that depend on systems the game doesn't have yet. Never offered. */
 export const EXCLUDED: Record<string, string> = {
   free_rotation: 'Pieces have no facing.',
@@ -601,6 +639,17 @@ export const UPGRADES: UpgradeInfo[] = (Object.entries(R) as [UpgradeCategory, R
       slots: slotsFor(rarity),
       cost: COST[rarity],
       pack: 'metroid',
+    })),
+    BEN10_ROWS.map(([num, id, name, rarity, category, text]): UpgradeInfo => ({
+      num,
+      id,
+      name,
+      rarity,
+      category,
+      text,
+      slots: slotsFor(rarity),
+      cost: COST[rarity],
+      pack: 'ben10',
     })),
   )
   .sort((a, b) => a.num - b.num);

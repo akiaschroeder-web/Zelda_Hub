@@ -14,6 +14,8 @@ import { marioAfterHit, marioNegates, marioReduction } from './mario';
 import { popBubble, tanookiCounter } from './marioUpgrades';
 import { brickSmashed } from './marioSpaces';
 import { metroidAfterHit, metroidNegates, metroidReduction } from './metroid';
+import { ben10Negates, ben10Reduction } from './ben10';
+import { ben10UpgradeAfterHit, ben10UpgradeNegates, ben10UpgradeReduction, omnitrixFailsafe } from './ben10Upgrades';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { etherealEscape, haunted } from './bosses';
 import {
@@ -170,6 +172,7 @@ export function cloneState(s: GameState): GameState {
     rotations: s.rotations ?? 0,
     bones: (s.bones ?? []).map((b) => ({ ...b, piece: clonePiece(b.piece), at: { ...b.at } })),
     masks: (s.masks ?? []).map((mk) => ({ ...mk, piece: clonePiece(mk.piece) })),
+    voided: (s.voided ?? []).map((v) => ({ ...v, piece: clonePiece(v.piece), at: { ...v.at } })),
   };
 }
 
@@ -381,6 +384,9 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   if (direct(ctx.kind) && !ctx.pure && !ctx.lethal && crashNegates(s, target, source, amount)) return { kind: 'survived', dealt: 0 };
   // Zero Suit Samus: Acrobatic Escape.
   if (direct(ctx.kind) && !ctx.pure && !ctx.lethal && metroidNegates(s, target, source, amount)) return { kind: 'survived', dealt: 0 };
+  // Ben 10 Pack: Gwen's Magic Shield, XLR8's Speed Dodge, Ghostfreak, Charm of Luck, Ectonurite Phasing.
+  if (direct(ctx.kind) && !ctx.pure && !ctx.lethal && (ben10Negates(s, target, source, amount) || ben10UpgradeNegates(s, target, source, amount, ctx.kind === 'ranged')))
+    return { kind: 'survived', dealt: 0 };
   // Toadette's Mushroom Rescue.
   if (!ctx.pure && !ctx.lethal && marioNegates(s, target, amount, ctx.kind)) return { kind: 'survived', dealt: 0 };
   // Rouge: Stealth — the first attack on her misses, as long as she hasn't captured anything.
@@ -490,6 +496,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   dmg = crashReduction(s, target, dmg);
   dmg = marioReduction(target, dmg, ctx.kind);
   dmg = metroidReduction(s, target, dmg);
+  dmg = ben10UpgradeReduction(target, ben10Reduction(target, dmg, ctx.kind));
   if (dmg > 0 && ready(target, 'iron_shell')) {
     markUsed(target, 'iron_shell');
     dmg -= 1;
@@ -540,6 +547,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   if (target.hp < hpBefore || shieldTotal(target) < shieldBefore) onSurvivedHit(s, target, hpBefore, ctx, source);
   marioAfterHit(s, target, source, ctx.kind);
   metroidAfterHit(s, target, source, ctx.kind);
+  if (direct(ctx.kind) && source && source.side !== target.side) ben10UpgradeAfterHit(s, target);
   escapeAfterHit(s, target, hpBefore, ctx, source);
   return { kind: 'survived', dealt: hpBefore - target.hp };
 }
@@ -619,6 +627,7 @@ function preventDeath(s: GameState, p: Piece): boolean {
       return true;
     }
   }
+  if (omnitrixFailsafe(s, p)) return true;
   if (ready(p, 'bottled_fairy')) {
     markUsed(p, 'bottled_fairy');
     p.hp = 1;

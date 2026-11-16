@@ -333,7 +333,7 @@ function PieceArt({ p, cell }: { p: Piece; cell: number }) {
       {/* Aku Aku riding on this piece (Guardian Mask). */}
       {!!p.counters.akuHost && (
         <Image
-          source={PIECE_IMAGES[p.side].aku_aku}
+          source={PIECE_IMAGES[p.side][p.counters.akuHost === 2 ? 'upgrade' : 'aku_aku']}
           style={{ position: 'absolute', left: 0, top: 0, width: cell * 0.42, height: cell * 0.42 }}
           resizeMode="contain"
         />

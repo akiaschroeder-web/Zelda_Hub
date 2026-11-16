@@ -197,6 +197,23 @@ export type PieceType =
   | 'emmi'
   | 'ridley'
   | 'mother_brain'
+  // Ben 10 Pack
+  | 'ben'
+  | 'heatblast'
+  | 'wildmutt'
+  | 'diamondhead'
+  | 'xlr8'
+  | 'grey_matter'
+  | 'four_arms'
+  | 'stinkfly'
+  | 'ripjaws'
+  | 'upgrade'
+  | 'ghostfreak'
+  | 'cannonbolt'
+  | 'way_big'
+  | 'gwen'
+  | 'kevin_11'
+  | 'vilgax'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -284,6 +301,18 @@ export type ActionKind =
   | 'spear' // Chozo Soldier: Spear Strike
   | 'tailStrike' // Ridley
   | 'brainBeam' // Mother Brain
+  | 'omnitrix' // Ben: transform
+  | 'fireball' // Heatblast
+  | 'crystalShot' // Diamondhead
+  | 'overload' // Grey Matter / Upgrade: disable a machine
+  | 'groundPound' // Four Arms
+  | 'slimeSpit' // Stinkfly
+  | 'possess' // Ghostfreak
+  | 'cosmicRay' // Way Big
+  | 'spell' // Gwen
+  | 'kevinJump' // Kevin 11
+  | 'energyBlast' // Kevin 11 (Phase 2+)
+  | 'conquer' // Vilgax: area attack
   | 'upgrade'
   | 'pass';
 
@@ -317,7 +346,8 @@ export type StatusKind =
   | 'fortified' // Fortified Position bonus HP applied
   | 'prophecy' // the next direct attack against this piece is negated
   | 'burned' // Fire Arrows: loses 1 HP at the end of its next turn
-  | 'copying'; // Metal Sonic: also moves like `source` (a piece type)
+  | 'copying' // Metal Sonic: also moves like `source` (a piece type)
+  | 'copying2'; // a second borrowed movement (DNA Fusion)
 
 export interface Status {
   kind: StatusKind;
@@ -549,6 +579,8 @@ export interface GameState {
   bones: Bones[];
   /** Aku Aku riding on a friendly piece (Guardian Mask): off the board until set down. */
   masks?: { hostId: string; piece: Piece }[];
+  /** Pieces sent to the Null Void, returning to `at` at the end of ply `until`. */
+  voided?: { piece: Piece; at: Coord; until: number }[];
   /** Extra gold the player has earned this battle (Wario's Greedy). */
   goldBonus?: number;
 }

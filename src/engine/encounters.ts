@@ -1,4 +1,4 @@
-import { CRASH_LEGEND, DUO_LEGEND, MARIO_LEGEND, METROID_LEGEND, SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
+import { BEN10_LEGEND, CRASH_LEGEND, DUO_LEGEND, MARIO_LEGEND, METROID_LEGEND, SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
 import { EncounterDef } from './setup';
 
 /**
@@ -544,5 +544,28 @@ export const ENCOUNTERS: EncounterDef[] = [
       '6,6': ['ice_beam'],
       '7,6': ['grapple_beam'],
     },
+  },
+  {
+    id: 'bellwood',
+    name: 'Bellwood',
+    description:
+      'Ben 10 Pack: Ben (tap him for the Omnitrix), Gwen and the aliens against an alien army. Tap a piece to read what it does.',
+    rules: { checkRules: true },
+    terrain: ['........', '........', '..+..+..', '.#.__.#.', '.#.__.#.', '..+..+..', '........', '........'],
+    pieces: ['ďĉăđkċėą', 'ćppppppĕ', '........', '........', '........', '........', 'ĆPPPPPPĔ', 'ĎĈĀĚKĂĖĄ'],
+    legend: BEN10_LEGEND,
+    upgrades: {
+      '2,7': ['omnitrix_dial'],
+      '3,7': ['plumber_badge'],
+    },
+  },
+  {
+    id: 'way_big_arrives',
+    name: 'Way Big Arrives',
+    description: 'Ben 10 Pack: the 5×5 Way Big on a 10×10 field. He moves one square at a time, stomps whatever he ends up next to, and fires the Cosmic Ray.',
+    rules: { checkRules: true },
+    terrain: ['..........', '..........', '..........', '...+..+...', '..........', '..........', '..........', '..........', '..........', '..........'],
+    pieces: ['rnbqkbnrrb', 'pppppppppp', '..........', '..........', '..........', 'Ę.........', '..........', '..........', '.....PPPPP', '.....QKBNR'],
+    legend: BEN10_LEGEND,
   },
 ];

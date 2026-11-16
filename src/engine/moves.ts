@@ -52,6 +52,8 @@ import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { baguetteBonus, duoMoves, resolveDuo, tetoDuetBonus } from './duo';
 import { cratesTurnEnd, nitroProximity } from './crates';
+import { ben10AfterMove, ben10AttackBonus, ben10BeforeMove, ben10Moves, ben10TurnEnd, resolveBen10 } from './ben10';
+import { ben10UpgradeAfterMove, ben10UpgradeAttackBonus, ben10UpgradeBeforeMove, nullVoidReturn } from './ben10Upgrades';
 import { emmiCaptures, metroidAfterMove, metroidAttackBonus, metroidBeforeMove, metroidMoves, metroidTurnEnd, resolveMetroid } from './metroid';
 import { marioSpaceMoves, marioSpacesTurnEnd, noteMoves, resolveHitBlock } from './marioSpaces';
 import { marioDamageCap, marioUpgradeAfterMove, marioUpgradeAttackBonus, marioUpgradeBeforeMove, marioUpgradeTurnEnd } from './marioUpgrades';
@@ -392,6 +394,7 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...marioSpaceMoves(state, p),
     ...noteMoves(state, p),
     ...metroidMoves(state, p),
+    ...ben10Moves(state, p),
   ];
   // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
   if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
@@ -608,7 +611,7 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (p.type === 'motobug' && m.from.y === m.to.y && Math.abs(m.to.x - m.from.x) >= 3) dmg += 1;
   if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
   // Digital Duo: Teto's duet and the Baguette boost the first attack of the battle.
-  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m) + crashUpgradeAttackBonus(p, m) + marioAttackBonus(s, p, t, m) + marioUpgradeAttackBonus(p, m) + metroidAttackBonus(p, m);
+  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m) + crashUpgradeAttackBonus(p, m) + marioAttackBonus(s, p, t, m) + marioUpgradeAttackBonus(p, m) + metroidAttackBonus(p, m) + ben10AttackBonus(s, p, m) + ben10UpgradeAttackBonus(p, m);
   // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
   if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
     dmg += 1;
@@ -920,6 +923,7 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
   if (resolveMario(s, m)) return;
   if (resolveHitBlock(s, m)) return;
   if (resolveMetroid(s, m)) return;
+  if (resolveBen10(s, m)) return;
   // Homing Attack / Cyan Laser ending on an enemy: a real attack, with bounceback.
   if (m.action === 'upgrade' && ATTACK_UPGRADES.has(m.upgrade!) && m.targets?.length) {
     spendSonicAction(p, m.upgrade!);
@@ -1088,6 +1092,8 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   crashUpgradeBeforeMove(s, m);
   marioUpgradeBeforeMove(s, m);
   metroidBeforeMove(s, m);
+  ben10BeforeMove(s, m);
+  ben10UpgradeBeforeMove(s, m);
   resolve(s, m, entry);
   zeldaAfterMove(s, m, from);
   sonicAfterMove(s, m, from, entry);
@@ -1096,6 +1102,8 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   marioAfterMove(s, m, from, entry, s.captured.length - state.captured.length);
   marioUpgradeAfterMove(s, m, entry, s.captured.length - state.captured.length);
   metroidAfterMove(s, m, from, entry, s.captured.length - state.captured.length);
+  ben10AfterMove(s, m, from, entry, s.captured.length - state.captured.length);
+  ben10UpgradeAfterMove(s, m, from, entry, s.captured.length - state.captured.length);
   nitroProximity(s, m, from);
   tilesAfterMove(s, m, from, state);
 
@@ -1220,6 +1228,8 @@ function endTurn(s: GameState) {
   cratesTurnEnd(s);
   marioSpacesTurnEnd(s, side);
   metroidTurnEnd(s, side);
+  ben10TurnEnd(s, side);
+  nullVoidReturn(s);
 
   // Expiry at the end of this ply.
   const ply = s.ply;

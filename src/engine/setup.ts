@@ -30,7 +30,7 @@ export function maxHpFor(type: PieceType, upgrades: string[] = [], bonus = 0): n
   if (upgrades.includes('colossal_endurance')) hp += 2;
   if (upgrades.includes('triforce_power')) hp += 1;
   // Chaos Drive and the Chaos Emeralds: +1, but only up to 3.
-  for (const u of ['chaos_drive', 'chaos_emeralds', 'clear_gem', 'power_crystal', 'super_mushroom', 'elephant_fruit', 'varia_suit', 'metroid_suit']) if (upgrades.includes(u) && hp < 3) hp += 1;
+  for (const u of ['chaos_drive', 'chaos_emeralds', 'clear_gem', 'power_crystal', 'super_mushroom', 'elephant_fruit', 'varia_suit', 'metroid_suit', 'plumber_armor', 'petrosapien_crystals', 'master_control', 'vilgax_cybernetics']) if (upgrades.includes(u) && hp < 3) hp += 1;
   return hp;
 }
 

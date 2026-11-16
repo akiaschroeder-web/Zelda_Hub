@@ -6,7 +6,7 @@ import { canTake } from '../engine/upgrades/eligibility';
 import { rollUpgrade } from './rewards';
 import { Rng } from './rng';
 import { generateBoard } from './boardgen';
-import { CRASH_LEGEND, MARIO_LEGEND, METROID_LEGEND, SONIC_LEGEND, ZELDA_LEGEND, enabledPacks } from '../content/packs';
+import { BEN10_LEGEND, CRASH_LEGEND, MARIO_LEGEND, METROID_LEGEND, SONIC_LEGEND, ZELDA_LEGEND, enabledPacks } from '../content/packs';
 
 /** How many upgrades an enemy army gets. */
 export function enemyUpgradeCount(act: number, kind: 'battle' | 'elite' | 'boss'): number {
@@ -296,6 +296,20 @@ const ARENAS: Partial<Record<PieceType, { name: string; description: string; ene
     // King, Dr. Eggman, Metal Sonic, then three each of Motobug, Buzz Bomber and Crabmeat (see SONIC_LEGEND).
     enemies: ['kклмммнннппп'],
   },
+  kevin_11: {
+    name: 'The Junkyard',
+    description:
+      'Kevin 11 has absorbed alien powers: he hits for 2 and leaps 3 squares. At 2 HP he fires energy blasts and heals by capturing; at 1 HP he breaks down completely, moving 3 and sometimes twice.',
+    // King, Stinkfly, Wildmutt, two Grey Matters, then Pawns (see BEN10_LEGEND).
+    enemies: ['kďąċċ', 'pppppp'],
+  },
+  vilgax: {
+    name: "Vilgax's Ship",
+    description:
+      'The galactic conqueror fills a 3×3 square, hits for 2 and smashes everything around him. At 2 HP his cybernetics shrug off ranged attacks and he moves faster; at 1 HP he takes two actions a turn.',
+    // King, Heatblast, Diamondhead, XLR8, Cannonbolt, Ripjaws and Pawns.
+    enemies: ['kăćĉėđ', 'pppppp'],
+  },
   mother_brain: {
     name: 'Tourian',
     description:
@@ -338,6 +352,8 @@ const ARENA_THEMES: Partial<Record<PieceType, 'open' | 'fortress' | 'ruins' | 'c
   n_tropy: 'fortress',
   bowser: 'chasm',
   mother_brain: 'fortress',
+  kevin_11: 'ruins',
+  vilgax: 'fortress',
 };
 
 export const bossArenaName = (boss: PieceType) => ARENAS[boss]?.name ?? PIECE_STATS[boss].name;
@@ -352,7 +368,7 @@ export function bossBattle(act: number, id: string, rng?: Rng, boss?: PieceType,
   const terrain = placeKeys(r, board).terrain;
   const bossAt = board.bossAt!;
   // The escort fills the rest of the enemy zone (the boss's squares are taken).
-  const escort = parsePlacements(arena.enemies, { ...ZELDA_LEGEND, ...SONIC_LEGEND, ...CRASH_LEGEND, ...MARIO_LEGEND, ...METROID_LEGEND })
+  const escort = parsePlacements(arena.enemies, { ...ZELDA_LEGEND, ...SONIC_LEGEND, ...CRASH_LEGEND, ...MARIO_LEGEND, ...METROID_LEGEND, ...BEN10_LEGEND })
     .filter((p) => p.side === 'enemy')
     .map((p) => p.type);
   const withoutBoss = terrain.map((row, y) =>

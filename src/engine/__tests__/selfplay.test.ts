@@ -27,7 +27,7 @@ function checkInvariants(s: GameState) {
           ? inBounds(s.board, c)
           : p.type === 'skulltula'
             ? inBounds(s.board, c) && terrainAt(s.board, c) !== 'gap'
-            : p.type === 'tails' || p.type === 'buzz_bomber' // fliers may hover over gaps
+            : p.type === 'tails' || p.type === 'buzz_bomber' || p.type === 'stinkfly' || p.upgrades.includes('lepidopterran_wings') // fliers may hover over gaps
               ? isStandable(s.board, c) || terrainAt(s.board, c) === 'gap'
               : isStandable(s.board, c);
       expect(ok, `${p.type} on blocked square ${k}`).toBe(true);

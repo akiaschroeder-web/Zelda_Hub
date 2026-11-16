@@ -5,7 +5,7 @@
  */
 import { PieceType, Side } from '../engine/types';
 
-export type PackId = 'zelda' | 'sonic' | 'duo' | 'crash' | 'mario' | 'metroid';
+export type PackId = 'zelda' | 'sonic' | 'duo' | 'crash' | 'mario' | 'metroid' | 'ben10';
 
 /** Rarity buckets match the base recruit pools. */
 type PackRarity = 'common' | 'uncommon' | 'rare' | 'epic';
@@ -229,6 +229,52 @@ PACKS.push({
   pieces: ['samus', 'zero_suit', 'metroid', 'space_pirate', 'chozo_soldier', 'emmi', 'ridley', 'mother_brain'],
 });
 
+PACKS.push({
+  id: 'ben10',
+  name: 'Ben 10 Pack',
+  description:
+    'Ben Tennyson and the Omnitrix, his aliens (Heatblast, Wildmutt, Diamondhead, XLR8, Grey Matter, Four Arms, Stinkfly, Ripjaws, Upgrade, Ghostfreak, Cannonbolt and the 5×5 Way Big), Gwen — and the bosses Kevin 11 and Vilgax.',
+  recruits: {
+    common: ['wildmutt', 'grey_matter', 'stinkfly'],
+    uncommon: ['heatblast', 'xlr8', 'ripjaws', 'upgrade', 'ghostfreak', 'gwen'],
+    rare: ['ben', 'diamondhead', 'cannonbolt'],
+    epic: ['four_arms', 'way_big'],
+  },
+  bosses: [
+    { type: 'kevin_11', act: 0 },
+    { type: 'vilgax', act: 2 },
+  ],
+  archetypes: [
+    {
+      name: 'Omnitrix Aliens',
+      blurb: 'Heatblast, Wildmutt, Diamondhead, XLR8, Stinkfly and friends.',
+      weights: { heatblast: 2, wildmutt: 3, diamondhead: 1, xlr8: 2, grey_matter: 2, stinkfly: 3, ripjaws: 2, ghostfreak: 1, cannonbolt: 1, four_arms: 1, pawn: 3 },
+    },
+    {
+      name: 'Team Tennyson',
+      blurb: 'Ben, Gwen and a few aliens.',
+      weights: { ben: 1, gwen: 2, upgrade: 1, cannonbolt: 1, xlr8: 1, pawn: 4, knight: 1 },
+    },
+  ],
+  pieces: [
+    'ben', 'heatblast', 'wildmutt', 'diamondhead', 'xlr8', 'grey_matter', 'four_arms', 'stinkfly', 'ripjaws', 'upgrade', 'ghostfreak',
+    'cannonbolt', 'way_big', 'gwen', 'kevin_11', 'vilgax',
+  ],
+});
+
+/** Placement symbols for Ben 10 pieces: Latin Extended-A lower case for the enemy, upper case for the player. */
+const BEN10_ORDER: PieceType[] = [
+  'ben', 'heatblast', 'wildmutt', 'diamondhead', 'xlr8', 'grey_matter', 'four_arms', 'stinkfly', 'ripjaws', 'upgrade', 'ghostfreak',
+  'cannonbolt', 'way_big', 'gwen', 'kevin_11', 'vilgax',
+];
+const EXTENDED_A = 'āăąćĉċčďđēĕėęěĝğ';
+export const BEN10_LEGEND: Record<string, [PieceType, Side]> = Object.fromEntries(
+  BEN10_ORDER.flatMap((t, i) => [
+    [EXTENDED_A[i], [t, 'enemy']],
+    [EXTENDED_A[i].toUpperCase(), [t, 'player']],
+  ]),
+);
+
 /** Placement symbols for Metroid pieces: Latin Extended lower case for the enemy, upper case for the player. */
 const METROID_ORDER: PieceType[] = ['samus', 'zero_suit', 'metroid', 'space_pirate', 'chozo_soldier', 'emmi', 'ridley', 'mother_brain'];
 const EXTENDED = 'ðñòóôõöø';
@@ -272,7 +318,7 @@ export const pieceAllowed = (t: PieceType, packs: readonly string[]) => {
 export const enabledPacks = (packs: readonly string[]) => PACKS.filter((p) => packs.includes(p.id));
 
 /** Packs that are on unless the player switches them off. */
-export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic', 'duo', 'crash', 'mario', 'metroid'];
+export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic', 'duo', 'crash', 'mario', 'metroid', 'ben10'];
 
 /**
  * Placement symbols for Zelda pieces in board layouts: digits are enemy

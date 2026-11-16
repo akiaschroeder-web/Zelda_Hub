@@ -344,9 +344,17 @@ export function canPlace(run: RunState, battle: RunBattle, deployed: DeployedPie
   const zone = new Set(deployZone(battle, run).map(coordKey));
   const board = parseBoard(battle.terrain);
   const taken = new Set(deployed.filter((d) => d.uid !== uid).flatMap((d) => cellsOf(run, d).map(coordKey)));
-  return cellsOf(run, { uid, ...at }).every(
-    (c) => zone.has(coordKey(c)) && isStandable(board, c) && !taken.has(coordKey(c)),
-  );
+  const cells = cellsOf(run, { uid, ...at });
+  // Way Big (5×5) is too big for any deployment zone: his back row must be on it, the rest on clear ground
+  // outside the enemy's zone.
+  if (cells.length >= 25) {
+    const back = Math.max(...cells.map((c) => c.y));
+    const enemy = new Set((board.enemyZone ?? []).map(coordKey));
+    return cells.every(
+      (c) => isStandable(board, c) && !taken.has(coordKey(c)) && !enemy.has(coordKey(c)) && (c.y !== back || zone.has(coordKey(c))),
+    );
+  }
+  return cells.every((c) => zone.has(coordKey(c)) && isStandable(board, c) && !taken.has(coordKey(c)));
 }
 
 function buildBattle(run: RunState, battle: RunBattle, deployed: DeployedPiece[]): GameState {
@@ -449,11 +457,13 @@ export function finishBattle(run: RunState, final: GameState): RunState {
   for (const p of final.reborn.filter((p) => p.side === 'player')) onField.set(p.id, p);
   // A Stalfos lying in bones when the battle ends gets back up afterwards.
   for (const b of (final.bones ?? []).filter((b) => b.piece.side === 'player')) onField.set(b.piece.id, b.piece);
+  // Pieces in the Null Void come back after the battle.
+  for (const v of (final.voided ?? []).filter((v) => v.piece.side === 'player')) onField.set(v.piece.id, v.piece);
   // Aku Aku riding on a piece (Guardian Mask) is still with the army.
   for (const mk of (final.masks ?? []).filter((mk) => mk.piece.side === 'player')) onField.set(mk.piece.id, mk.piece);
   // A piece still inside a Like Like when the battle ends is lost.
   const deployedIds = new Set(
-    [...final.pieces, ...final.captured, ...final.reborn, ...(final.engulfed ?? []).map((e) => e.victim), ...(final.bones ?? []).map((b) => b.piece), ...(final.masks ?? []).map((mk) => mk.piece)].map(
+    [...final.pieces, ...final.captured, ...final.reborn, ...(final.engulfed ?? []).map((e) => e.victim), ...(final.bones ?? []).map((b) => b.piece), ...(final.masks ?? []).map((mk) => mk.piece), ...(final.voided ?? []).map((v) => v.piece)].map(
       (p) => p.id,
     ),
   );

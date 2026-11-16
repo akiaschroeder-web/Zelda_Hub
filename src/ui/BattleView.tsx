@@ -10,6 +10,7 @@ import { attackSquares, twilightCharged } from '../engine/movement';
 import { tropyPhase } from '../engine/crash';
 import { bowserPhase } from '../engine/mario';
 import { brainPhase } from '../engine/metroid';
+import { kevinPhase, vilgaxPhase } from '../engine/ben10';
 import {
   AbilityId,
   ActionKind,
@@ -106,6 +107,18 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   spear: 'rgba(230, 110, 60, 0.95)',
   tailStrike: 'rgba(150, 90, 220, 0.95)',
   brainBeam: 'rgba(240, 90, 60, 0.95)',
+  omnitrix: 'rgba(90, 220, 90, 0.95)',
+  fireball: 'rgba(240, 120, 40, 0.95)',
+  crystalShot: 'rgba(90, 220, 200, 0.95)',
+  overload: 'rgba(90, 200, 230, 0.95)',
+  groundPound: 'rgba(120, 80, 40, 0.95)',
+  slimeSpit: 'rgba(170, 210, 60, 0.95)',
+  possess: 'rgba(150, 90, 220, 0.95)',
+  cosmicRay: 'rgba(240, 220, 80, 0.95)',
+  spell: 'rgba(90, 160, 255, 0.95)',
+  kevinJump: 'rgba(200, 60, 60, 0.95)',
+  energyBlast: 'rgba(214, 60, 60, 0.95)',
+  conquer: 'rgba(120, 40, 60, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -163,6 +176,22 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   crash: { label: 'Spin Attack (passive), Slide Jump (every 3 turns)' },
   mario: { label: 'Super Jump (every 3 turns), Stomp' },
   samus: { label: 'Arm Cannon (orange, every 3 turns), Morph Ball (every 3 turns)' },
+  ben: { label: 'Omnitrix (green, every 4 turns)' },
+  heatblast: { label: 'Fireball (orange, every 2 turns), Flame Burst' },
+  wildmutt: { label: 'Predatory Leap (every 3 turns), Enhanced Senses' },
+  diamondhead: { label: 'Crystal Projectiles (teal, every 3 turns), Crystal Armor' },
+  xlr8: { label: 'Super Speed (every 3 turns), Speed Dodge' },
+  grey_matter: { label: 'Tiny Size, Brilliant Mind (blue, every 4 turns)' },
+  four_arms: { label: 'Four-Fisted Slam, Ground Pound (every 3 turns)' },
+  stinkfly: { label: 'Flight, Slime Spit (every 3 turns)' },
+  ripjaws: { label: 'Powerful Bite, Aquatic Mobility' },
+  upgrade: { label: 'Technological Fusion (gold), Machine Override (blue, every 4 turns)' },
+  ghostfreak: { id: 'intangible', label: 'Intangibility, Possession (purple, every 4 turns)' },
+  cannonbolt: { label: 'Rolling Charge, Armored Shell, Crushing Roll' },
+  way_big: { label: 'Titanic Stomp, Cosmic Ray (every 4 turns)' },
+  gwen: { label: 'Magic Shield (every 3 turns), Spellcasting (blue, every 4 turns)' },
+  kevin_11: { label: 'Alien Amalgam, Unstable Mutation, Total Breakdown' },
+  vilgax: { label: "Galactic Conqueror, Cybernetic Enhancement, Warlord's Wrath" },
   zero_suit: { id: 'acrobatic_escape', label: 'Paralyzer (blue, every 3 turns), Acrobatic Escape' },
   metroid: { label: 'Energy Drain, Latch (green, every 3 turns)' },
   space_pirate: { label: 'Pirate Blaster (red, every 3 turns), Squad Tactics' },
@@ -264,7 +293,9 @@ const cd = (p: Piece, key: string, name: string) =>
 
 /** Live state of Zelda Pack abilities for the info panel. */
 function zeldaNotes(p: Piece): string {
+  if (p.counters.akuHost === 2) return ' Upgrade has merged with it: +1 range and +1 damage.' + zeldaTypeNotes(p);
   if (p.counters.akuHost) return ' Aku Aku is riding on it: his Protective Spirit guards only this piece.' + zeldaTypeNotes(p);
+  if (p.counters.benForm) return ` Ben, transformed${p.counters.omniTurns ? ` — ${Math.max(0, p.counters.omniTurns - 1)} more turn(s)` : ''}.` + zeldaTypeNotes(p);
   return zeldaTypeNotes(p);
 }
 
@@ -294,6 +325,35 @@ function zeldaTypeNotes(p: Piece): string {
       return cd(p, 'slideJumpCd', 'Slide Jump');
     case 'mario':
       return cd(p, 'superJumpCd', 'Super Jump');
+    case 'ben':
+      return cd(p, 'omnitrixCd', 'Omnitrix');
+    case 'heatblast':
+      return cd(p, 'fireballCd', 'Fireball');
+    case 'wildmutt':
+      return cd(p, 'pounceCd', 'Predatory Leap');
+    case 'diamondhead':
+      return cd(p, 'crystalCd', 'Crystal Projectiles') + (p.counters.alienArmor ? ' Armor spent.' : ' Armor ready.');
+    case 'xlr8':
+      return cd(p, 'speedCd', 'Super Speed');
+    case 'grey_matter':
+    case 'upgrade':
+      return cd(p, 'overloadCd', p.type === 'upgrade' ? 'Machine Override' : 'Brilliant Mind');
+    case 'four_arms':
+      return cd(p, 'poundCd', 'Ground Pound');
+    case 'stinkfly':
+      return cd(p, 'slimeCd', 'Slime Spit');
+    case 'ghostfreak':
+      return cd(p, 'possessCd', 'Possession');
+    case 'cannonbolt':
+      return p.counters.alienArmor ? ' Shell spent.' : ' Shell ready.';
+    case 'way_big':
+      return cd(p, 'rayCd', 'Cosmic Ray');
+    case 'gwen':
+      return cd(p, 'shieldCd', 'Magic Shield') + cd(p, 'spellCd', 'Spellcasting');
+    case 'kevin_11':
+      return [' Phase 1: Alien Amalgam.', ' Phase 2: Unstable Mutation.', ' Phase 3: Total Breakdown.'][kevinPhase(p) - 1] + cd(p, 'kevinJumpCd', 'Jump');
+    case 'vilgax':
+      return [' Phase 1: Galactic Conqueror.', ' Phase 2: Cybernetic Enhancement.', " Phase 3: Warlord's Wrath."][vilgaxPhase(p) - 1] + cd(p, 'warlordCd', 'Area attack');
     case 'samus':
       return cd(p, 'cannonCd', 'Arm Cannon') + cd(p, 'morphCd', 'Morph Ball');
     case 'zero_suit':

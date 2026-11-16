@@ -394,14 +394,15 @@ export function marioAfterMove(s: GameState, m: Move, from: Coord | undefined, e
   if (!moved) return;
   // Luigi: Scaredy-Cat — once per battle, he flees an enemy that comes next to him.
   const before = (c: Coord) => footprint(p, from!).some((f) => Math.max(Math.abs(f.x - c.x), Math.abs(f.y - c.y)) <= 1);
-  for (const l of s.pieces.filter((l) => l.type === 'luigi' && l.side !== p.side && !hasUsed(l, 'scaredy') && pieceDistance(l, p) === 1 && !before(l.pos))) {
+  // (Vulpimancer Instincts works the same way.)
+  for (const l of s.pieces.filter((l) => (l.type === 'luigi' || l.upgrades.includes('vulpimancer_instincts')) && l.side !== p.side && !hasUsed(l, 'scaredy') && sizeOf(l) === 1 && pieceDistance(l, p) === 1 && !before(l.pos))) {
     const spot = ALL_DIRS.map((d) => add(l.pos, d))
       .filter((c) => isStandable(s.board, c) && isEmpty(s, c))
       .sort((a, b) => distanceTo(p, b) - distanceTo(p, a))[0];
     if (spot) {
       markUsed(l, 'scaredy');
       l.pos = { ...spot };
-      log(s, 'Luigi panics and jumps away!');
+      log(s, l.type === 'luigi' ? 'Luigi panics and jumps away!' : `The ${PIECE_STATS[l.type].name} senses danger and leaps away!`);
     }
   }
   // Goombas: Marching Formation — a Goomba that a friendly Goomba moves next to steps forward (once per turn).

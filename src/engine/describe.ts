@@ -2,7 +2,7 @@ import { MARIO_USE_NAMES } from './mario';
 import { METROID_USE_NAMES } from './metroid';
 import { PIECE_STATS } from './pieces';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
-import { GameState, Move, Piece, sameCoord } from './types';
+import { GameState, Move, Piece, PieceType, sameCoord } from './types';
 
 const name = (p: Piece) => `${p.side === 'player' ? 'Your' : 'Enemy'} ${PIECE_STATS[p.type].name}`;
 const pieceName = (p: Piece) => PIECE_STATS[p.type].name;
@@ -122,6 +122,30 @@ export function actionLabel(state: GameState, m: Move): string {
       return 'Tail Strike';
     case 'brainBeam':
       return 'Beam';
+    case 'omnitrix':
+      return m.param === 'ben' ? 'Change back to Ben' : `Omnitrix: ${PIECE_STATS[m.param as PieceType]?.name ?? m.param}`;
+    case 'fireball':
+      return 'Fireball';
+    case 'crystalShot':
+      return 'Crystal Projectiles';
+    case 'overload':
+      return `Disable the ${target ? pieceName(target) : 'machine'}`;
+    case 'groundPound':
+      return 'Ground Pound';
+    case 'slimeSpit':
+      return `Slime Spit at the ${target ? pieceName(target) : 'enemy'}`;
+    case 'possess':
+      return `Possess the ${target ? pieceName(target) : 'enemy'}`;
+    case 'cosmicRay':
+      return 'Cosmic Ray';
+    case 'spell':
+      return `Cast a spell at the ${target ? pieceName(target) : 'enemy'}`;
+    case 'kevinJump':
+      return 'Jump';
+    case 'energyBlast':
+      return `Energy blast at the ${target ? pieceName(target) : 'enemy'}`;
+    case 'conquer':
+      return 'Area attack';
     case 'groundSlam':
       return 'Ground Slam';
     case 'hack':

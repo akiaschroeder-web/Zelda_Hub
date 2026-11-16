@@ -256,6 +256,71 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Stalfos',
     blurb: 'Up to two squares any direction. Reassembly: the first time it falls it becomes a pile of bones, rising again with 1 HP after 2 of its turns — unless an enemy steps on the bones first.',
   },
+  // Ben 10 Content Pack
+  ben: {
+    size: 1, maxHp: 1, damage: 1, cost: 6, value: 520, name: 'Ben Tennyson',
+    blurb: "Up to two squares orthogonally or one diagonally. Omnitrix: every 4 turns, instead of moving, turns into Heatblast, Wildmutt, Diamondhead, XLR8, Grey Matter, Four Arms, Stinkfly, Ripjaws, Upgrade, Ghostfreak or Cannonbolt for 3 turns, then back to Ben with at most 1 HP.",
+  },
+  heatblast: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 440, name: 'Heatblast',
+    blurb: 'Up to three squares diagonally or one orthogonally. Fireball: every 2 turns, instead of moving, 1 damage to the first piece within 4 in any straight line, if it is an enemy. Flame Burst: after a capture, burns every adjacent enemy.',
+  },
+  wildmutt: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 380, name: 'Wildmutt',
+    blurb: "Up to three squares orthogonally, or a jump of exactly two diagonally. Predatory Leap: every 3 turns, pounces on an enemy within 3 over pieces and gaps (not walls). Enhanced Senses: its range can't be reduced.",
+  },
+  diamondhead: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 520, name: 'Diamondhead',
+    blurb: 'Up to two squares any direction. Crystal Projectiles: every 3 turns, instead of moving, 1 damage to the first piece within 4 in any straight line, if it is an enemy. Crystal Armor: ignores the first point of damage each battle.',
+  },
+  xlr8: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 460, name: 'XLR8',
+    blurb: 'Up to five squares orthogonally or three diagonally. Super Speed: every 3 turns, may move again (and capture). Speed Dodge: the first attack on it each battle has a 50% chance to miss.',
+  },
+  grey_matter: {
+    size: 1, maxHp: 1, damage: 1, cost: 3, value: 300, name: 'Grey Matter',
+    blurb: 'Up to two squares diagonally or one orthogonally. Tiny Size: slips through pieces and walls to an empty square. Brilliant Mind: every 4 turns, instead of moving, a machine within 3 is disabled for its next turn (not bosses).',
+  },
+  four_arms: {
+    size: 2, maxHp: 3, damage: 2, cost: 12, value: 1100, name: 'Four Arms',
+    blurb: '2×2. Up to two squares orthogonally or one diagonally. Four-Fisted Slam: attacks deal 2. Ground Pound: every 3 turns, instead of moving, 1 damage to every adjacent enemy and adjacent cracked walls are smashed.',
+  },
+  stinkfly: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 360, name: 'Stinkfly',
+    blurb: 'Up to four squares diagonally or two orthogonally, flying over gaps — and may land on them. Slime Spit: every 3 turns, instead of moving, 1 damage to an enemy within 3; if it survives, it moves one square less next turn.',
+  },
+  ripjaws: {
+    size: 1, maxHp: 1, damage: 2, cost: 5, value: 440, name: 'Ripjaws',
+    blurb: 'Up to three squares orthogonally or one diagonally, swimming across gaps (not stopping on them). Powerful Bite: attacks deal 2.',
+  },
+  upgrade: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 380, name: 'Upgrade',
+    blurb: 'Up to three squares any direction. Technological Fusion: merges into a friendly machine within 3 — it gets +1 range and +1 damage until it sets Upgrade down. Machine Override: every 4 turns, a machine within 3 is disabled for its next turn (not bosses).',
+  },
+  ghostfreak: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 440, name: 'Ghostfreak',
+    blurb: 'Up to three squares any direction, also drifting through walls and pieces. Intangibility: the first attack on it each battle passes through. Possession: every 4 turns, instead of moving, takes over an adjacent 1×1 enemy for one move (not bosses or Kings).',
+  },
+  cannonbolt: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 520, name: 'Cannonbolt',
+    blurb: 'Up to four squares orthogonally or one diagonally. Rolling Charge: attacks after rolling 3+ squares in a line deal 2. Armored Shell: ignores the first point of damage each battle. Crushing Roll: rolls straight through cracked walls.',
+  },
+  way_big: {
+    size: 5, maxHp: 3, damage: 2, cost: 30, value: 2600, name: 'Way Big',
+    blurb: '5×5. One square orthogonally, flattening walls under him. Titanic Stomp: every move hurts each adjacent enemy. Cosmic Ray: every 4 turns, instead of moving, 2 damage to every enemy up to 6 ahead of him. Needs a clear 5×5 to deploy.',
+  },
+  gwen: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 420, name: 'Gwen Tennyson',
+    blurb: 'Up to three squares diagonally or one orthogonally. Magic Shield: every 3 turns (2 with Ben within 2 of her), negates an attack on an ally within 3. Spellcasting: every 4 turns, instead of moving, 1 damage to an enemy within 3 (walls block).',
+  },
+  kevin_11: {
+    size: 2, maxHp: 3, damage: 2, cost: 22, value: 2300, name: 'Kevin 11',
+    blurb: '2×2. Up to two squares any direction; attacks deal 2. Jumps exactly 3 orthogonally (every 3 turns). At 2 HP, an energy blast (1 damage within 4, every 3 turns) and he heals 1 per capture. At 1 HP, Total Breakdown: moves 3, and every 3 turns may move twice.',
+  },
+  vilgax: {
+    size: 3, maxHp: 3, damage: 2, cost: 28, value: 2900, name: 'Vilgax',
+    blurb: "3×3. Up to two squares orthogonally or one diagonally; attacks deal 2, crushing cracked walls under him. Every 3 turns, 1 damage to every adjacent enemy. At 2 HP, moves 3 orthogonally and shrugs off a point of every ranged hit. At 1 HP, Warlord's Wrath: two actions a turn and the area attack deals 2.",
+  },
   // Metroid Content Pack
   samus: {
     size: 1, maxHp: 2, damage: 1, cost: 7, value: 620, name: 'Samus Aran',
@@ -526,7 +591,7 @@ export const sizeOf = (p: Piece): number => (p.counters?.mega ? 2 : PIECE_STATS[
 export const BOSS_TYPES = new Set<PieceType>([
   'colossus', 'empress', 'necromancer', 'stormbringer', 'watcher',
   'worldbreaker', 'phantom_king', 'doppelganger', 'hive_mother', 'chronarch',
-  'ganondorf', 'ganon', 'death_egg', 'n_tropy', 'bowser', 'mother_brain',
+  'ganondorf', 'ganon', 'death_egg', 'n_tropy', 'bowser', 'mother_brain', 'kevin_11', 'vilgax',
 ]);
 
 /** Ganondorf's current phase (3 HP = 1, 2 HP = 2, 1 HP or Ganon = 3); 0 for anything else. */
@@ -558,6 +623,12 @@ export const ROBOTS = new Set<PieceType>(['metal_sonic', 'motobug', 'buzz_bomber
 /** Death Egg Robot phase (3 HP = 1, 2 HP = 2, 1 HP = 3); 0 for anything else. */
 export const deathEggPhase = (p: Piece) => (p.type !== 'death_egg' ? 0 : p.hp >= 3 ? 1 : p.hp === 2 ? 2 : 3);
 
+/** Ben 10 Pack piece types. */
+export const BEN10_TYPES: PieceType[] = [
+  'ben', 'heatblast', 'wildmutt', 'diamondhead', 'xlr8', 'grey_matter', 'four_arms', 'stinkfly', 'ripjaws', 'upgrade', 'ghostfreak',
+  'cannonbolt', 'way_big', 'gwen', 'kevin_11', 'vilgax',
+];
+
 /** Super Mario Pack piece types. */
 export const MARIO_TYPES: PieceType[] = [
   'mario', 'luigi', 'peach', 'daisy', 'yoshi', 'toad', 'toadette', 'wario', 'waluigi', 'rosalina', 'goomba', 'koopa', 'boo', 'hammer_bro', 'bowser',
@@ -580,6 +651,7 @@ export const ZELDA_TYPES = new Set<PieceType>([
   ...CRASH_TYPES,
   ...MARIO_TYPES,
   'samus', 'zero_suit', 'metroid', 'space_pirate', 'chozo_soldier', 'emmi', 'ridley', 'mother_brain',
+  ...BEN10_TYPES,
 ]);
 
 /** Every square a piece occupies. */

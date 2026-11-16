@@ -53,6 +53,7 @@ import { duoUpgradeActions, isDuoAction, resolveDuoUpgrade } from './duo';
 import { crashUpgradeActions, isCrashAction, resolveCrashUpgrade } from './crashUpgrades';
 import { isMarioAction, marioUpgradeActions, resolveMarioUpgrade } from './marioUpgrades';
 import { isMetroidAction, metroidUpgradeActions, resolveMetroidUpgrade } from './metroid';
+import { ben10UpgradeActions, isBen10Action, resolveBen10Upgrade } from './ben10Upgrades';
 import { peelOutSquares } from './movement';
 import { Coord, GameState, Move, Piece, PieceType, Side, endOfTurn, opponent, sameCoord, shieldTotal } from './types';
 
@@ -283,6 +284,7 @@ export function upgradeActions(s: GameState, p: Piece): Move[] {
   moves.push(...crashUpgradeActions(s, p));
   moves.push(...marioUpgradeActions(s, p));
   moves.push(...metroidUpgradeActions(s, p));
+  moves.push(...ben10UpgradeActions(s, p));
 
   return moves.filter((m) => {
     if ((hasStatus(p, 'bound') || suppressed(s, p)) && MOVEMENT_ACTIONS.has(m.upgrade!)) return false;
@@ -324,6 +326,10 @@ export function resolveUpgradeAction(s: GameState, m: Move): void {
   }
   if (isMetroidAction(id)) {
     resolveMetroidUpgrade(s, m);
+    return;
+  }
+  if (isBen10Action(id)) {
+    resolveBen10Upgrade(s, m);
     return;
   }
 

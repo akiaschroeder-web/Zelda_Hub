@@ -51,7 +51,7 @@ export const CRASH_COOLDOWNS = {
 const ready = (p: Piece, cd: string) => (p.counters[cd] ?? 0) <= 0;
 
 /** Machines (Cortex's Evil Genius and N. Gin's Mechanical Reinforcement help these). */
-export const MECHANICAL = new Set<string>(['n_gin', 'siege', 'metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'death_egg']);
+export const MECHANICAL = new Set<string>(['n_gin', 'siege', 'metal_sonic', 'motobug', 'buzz_bomber', 'crabmeat', 'death_egg', 'emmi', 'upgrade']);
 
 /** N. Tropy's phase by HP (3 = Temporal Distortion, 2 = Time Reversal, 1 = Temporal Collapse); 0 for anything else. */
 export const tropyPhase = (p: Piece) => (p.type !== 'n_tropy' ? 0 : p.hp >= 3 ? 1 : p.hp === 2 ? 2 : 3);
@@ -220,7 +220,9 @@ export function resolveCrash(s: GameState, m: Move): boolean {
       if (target) {
         s.pieces = s.pieces.filter((o) => o.id !== p.id);
         s.masks = [...masksOf(s), { hostId: target.id, piece: p }];
-        target.counters.akuHost = 1; // for the board to show the mask
+        target.counters.akuHost = p.type === 'upgrade' ? 2 : 1; // for the board to show the rider
+        // Galvanic Mechamorph Upgrade: Upgrade's fusion also repairs the host.
+        if (p.type === 'upgrade' && p.upgrades.includes('galvanic_mechamorph')) heal(s, target, 1);
         log(s, `Aku Aku settles onto the ${PIECE_STATS[target.type].name}.`);
       }
       return true;
@@ -345,7 +347,7 @@ export function crashNegates(s: GameState, target: Piece, source: Piece | undefi
   if (amount <= 0) return false;
   // Aku Aku: Protective Spirit (a free mask guards only its host; one on a host guards that host).
   const host = maskOn(s, target.id);
-  if (host && ready(host.piece, 'spiritCd')) {
+  if (host && host.piece.type === 'aku_aku' && ready(host.piece, 'spiritCd')) {
     host.piece.counters.spiritCd = CRASH_COOLDOWNS.spiritCd;
     log(s, `Aku Aku protects the ${PIECE_STATS[target.type].name}!`);
     return true;

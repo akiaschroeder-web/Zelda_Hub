@@ -31,6 +31,8 @@ import { crashUpgradeRange, crashUpgradeSteps } from './crashUpgrades';
 import { bowserPhase, marioAuraPresent, marioRangeBonus, marioSteps } from './mario';
 import { marioUpgradeRange, marioUpgradeSteps } from './marioUpgrades';
 import { brainPhase, metroidRangeBonus, metroidSteps, ridleySteps } from './metroid';
+import { ben10RangeBonus, ben10RangeFloor, ben10Steps, kevinPhase, vilgaxPhase } from './ben10';
+import { ben10UpgradeRange, ben10UpgradeSteps } from './ben10Upgrades';
 import { PIECE_STATS, ZELDA_TYPES, deathEggPhase, footprint, ganonPhase, sizeOf } from './pieces';
 import { haunted, heavyDirs, phantomSteps } from './bosses';
 import { Coord, GameState, Piece, PieceType, forward, sameCoord } from './types';
@@ -214,6 +216,54 @@ function basePatterns(type: PieceType): Pattern[] {
       return [
         { kind: 'slide', dirs: DIAG, max: 2 },
         { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
+    // Ben 10 Pack
+    case 'ben':
+    case 'four_arms':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 2 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
+    case 'heatblast':
+    case 'gwen':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 3 },
+        { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
+    case 'wildmutt':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+        { kind: 'leap', offsets: DIAG.map((d) => scale(d, 2)), rule: 'free' },
+      ];
+    case 'diamondhead':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
+    case 'xlr8':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 5 },
+        { kind: 'slide', dirs: DIAG, max: 3 },
+      ];
+    case 'grey_matter':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 2 },
+        { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
+    case 'stinkfly':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 4 },
+        { kind: 'slide', dirs: ORTHO, max: 2 },
+      ];
+    case 'ripjaws':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
+    case 'upgrade':
+    case 'ghostfreak':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 3 }];
+    case 'cannonbolt':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 4 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
       ];
     // Metroid Pack
     case 'samus':
@@ -440,7 +490,7 @@ const adjacentToGap = (s: GameState, c: Coord) =>
 export function rangeBonus(s: GameState, p: Piece, dir: Coord): number {
   const crash = crashAuraPresent(s) ? crashRangeBonus(s, p) : 0;
   const mario = marioAuraPresent(s) ? marioRangeBonus(s, p) : 0;
-  return crash + mario + metroidRangeBonus(s, p, dir) + baseRangeBonus(s, p, dir);
+  return ben10RangeFloor(p, crash + mario + metroidRangeBonus(s, p, dir) + ben10RangeBonus(s, p) + ben10UpgradeRange(p) + baseRangeBonus(s, p, dir));
 }
 
 function baseRangeBonus(s: GameState, p: Piece, dir: Coord): number {
@@ -475,7 +525,7 @@ interface Crossing {
 function crossingFor(p: Piece): Crossing {
   return {
     // Silver levitates over any run of gaps.
-    gaps: p.type === 'peach' || has(p, 'gravity_suit') || has(p, 'super_leaf') || has(p, 'bee_mushroom') || (p.counters.wonderTurns ?? 0) > 0 || p.type === 'silver' || p.type === 'super_silver' || p.type === 'burning_blaze' || has(p, 'hover_wisp') ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
+    gaps: p.type === 'peach' || p.type === 'ripjaws' || p.type === 'stinkfly' || has(p, 'lepidopterran_wings') || has(p, 'gravity_suit') || has(p, 'super_leaf') || has(p, 'bee_mushroom') || (p.counters.wonderTurns ?? 0) > 0 || p.type === 'silver' || p.type === 'super_silver' || p.type === 'burning_blaze' || has(p, 'hover_wisp') ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
     walls: has(p, 'yellow_drill') ? 99 : has(p, 'extended_phasing') ? 2 : has(p, 'phasing') ? 1 : 0,
   };
 }
@@ -743,6 +793,8 @@ function patternsFor(s: GameState, p: Piece): Pattern[] {
   // Copycat (Metal Sonic) and Cappy: also move like the piece copied.
   const copied = p.statuses.length ? (statusOf(p, 'copying')?.source as PieceType | undefined) : undefined;
   if (copied && copied !== 'pawn' && PIECE_STATS[copied]?.size === 1) pats = [...pats, ...basePatterns(copied)];
+  const copied2 = p.statuses.length ? (statusOf(p, 'copying2')?.source as PieceType | undefined) : undefined;
+  if (copied2 && copied2 !== 'pawn' && PIECE_STATS[copied2]?.size === 1) pats = [...pats, ...basePatterns(copied2)];
   // Crash: Slide Jump, every 3 turns — exactly three squares orthogonally over anything (no capture).
   if (p.type === 'crash' && (p.counters.slideJumpCd ?? 0) <= 0 && canUseMoveAbilities(s, p))
     pats = [...pats, { kind: 'leap', offsets: ORTHO.map((d) => scale(d, 3)), rule: 'free', capture: false, uses: ['slide_jump'] }];
@@ -841,6 +893,13 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
     );
     out.push(...crashUpgradeSteps(s, p, slides));
     out.push(...marioUpgradeSteps(s, p, slides));
+  }
+  if (!crippled) {
+    const across = Math.max(s.board.width, s.board.height);
+    const slides = patternsFor(s, p).flatMap((pat) =>
+      pat.kind === 'slide' && !pat.uses ? pat.dirs.map((dir) => ({ dir, max: Number.isFinite(pat.max) ? Math.max(1, pat.max + rangeBonus(s, p, dir)) : across })) : [],
+    );
+    out.push(...ben10Steps(s, p, slides), ...ben10UpgradeSteps(s, p, slides));
   }
   if (!crippled && (p.type === 'samus' || p.upgrades.length)) {
     const slides = patternsFor(s, p).flatMap((pat) =>
@@ -969,9 +1028,9 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
     for (const c of footprint(p, to)) {
       const t = terrainAt(s.board, c);
       // The Colossus (Siege Breaker) and Crushing Entry flatten cracked walls in the way.
-      if (t === 'cracked' && (has(p, 'crushing_entry') || p.type === 'colossus' || p.type === 'death_egg' || p.counters.mega)) walls.push(c);
-      // A Mega Mushroom giant flattens solid walls too.
-      else if (t === 'wall' && p.counters.mega) walls.push(c);
+      if (t === 'cracked' && (has(p, 'crushing_entry') || p.type === 'colossus' || p.type === 'death_egg' || p.counters.mega || p.type === 'way_big' || p.type === 'vilgax')) walls.push(c);
+      // A Mega Mushroom giant and Way Big flatten solid walls too.
+      else if (t === 'wall' && (p.counters.mega || p.type === 'way_big')) walls.push(c);
       // Death Egg Robot (Phase 2+): Crushing Advance flattens solid walls too.
       else if (t === 'wall' && egg >= 2) walls.push(c);
       else if (t !== 'normal') return null;
@@ -996,8 +1055,18 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
         ? tropyPhase(p) === 3
           ? 3
           : 2
-        : p.type === 'bowser'
+        : p.type === 'bowser' || p.type === 'four_arms'
           ? (diagonal ? 1 : 2) + (bowserPhase(p) === 3 ? 1 : 0)
+          : p.type === 'kevin_11'
+            ? kevinPhase(p) === 3
+              ? 3
+              : 2
+            : p.type === 'vilgax'
+              ? diagonal
+                ? 1
+                : vilgaxPhase(p) >= 2
+                  ? 3
+                  : 2
           : p.counters.mega || (p.type === 'mother_brain' && brainPhase(p) === 3)
             ? 2
           : (p.type === 'ganondorf' && ganonPhase(p) < 3) || egg === 3

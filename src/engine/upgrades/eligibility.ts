@@ -27,6 +27,11 @@ const BOUNCERS = [
 ];
 /** Upgrades that only make sense on a 1x1 piece. */
 const SMALL_ONLY = [
+  'lepidopterran_wings',
+  'plumber_teleporter',
+  'dna_fusion',
+  'ectonurite_phasing',
+  'galvan_intelligence',
   'morph_ball',
   'shinespark',
   'screw_attack',
