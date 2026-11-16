@@ -28,6 +28,7 @@ import {
 } from './core';
 import { crashAuraPresent, crashRangeBonus, tropyPhase } from './crash';
 import { crashUpgradeRange, crashUpgradeSteps } from './crashUpgrades';
+import { bowserPhase, marioAuraPresent, marioRangeBonus, marioSteps } from './mario';
 import { PIECE_STATS, ZELDA_TYPES, deathEggPhase, footprint, ganonPhase, sizeOf } from './pieces';
 import { haunted, heavyDirs, phantomSteps } from './bosses';
 import { Coord, GameState, Piece, PieceType, forward, sameCoord } from './types';
@@ -212,6 +213,52 @@ function basePatterns(type: PieceType): Pattern[] {
         { kind: 'slide', dirs: DIAG, max: 2 },
         { kind: 'slide', dirs: ORTHO, max: 1 },
       ];
+    // Super Mario Pack
+    case 'mario':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 2 },
+        { kind: 'leap', offsets: DIAG.map((d) => scale(d, 2)), rule: 'free' },
+      ];
+    case 'luigi':
+    case 'peach':
+    case 'toadette':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 3 },
+        { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
+    case 'daisy':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 3 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
+    case 'yoshi':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 2 }];
+    case 'toad':
+    case 'wario':
+    case 'koopa':
+      return [
+        { kind: 'slide', dirs: ORTHO, max: 2 },
+        { kind: 'slide', dirs: DIAG, max: 1 },
+      ];
+    case 'waluigi':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 3 },
+        { kind: 'leap', offsets: ORTHO.map((d) => scale(d, 2)), rule: 'free' },
+      ];
+    case 'rosalina':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 3 }];
+    case 'goomba':
+      return [{ kind: 'slide', dirs: ALL_DIRS, max: 1 }];
+    case 'boo':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 3 },
+        { kind: 'slide', dirs: ORTHO, max: 2 },
+      ];
+    case 'hammer_bro':
+      return [
+        { kind: 'slide', dirs: DIAG, max: 2 },
+        { kind: 'slide', dirs: ORTHO, max: 1 },
+      ];
     // Crash Bandicoot Pack
     case 'crash':
       return [
@@ -369,7 +416,8 @@ const adjacentToGap = (s: GameState, c: Coord) =>
 /** Total bonus (or penalty) to finite movement ranges for this piece right now. */
 export function rangeBonus(s: GameState, p: Piece, dir: Coord): number {
   const crash = crashAuraPresent(s) ? crashRangeBonus(s, p) : 0;
-  return crash + baseRangeBonus(s, p, dir);
+  const mario = marioAuraPresent(s) ? marioRangeBonus(s, p) : 0;
+  return crash + mario + baseRangeBonus(s, p, dir);
 }
 
 function baseRangeBonus(s: GameState, p: Piece, dir: Coord): number {
@@ -404,7 +452,7 @@ interface Crossing {
 function crossingFor(p: Piece): Crossing {
   return {
     // Silver levitates over any run of gaps.
-    gaps: p.type === 'silver' || p.type === 'super_silver' || p.type === 'burning_blaze' || has(p, 'hover_wisp') ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
+    gaps: p.type === 'peach' || p.type === 'silver' || p.type === 'super_silver' || p.type === 'burning_blaze' || has(p, 'hover_wisp') ? 99 : has(p, 'long_gap_jump') ? 2 : has(p, 'gap_jumper') || has(p, 'hover_boots') ? 1 : 0,
     walls: has(p, 'yellow_drill') ? 99 : has(p, 'extended_phasing') ? 2 : has(p, 'phasing') ? 1 : 0,
   };
 }
@@ -759,6 +807,7 @@ export function stepsFor(s: GameState, p: Piece): Step[] {
     }
   }
 
+  if (!crippled) out.push(...marioSteps(s, p));
   if (p.upgrades.length && !crippled) {
     // Finite slides (with range bonuses); unlimited ones reach across the board (Lani-Loli only).
     const across = Math.max(s.board.width, s.board.height);
@@ -908,7 +957,17 @@ export function heavySteps(s: GameState, p: Piece): HeavyStep[] {
     if (r) out.push({ to, ...r });
     // Ganondorf (Phases 1-2) and the critical Death Egg Robot move up to two squares, N. Tropy two
     // (three at 1 HP); every step before the last must be clear.
-    const reach = p.type === 'n_tropy' ? (tropyPhase(p) === 3 ? 3 : 2) : (p.type === 'ganondorf' && ganonPhase(p) < 3) || egg === 3 ? 2 : 1;
+    const diagonal = d.x !== 0 && d.y !== 0;
+    const reach =
+      p.type === 'n_tropy'
+        ? tropyPhase(p) === 3
+          ? 3
+          : 2
+        : p.type === 'bowser'
+          ? (diagonal ? 1 : 2) + (bowserPhase(p) === 3 ? 1 : 0)
+          : (p.type === 'ganondorf' && ganonPhase(p) < 3) || egg === 3
+            ? 2
+            : 1;
     let prev = r;
     let at = to;
     for (let k = 2; k <= reach && prev && !prev.targets.length && !prev.shove && !prev.walls; k++) {

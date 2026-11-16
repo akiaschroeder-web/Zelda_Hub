@@ -1,3 +1,4 @@
+import { MARIO_USE_NAMES } from './mario';
 import { PIECE_STATS } from './pieces';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { GameState, Move, Piece, sameCoord } from './types';
@@ -6,6 +7,9 @@ const name = (p: Piece) => `${p.side === 'player' ? 'Your' : 'Enemy'} ${PIECE_ST
 const pieceName = (p: Piece) => PIECE_STATS[p.type].name;
 
 /** Short label for a move, used in the action chooser. */
+/** Names for piece abilities tagged on moves (upgrades use their catalog names). */
+const USE_NAMES: Record<string, string> = { ...MARIO_USE_NAMES, slide_jump: 'Slide Jump' };
+
 export function actionLabel(state: GameState, m: Move): string {
   const target = m.allyId ? state.pieces.find((p) => p.id === m.allyId) : undefined;
   switch (m.action) {
@@ -83,6 +87,26 @@ export function actionLabel(state: GameState, m: Move): string {
       return 'Homing Missiles';
     case 'burningAura':
       return 'Burning Aura';
+    case 'royalSupport':
+      return `Royal Support: heal the ${target ? pieceName(target) : 'ally'}`;
+    case 'tongue':
+      return `Tongue Grab the ${target ? pieceName(target) : 'enemy'}`;
+    case 'mushroom':
+      return `Mushroom for the ${target ? pieceName(target) : 'ally'}`;
+    case 'dirtyTrick':
+      return `Dirty Trick: swap with the ${target ? pieceName(target) : 'enemy'}`;
+    case 'lumaShield':
+      return `Luma Shield on the ${target ? pieceName(target) : 'ally'}`;
+    case 'starSpin':
+      return 'Star Spin';
+    case 'hammer': {
+      const second = m.param ? state.pieces.find((p) => p.id === m.param) : undefined;
+      return `Hammer Throw at the ${target ? pieceName(target) : 'enemy'}${second ? ` and the ${pieceName(second)}` : ''}`;
+    }
+    case 'fireBreath':
+      return 'Fire Breath';
+    case 'groundSlam':
+      return 'Ground Slam';
     case 'hack':
       return `Hack the ${target ? pieceName(target) : 'enemy'}`;
     case 'maskAttach':
@@ -120,7 +144,7 @@ export function actionLabel(state: GameState, m: Move): string {
   const extras: string[] = [];
   if (m.targets?.length) extras.push('Attack');
   else extras.push('Move');
-  for (const u of m.uses ?? []) extras.push(UPGRADE_BY_ID[u]?.name ?? u);
+  for (const u of m.uses ?? []) extras.push(UPGRADE_BY_ID[u]?.name ?? USE_NAMES[u] ?? u);
   if (m.escort) extras.push('with the King');
   if (m.focusId) extras.push('focus');
   if (m.bounceTo && m.targets?.length && !sameCoord(m.bounceTo, m.to)) {
@@ -164,7 +188,7 @@ export function describeMove(before: GameState, m: Move, after: GameState): stri
     const bounced = moverAfter && m.action !== 'shoot' && !sameCoord(moverAfter.pos, m.to);
     parts.push(`${name(mover)} ${m.action === 'shoot' ? 'fired and ' : ''}${results.join(', ')}${bounced ? ' and bounced back' : ''}.`);
   } else if (m.promotion) parts.push(`${name(mover)} promoted to ${PIECE_STATS[m.promotion].name}.`);
-  else if (m.uses?.length) parts.push(`${name(mover)} moved (${m.uses.map((u) => UPGRADE_BY_ID[u]?.name ?? u).join(', ')}).`);
+  else if (m.uses?.length) parts.push(`${name(mover)} moved (${m.uses.map((u) => UPGRADE_BY_ID[u]?.name ?? USE_NAMES[u] ?? u).join(', ')}).`);
   const capitalized = notes ? notes.charAt(0).toUpperCase() + notes.slice(1) : '';
   return [...parts, capitalized].filter(Boolean).join(' ');
 }

@@ -5,7 +5,7 @@
  */
 import { PieceType, Side } from '../engine/types';
 
-export type PackId = 'zelda' | 'sonic' | 'duo' | 'crash';
+export type PackId = 'zelda' | 'sonic' | 'duo' | 'crash' | 'mario';
 
 /** Rarity buckets match the base recruit pools. */
 type PackRarity = 'common' | 'uncommon' | 'rare' | 'epic';
@@ -176,6 +176,44 @@ export const CRASH_LEGEND: Record<string, [PieceType, Side]> = Object.fromEntrie
   ]),
 );
 
+PACKS.push({
+  id: 'mario',
+  name: 'Super Mario Pack',
+  description:
+    "Mario, Luigi, Peach, Daisy, Yoshi, Toad, Toadette and Rosalina, rivals Wario and Waluigi, Bowser's Goombas, Koopa Troopas, Boos and Hammer Bros — and the 2×2 King of the Koopas himself.",
+  recruits: {
+    common: ['goomba', 'koopa', 'toad'],
+    uncommon: ['luigi', 'toadette', 'boo', 'hammer_bro', 'waluigi', 'yoshi'],
+    rare: ['mario', 'peach', 'daisy', 'wario', 'rosalina'],
+  },
+  bosses: [{ type: 'bowser', act: 2 }],
+  archetypes: [
+    {
+      name: 'Mushroom Kingdom Heroes',
+      blurb: 'Mario and friends.',
+      weights: { mario: 1, luigi: 2, peach: 1, daisy: 1, yoshi: 2, toad: 3, toadette: 2, rosalina: 1, pawn: 3 },
+    },
+    {
+      name: "Bowser's Troops",
+      blurb: 'Goombas, Koopa Troopas, Boos and Hammer Bros, with Wario and Waluigi for hire.',
+      weights: { goomba: 6, koopa: 3, boo: 2, hammer_bro: 2, wario: 1, waluigi: 1, pawn: 2 },
+    },
+  ],
+  pieces: ['mario', 'luigi', 'peach', 'daisy', 'yoshi', 'toad', 'toadette', 'wario', 'waluigi', 'rosalina', 'goomba', 'koopa', 'boo', 'hammer_bro', 'bowser'],
+});
+
+/** Placement symbols for Mario pieces: accented lower case for the enemy, upper case for the player. */
+const MARIO_ORDER: PieceType[] = [
+  'mario', 'luigi', 'peach', 'daisy', 'yoshi', 'toad', 'toadette', 'wario', 'waluigi', 'rosalina', 'goomba', 'koopa', 'boo', 'hammer_bro', 'bowser',
+];
+const ACCENTED = 'àáâãäåæçèéêëìíî';
+export const MARIO_LEGEND: Record<string, [PieceType, Side]> = Object.fromEntries(
+  MARIO_ORDER.flatMap((t, i) => [
+    [ACCENTED[i], [t, 'enemy']],
+    [ACCENTED[i].toUpperCase(), [t, 'player']],
+  ]),
+);
+
 /** Placement symbols for Digital Duo pieces: hiragana for the enemy, katakana for the player. */
 export const DUO_LEGEND: Record<string, [PieceType, Side]> = {
   み: ['miku', 'enemy'],
@@ -197,7 +235,7 @@ export const pieceAllowed = (t: PieceType, packs: readonly string[]) => {
 export const enabledPacks = (packs: readonly string[]) => PACKS.filter((p) => packs.includes(p.id));
 
 /** Packs that are on unless the player switches them off. */
-export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic', 'duo', 'crash'];
+export const DEFAULT_PACKS: PackId[] = ['zelda', 'sonic', 'duo', 'crash', 'mario'];
 
 /**
  * Placement symbols for Zelda pieces in board layouts: digits are enemy

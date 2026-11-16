@@ -161,6 +161,22 @@ export type PieceType =
   | 'brio'
   | 'brio_monster'
   | 'n_tropy'
+  // Super Mario Pack
+  | 'mario'
+  | 'luigi'
+  | 'peach'
+  | 'daisy'
+  | 'yoshi'
+  | 'toad'
+  | 'toadette'
+  | 'wario'
+  | 'waluigi'
+  | 'rosalina'
+  | 'goomba'
+  | 'koopa'
+  | 'boo'
+  | 'hammer_bro'
+  | 'bowser'
   /** Temporary 1 HP summon that cannot attack. */
   | 'decoy'
   /** The Illusionist's 1 HP illusion: moves one square, cannot capture. */
@@ -231,6 +247,15 @@ export type ActionKind =
   | 'transform' // N. Brio: Monster Transformation
   | 'tropyWarp' // N. Tropy: Temporal Distortion
   | 'timeRewind' // N. Tropy: Time Reversal
+  | 'royalSupport' // Peach
+  | 'tongue' // Yoshi: Tongue Grab
+  | 'mushroom' // Toad: Mushroom Assistance
+  | 'dirtyTrick' // Waluigi
+  | 'lumaShield' // Rosalina
+  | 'starSpin' // Rosalina
+  | 'hammer' // Hammer Bro
+  | 'fireBreath' // Bowser
+  | 'groundSlam' // Bowser (Phase 3)
   | 'upgrade'
   | 'pass';
 
@@ -496,6 +521,8 @@ export interface GameState {
   bones: Bones[];
   /** Aku Aku riding on a friendly piece (Guardian Mask): off the board until set down. */
   masks?: { hostId: string; piece: Piece }[];
+  /** Extra gold the player has earned this battle (Wario's Greedy). */
+  goldBonus?: number;
 }
 
 /** A Stalfos that has collapsed into a pile of bones (Reassembly). */

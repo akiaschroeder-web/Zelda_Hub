@@ -256,6 +256,67 @@ export const PIECE_STATS: Record<PieceType, PieceStats> = {
     size: 1, maxHp: 2, damage: 1, cost: 5, value: 440, name: 'Stalfos',
     blurb: 'Up to two squares any direction. Reassembly: the first time it falls it becomes a pile of bones, rising again with 1 HP after 2 of its turns — unless an enemy steps on the bones first.',
   },
+  // Super Mario Content Pack
+  mario: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 460, name: 'Mario',
+    blurb: 'Up to two squares orthogonally, or a jump of exactly two diagonally. Super Jump: every 3 turns, jumps exactly 3 in any direction over anything. Stomp: after a capture with a jump, may hop one square orthogonally.',
+  },
+  luigi: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 400, name: 'Luigi',
+    blurb: 'Up to three squares diagonally or one orthogonally. High Jump: every 3 turns, jumps exactly 4 straight up or down the board over anything. Scaredy-Cat: once per battle, he leaps away from the first enemy that comes next to him.',
+  },
+  peach: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 420, name: 'Princess Peach',
+    blurb: 'Up to three squares diagonally or one orthogonally. Float: glides over gaps. Royal Support: every 3 turns, instead of moving, heals an ally within 2 by 1.',
+  },
+  daisy: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 430, name: 'Princess Daisy',
+    blurb: 'Up to three squares orthogonally or one diagonally. Athletic Kick: her first attack each battle deals 2. Competitive Spirit: when an ally within 2 captures, she moves one square further on her next turn.',
+  },
+  yoshi: {
+    size: 1, maxHp: 1, damage: 1, cost: 5, value: 450, name: 'Yoshi',
+    blurb: 'Up to two squares any direction. Flutter Jump: every 3 turns, up to 4 any direction over gaps and pieces (not walls). Tongue Grab: instead of moving, eats an enemy on its last HP up to 2 squares away orthogonally, staying put.',
+  },
+  toad: {
+    size: 1, maxHp: 1, damage: 1, cost: 3, value: 300, name: 'Toad',
+    blurb: 'Up to two squares orthogonally or one diagonally. Mushroom Assistance: every 4 turns, an adjacent ally gets +1 max HP (up to 3) for the battle and heals 1. Quick Delivery: then Toad may step one square.',
+  },
+  toadette: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 350, name: 'Toadette',
+    blurb: "Up to three squares diagonally or one orthogonally. Encouragement: adjacent allies slide one square further. Mushroom Rescue: once per battle, pulls an adjacent ally that's about to be captured to safety beside her.",
+  },
+  wario: {
+    size: 1, maxHp: 2, damage: 1, cost: 6, value: 540, name: 'Wario',
+    blurb: 'Up to two squares orthogonally or one diagonally. Shoulder Bash: an attack moving exactly 2 orthogonally deals 2. Greedy: each capture earns 8 bonus gold if you win the battle.',
+  },
+  waluigi: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 400, name: 'Waluigi',
+    blurb: "Up to three squares diagonally, or a jump of exactly two orthogonally. Dirty Trick: every 3 turns, swaps places with an adjacent 1×1 enemy (not bosses). Sneaky Strike: 2 damage to an enemy that can't move next turn.",
+  },
+  rosalina: {
+    size: 1, maxHp: 1, damage: 1, cost: 6, value: 520, name: 'Rosalina',
+    blurb: 'Up to three squares any direction. Luma Shield: every 4 turns, shields an ally within 3 from the next point of damage. Star Spin: every 3 turns, instead of moving, 1 damage to every adjacent enemy.',
+  },
+  goomba: {
+    size: 1, maxHp: 1, damage: 1, cost: 2, value: 160, name: 'Goomba',
+    blurb: 'One square any direction. Swarm: 2 damage to an enemy next to another friendly Goomba. Marching Formation: when a friendly Goomba moves next to it, it marches one square forward (once per turn).',
+  },
+  koopa: {
+    size: 1, maxHp: 2, damage: 1, cost: 4, value: 380, name: 'Koopa Troopa',
+    blurb: 'Up to two squares orthogonally or one diagonally. Shell Defense: the first attack on it each battle deals 1 less. Shell Slide: every 3 turns, slides up to 4 orthogonally; an attack at the end deals 2.',
+  },
+  boo: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 370, name: 'Boo',
+    blurb: "Up to three squares diagonally or two orthogonally. Ghostly Passage: floats through walls and pieces to an empty square. Shy Ghost: can't capture while another enemy is next to it.",
+  },
+  hammer_bro: {
+    size: 1, maxHp: 1, damage: 1, cost: 4, value: 380, name: 'Hammer Bro',
+    blurb: 'Up to two squares diagonally or one orthogonally. Hammer Throw: every 2 turns, 1 damage to an enemy up to 3 orthogonally, over one piece or wall. Double Trouble: with another Hammer Bro within 2, hits two enemies.',
+  },
+  bowser: {
+    size: 2, maxHp: 3, damage: 1, cost: 26, value: 2700, name: 'Bowser',
+    blurb: "2×2. Up to two squares orthogonally or one diagonally. Fire Breath (every 3 turns): 1 damage to every enemy up to 3 in a line. At 2 HP, Spiked Shell (the first adjacent attacker each turn takes 1) and fire reaches 4. At 1 HP, Bowser's Fury: moves 3/2, Ground Slam every 2 turns, and fire's first target takes 2.",
+  },
   // Crash Bandicoot Content Pack
   crash: {
     size: 1, maxHp: 1, damage: 1, cost: 5, value: 450, name: 'Crash Bandicoot',
@@ -431,7 +492,7 @@ export const sizeOf = (p: Piece): number => PIECE_STATS[p.type].size;
 export const BOSS_TYPES = new Set<PieceType>([
   'colossus', 'empress', 'necromancer', 'stormbringer', 'watcher',
   'worldbreaker', 'phantom_king', 'doppelganger', 'hive_mother', 'chronarch',
-  'ganondorf', 'ganon', 'death_egg', 'n_tropy',
+  'ganondorf', 'ganon', 'death_egg', 'n_tropy', 'bowser',
 ]);
 
 /** Ganondorf's current phase (3 HP = 1, 2 HP = 2, 1 HP or Ganon = 3); 0 for anything else. */
@@ -463,6 +524,11 @@ export const ROBOTS = new Set<PieceType>(['metal_sonic', 'motobug', 'buzz_bomber
 /** Death Egg Robot phase (3 HP = 1, 2 HP = 2, 1 HP = 3); 0 for anything else. */
 export const deathEggPhase = (p: Piece) => (p.type !== 'death_egg' ? 0 : p.hp >= 3 ? 1 : p.hp === 2 ? 2 : 3);
 
+/** Super Mario Pack piece types. */
+export const MARIO_TYPES: PieceType[] = [
+  'mario', 'luigi', 'peach', 'daisy', 'yoshi', 'toad', 'toadette', 'wario', 'waluigi', 'rosalina', 'goomba', 'koopa', 'boo', 'hammer_bro', 'bowser',
+];
+
 /** Crash Bandicoot Pack piece types. */
 export const CRASH_TYPES: PieceType[] = [
   'crash', 'coco', 'crunch', 'aku_aku', 'tawna', 'cortex', 'n_gin', 'tiny', 'dingodile', 'ripper_roo', 'uka_uka', 'polar', 'pura', 'brio',
@@ -478,6 +544,7 @@ export const ZELDA_TYPES = new Set<PieceType>([
   'miku',
   'teto',
   ...CRASH_TYPES,
+  ...MARIO_TYPES,
 ]);
 
 /** Every square a piece occupies. */

@@ -10,6 +10,7 @@ import { BOSS_TYPES, PIECE_STATS, deathEggPhase, footprint, sizeOf } from './pie
 import { eggmanEscapeSquare } from './sonic';
 import { crashNegates, crashOnCaptured, crashReduction } from './crash';
 import { crateSmashed } from './crates';
+import { marioAfterHit, marioNegates, marioReduction } from './mario';
 import { UPGRADE_BY_ID } from './upgrades/catalog';
 import { etherealEscape, haunted } from './bosses';
 import {
@@ -374,6 +375,8 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   }
   // Crash Pack: Aku Aku's Protective Spirit, Ripper Roo's Unpredictable, Coco's and Pura's dodges.
   if (direct(ctx.kind) && !ctx.pure && !ctx.lethal && crashNegates(s, target, source, amount)) return { kind: 'survived', dealt: 0 };
+  // Toadette's Mushroom Rescue.
+  if (!ctx.pure && !ctx.lethal && marioNegates(s, target, amount, ctx.kind)) return { kind: 'survived', dealt: 0 };
   // Rouge: Stealth — the first attack on her misses, as long as she hasn't captured anything.
   if (direct(ctx.kind) && target.type === 'rouge' && !hasUsed(target, 'stealth') && !target.counters.captures && !ctx.trueSight && amount > 0) {
     markUsed(target, 'stealth');
@@ -479,6 +482,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
     dmg -= 1;
   }
   dmg = crashReduction(s, target, dmg);
+  dmg = marioReduction(target, dmg, ctx.kind);
   if (dmg > 0 && ready(target, 'iron_shell')) {
     markUsed(target, 'iron_shell');
     dmg -= 1;
@@ -526,6 +530,7 @@ export function dealDamage(s: GameState, targetId: string, amount: number, ctx: 
   }
 
   if (target.hp < hpBefore || shieldTotal(target) < shieldBefore) onSurvivedHit(s, target, hpBefore, ctx, source);
+  marioAfterHit(s, target, source, ctx.kind);
   escapeAfterHit(s, target, hpBefore, ctx, source);
   return { kind: 'survived', dealt: hpBefore - target.hp };
 }

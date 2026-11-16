@@ -495,8 +495,8 @@ export function finishBattle(run: RunState, final: GameState): RunState {
   const unlockedBosses = battle.boss && !run.unlockedBosses.includes(battle.boss) ? [...run.unlockedBosses, battle.boss] : run.unlockedBosses;
   const [reward, rngState] = withRng(run, (rng) => {
     const r: PendingReward = withInsight(rng, run, { ...battleReward(rng, source, run.act, battle.name, roster, run.packs), source });
-    // Fortune potion and the Elixir of Plenty.
-    r.gold = Math.round(r.gold * goldMultiplier(run));
+    // Fortune potion and the Elixir of Plenty; then Wario's Greedy bonus.
+    r.gold = Math.round(r.gold * goldMultiplier(run)) + (final.goldBonus ?? 0);
     // Boss Pieces are rare finds: a defeated boss sometimes offers itself, and
     // later elites occasionally offer any boss already beaten.
     const offer =

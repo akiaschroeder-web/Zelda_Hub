@@ -254,6 +254,6 @@ export function swarmCommanded(s: GameState, pawn: Piece): boolean {
 
 /** Diagonal steps for the Watcher; everything else large moves orthogonally. */
 export const heavyDirs = (p: Piece) =>
-  p.type === 'watcher' ? DIAG : p.type === 'ganondorf' || p.type === 'ganon' || p.type === 'n_tropy' ? ALL_DIRS : undefined;
+  p.type === 'watcher' ? DIAG : p.type === 'ganondorf' || p.type === 'ganon' || p.type === 'n_tropy' || p.type === 'bowser' ? ALL_DIRS : undefined;
 
 export { opponent };

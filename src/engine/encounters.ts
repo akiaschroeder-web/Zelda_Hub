@@ -1,4 +1,4 @@
-import { CRASH_LEGEND, DUO_LEGEND, SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
+import { CRASH_LEGEND, DUO_LEGEND, MARIO_LEGEND, SONIC_LEGEND, ZELDA_LEGEND } from '../content/packs';
 import { EncounterDef } from './setup';
 
 /**
@@ -482,5 +482,15 @@ export const ENCOUNTERS: EncounterDef[] = [
       '6,0': ['time_relic'],
       '7,0': ['warp_orb'],
     },
+  },
+  {
+    id: 'mushroom_kingdom',
+    name: 'Mushroom Kingdom',
+    description:
+      "Super Mario Pack: Mario, Luigi, Peach, Daisy, Yoshi, Rosalina, Toad and Toadette against Bowser's Goombas, Koopa Troopas, Boo and Hammer Bros, with Wario and Waluigi. Tap a piece to read what it does.",
+    rules: { checkRules: true },
+    terrain: ['........', '........', '........', '.#.__.#.', '.#.__.#.', '........', '........', '........'],
+    pieces: ['íìëçkèëí', 'êêêêêêêê', '........', '........', '........', '........', 'ÅPPPPPPÅ', 'ÂÃÀÉKÁÄÆ'],
+    legend: MARIO_LEGEND,
   },
 ];

@@ -8,6 +8,7 @@ import { applyMove, distance, findKing, inCheck, legalMoves } from '../engine/mo
 import { PIECE_STATS, deathEggPhase, footprint, ganonPhase, sizeOf } from '../engine/pieces';
 import { attackSquares, twilightCharged } from '../engine/movement';
 import { tropyPhase } from '../engine/crash';
+import { bowserPhase } from '../engine/mario';
 import {
   AbilityId,
   ActionKind,
@@ -87,6 +88,15 @@ export const ACTION_COLORS: Record<ActionKind, string> = {
   transform: 'rgba(120, 220, 90, 0.95)',
   tropyWarp: 'rgba(90, 220, 140, 0.95)',
   timeRewind: 'rgba(250, 230, 140, 0.95)',
+  royalSupport: 'rgba(240, 140, 190, 0.95)',
+  tongue: 'rgba(214, 60, 60, 0.95)',
+  mushroom: 'rgba(240, 90, 80, 0.95)',
+  dirtyTrick: 'rgba(150, 90, 220, 0.95)',
+  lumaShield: 'rgba(90, 200, 230, 0.95)',
+  starSpin: 'rgba(240, 220, 80, 0.95)',
+  hammer: 'rgba(230, 110, 60, 0.95)',
+  fireBreath: 'rgba(240, 90, 60, 0.95)',
+  groundSlam: 'rgba(120, 80, 40, 0.95)',
   upgrade: 'rgba(230, 200, 60, 0.95)',
   pass: 'rgba(160, 160, 160, 0.95)',
 };
@@ -142,6 +152,21 @@ const ABILITY_LABELS: Partial<Record<PieceType, { id?: AbilityId; label: string 
   hyper_sonic: { id: 'last_stand', label: 'Last Stand' },
   miku: { label: 'Digital Harmony (teal, every 3 turns), Duet' },
   crash: { label: 'Spin Attack (passive), Slide Jump (every 3 turns)' },
+  mario: { label: 'Super Jump (every 3 turns), Stomp' },
+  luigi: { id: 'scaredy', label: 'High Jump (every 3 turns), Scaredy-Cat' },
+  peach: { label: 'Float, Royal Support (pink, every 3 turns)' },
+  daisy: { label: 'Athletic Kick, Competitive Spirit' },
+  yoshi: { label: 'Flutter Jump (every 3 turns), Tongue Grab (red)' },
+  toad: { label: 'Mushroom Assistance (every 4 turns), Quick Delivery' },
+  toadette: { id: 'rescue', label: 'Encouragement, Mushroom Rescue' },
+  wario: { label: 'Shoulder Bash, Greedy' },
+  waluigi: { label: 'Dirty Trick (purple, every 3 turns), Sneaky Strike' },
+  rosalina: { label: 'Luma Shield (blue, every 4 turns), Star Spin (yellow, every 3 turns)' },
+  goomba: { label: 'Swarm, Marching Formation (passive)' },
+  koopa: { label: 'Shell Defense, Shell Slide (every 3 turns)' },
+  boo: { label: 'Ghostly Passage, Shy Ghost (passive)' },
+  hammer_bro: { label: 'Hammer Throw (orange, every 2 turns), Double Trouble' },
+  bowser: { label: 'Fire Breath, Spiked Shell, Ground Slam' },
   coco: { id: 'dodge', label: 'Hacking (pink, every 4 turns), Quick Thinking' },
   crunch: { label: 'Heavy Punch, Bodyguard (every 3 turns)' },
   aku_aku: { label: 'Protective Spirit (every 3 turns), Guardian Mask (gold)' },
@@ -250,6 +275,28 @@ function zeldaTypeNotes(p: Piece): string {
       return [' Phase 1: Iron Giant.', ' Phase 2: Missile Barrage.', ' Phase 3: Critical Overload.'][deathEggPhase(p) - 1];
     case 'crash':
       return cd(p, 'slideJumpCd', 'Slide Jump');
+    case 'mario':
+      return cd(p, 'superJumpCd', 'Super Jump');
+    case 'luigi':
+      return cd(p, 'highJumpCd', 'High Jump');
+    case 'peach':
+      return cd(p, 'supportCd', 'Royal Support');
+    case 'daisy':
+      return p.attacks === 0 ? ' Athletic Kick ready (2 damage).' : '';
+    case 'yoshi':
+      return cd(p, 'flutterCd', 'Flutter Jump');
+    case 'toad':
+      return cd(p, 'mushroomCd', 'Mushroom Assistance');
+    case 'waluigi':
+      return cd(p, 'trickCd', 'Dirty Trick');
+    case 'rosalina':
+      return cd(p, 'lumaCd', 'Luma Shield') + cd(p, 'spinCd', 'Star Spin');
+    case 'koopa':
+      return (p.counters.shellUsed ? ' Shell Defense spent.' : ' Shell Defense ready.') + cd(p, 'shellSlideCd', 'Shell Slide');
+    case 'hammer_bro':
+      return cd(p, 'hammerCd', 'Hammer Throw');
+    case 'bowser':
+      return [' Phase 1: King of the Koopas.', ' Phase 2: Spiked Shell.', " Phase 3: Bowser's Fury."][bowserPhase(p) - 1] + cd(p, 'fireCd', 'Fire Breath');
     case 'coco':
       return cd(p, 'hackCd', 'Hacking');
     case 'crunch':

@@ -52,6 +52,7 @@ import { arrowEffects, biggoronCleave, kokiriSteps } from './zeldaUpgrades';
 import { resolveUnlock, tileMoves, tilesAfterMove } from './tiles';
 import { baguetteBonus, duoMoves, resolveDuo, tetoDuetBonus } from './duo';
 import { cratesTurnEnd, nitroProximity } from './crates';
+import { marioAfterMove, marioAttackBonus, marioFilterMoves, marioMoves, resolveMario } from './mario';
 import { crashUpgradeAfterMove, crashUpgradeAttackBonus, crashUpgradeBeforeMove, crashUpgradeTurnEnd, dedupeUpgradeSteps } from './crashUpgrades';
 import { crashAfterAttack, crashAfterMove, crashAttackBonus, crashMoves, crashTurnEnd, intimidated, resolveCrash } from './crash';
 import { resolveSonic, sonicAfterMove, sonicBeforeMove, sonicMoves, sonicTurnEnd, sonicTurnStart } from './sonic';
@@ -384,11 +385,12 @@ function pseudoMovesFor(state: GameState, p: Piece): Move[] {
     ...sonicMoves(state, p),
     ...duoMoves(state, p),
     ...crashMoves(state, p),
+    ...marioMoves(state, p),
   ];
   // Kokiri Sword: the bonus step may go one square in any direction, whatever the piece's movement.
   if (state.bonus[0]?.source === 'kokiri_sword' && state.bonus[0].pieceId === p.id) moves.push(...kokiriSteps(state, p));
   if (p.type === 'king' && !p.hasMoved && !bound) moves.push(...castleMoves(state, p));
-  return dedupeUpgradeSteps(intimidated(state, p, moves));
+  return marioFilterMoves(state, p, dedupeUpgradeSteps(intimidated(state, p, moves)));
 }
 
 /**
@@ -438,6 +440,7 @@ function fitsBonus(m: Move, b: Bonus): boolean {
   // Bounce Crate jumps, Tawna's diagonal hop and Time Relic only allow their own move.
   if (b.source === 'bounce_crate' && m.param !== 'bounce') return false;
   if (b.source === 'acrobatic_strike' && m.param !== 'acrobatic') return false;
+  if ((b.source === 'stomp' || b.source === 'quick_delivery') && m.param !== b.source) return false;
   if (b.source === 'time_relic') return m.action === 'upgrade' && m.upgrade === 'time_relic';
   // Super Silver's second lift: only another Psychokinesis.
   if (b.source === 'super_pk' && m.action !== 'psychokinesis') return false;
@@ -598,7 +601,7 @@ function outgoingDamage(s: GameState, p: Piece, t: Piece, m: Move, nTargets: num
   if (p.type === 'motobug' && m.from.y === m.to.y && Math.abs(m.to.x - m.from.x) >= 3) dmg += 1;
   if (has(p, 'triforce_courage') && t.maxHp > p.maxHp) dmg += 1;
   // Digital Duo: Teto's duet and the Baguette boost the first attack of the battle.
-  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m) + crashUpgradeAttackBonus(p, m);
+  dmg += tetoDuetBonus(s, p) + baguetteBonus(p) + crashAttackBonus(s, p, m) + crashUpgradeAttackBonus(p, m) + marioAttackBonus(s, p, t, m);
   // Lizalfos Pack Hunter: 2 damage to an enemy standing next to another friendly Lizalfos.
   if (p.type === 'lizalfos' && s.pieces.some((o) => o.side === p.side && o.id !== p.id && o.type === 'lizalfos' && pieceDistance(o, t) === 1))
     dmg += 1;
@@ -905,6 +908,7 @@ function resolve(s: GameState, m: Move, entry?: Bonus) {
   if (resolveSonic(s, m, entry)) return;
   if (resolveDuo(s, m)) return;
   if (resolveCrash(s, m)) return;
+  if (resolveMario(s, m)) return;
   // Homing Attack / Cyan Laser ending on an enemy: a real attack, with bounceback.
   if (m.action === 'upgrade' && ATTACK_UPGRADES.has(m.upgrade!) && m.targets?.length) {
     spendSonicAction(p, m.upgrade!);
@@ -1076,6 +1080,7 @@ export function applyMoveRaw(state: GameState, m: Move): GameState {
   sonicAfterMove(s, m, from, entry);
   crashAfterMove(s, m, from, entry, s.captured.length > state.captured.length);
   crashUpgradeAfterMove(s, m, from, entry, s.captured.length - state.captured.length, mainMove);
+  marioAfterMove(s, m, from, entry, s.captured.length - state.captured.length);
   nitroProximity(s, m, from);
   tilesAfterMove(s, m, from, state);
 
